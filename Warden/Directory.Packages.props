@@ -4,10 +4,12 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Jint" Version="4.15.3" />
+    <PackageVersion Include="JsonPath.Net" Version="3.0.2" />
     <PackageVersion Include="Markdig" Version="1.3.2" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="11.0.0-preview.6.26359.118" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.11" />
     <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageVersion Include="SSH.NET" Version="2026.0.0" />
     <PackageVersion Include="TextMateSharp" Version="2.0.4" />
     <PackageVersion Include="TextMateSharp.Grammars" Version="2.0.4" />
     <PackageVersion Include="YamlDotNet" Version="18.1.0" />

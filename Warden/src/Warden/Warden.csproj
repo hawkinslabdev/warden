@@ -11,9 +11,11 @@
 
   <ItemGroup>
     <PackageReference Include="Jint" />
+    <PackageReference Include="JsonPath.Net" />
     <PackageReference Include="Markdig" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="SSH.NET" />
     <PackageReference Include="TextMateSharp" />
     <PackageReference Include="TextMateSharp.Grammars" />
     <PackageReference Include="YamlDotNet" />

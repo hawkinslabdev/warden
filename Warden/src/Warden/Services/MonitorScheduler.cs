@@ -1,7 +1,10 @@
 using System.Net.NetworkInformation;
 using System.Net.Security;
 using System.Net.Sockets;
-using System.Text.Json;
+using System.Text.Json.Nodes;
+using Json.Path;
+using Renci.SshNet;
+using Renci.SshNet.Common;
 using Warden.Models;
 
 namespace Warden.Services;
@@ -125,8 +128,8 @@ public sealed class MonitorScheduler(
             return (true, null);
 
         await using var body = await response.Content.ReadAsStreamAsync(ct);
-        using var doc = await JsonDocument.ParseAsync(body, cancellationToken: ct);
-        var actual = ExtractJsonValue(doc.RootElement, target.ExpectedJsonPath);
+        var node = await JsonNode.ParseAsync(body, cancellationToken: ct);
+        var actual = ExtractJsonValue(node, target.ExpectedJsonPath);
         if (actual is null)
             return (false, $"JSON path '{target.ExpectedJsonPath}' not found");
         if (target.ExpectedValue is not null && actual != target.ExpectedValue)
@@ -134,24 +137,16 @@ public sealed class MonitorScheduler(
         return (true, null);
     }
 
-    // supports plain dot paths ("$.status" / "status.nested"); no array indices or filters
-    // ponytail: hand-rolled, swap for a JSONPath package if that's ever needed
-    internal static string? ExtractJsonValue(JsonElement root, string path)
+    // full RFC 9535 JSONPath (arrays, wildcards, filters); paths must start with "$" per spec
+    internal static string? ExtractJsonValue(JsonNode? root, string path)
     {
-        var current = root;
-        foreach (var segment in path.TrimStart('$', '.').Split('.', StringSplitOptions.RemoveEmptyEntries))
+        var match = JsonPath.Parse(path).Evaluate(root).Matches.FirstOrDefault()?.Value;
+        return match switch
         {
-            if (current.ValueKind != JsonValueKind.Object || !current.TryGetProperty(segment, out var next))
-                return null;
-            current = next;
-        }
-        return current.ValueKind switch
-        {
-            JsonValueKind.String => current.GetString(),
-            JsonValueKind.True => "true",
-            JsonValueKind.False => "false",
-            JsonValueKind.Null => null,
-            _ => current.GetRawText(),
+            null => null,
+            JsonValue v when v.TryGetValue<string>(out var s) => s,
+            JsonValue v when v.TryGetValue<bool>(out var b) => b ? "true" : "false",
+            _ => match.ToJsonString(),
         };
     }
 
@@ -191,50 +186,24 @@ public sealed class MonitorScheduler(
         return (true, null);
     }
 
-    private const byte SshMsgKexInit = 20;
-    private const int SshMaxPacketLength = 35_000; // RFC 4253 §6.1 cap
-
-    // verifies the server follows its banner with a well-formed SSH_MSG_KEXINIT packet (RFC 4253 §7.1) - proof of a real SSH transport, not a banner-echoing decoy
-    // ponytail: stops short of the Diffie-Hellman exchange + host-key verification; add SSH.NET if a decoy that fakes one valid KEXINIT packet is ever a real threat
+    // connects with throwaway credentials - the point isn't to log in, it's to force the server through
+    // a full key exchange and host-key exchange before it can even reject the password. SshAuthenticationException
+    // only fires after that transport handshake succeeds, so catching it here is the proof of a real SSH server
     private static async Task<(bool, string?)> CheckSftpAsync(string host, int port, CancellationToken ct)
     {
-        using var client = new TcpClient();
-        await client.ConnectAsync(host, port, ct);
-        using var stream = client.GetStream();
-
-        var banner = await ReadLineAsync(stream, ct);
-        if (!banner.StartsWith("SSH-", StringComparison.Ordinal))
-            return (false, $"unexpected banner: {banner}");
-
-        var messageCode = await ReadSshMessageCodeAsync(stream, ct);
-        return messageCode == SshMsgKexInit
-            ? (true, null)
-            : (false, $"expected SSH_MSG_KEXINIT (20) after banner, got message {messageCode}");
-    }
-
-    // binary packet framing per RFC 4253 §6; we only need the payload's first byte (the message code)
-    private static async Task<byte> ReadSshMessageCodeAsync(NetworkStream stream, CancellationToken ct)
-    {
-        var header = new byte[4];
-        await ReadExactAsync(stream, header, ct);
-        var packetLength = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(header);
-        if (packetLength is 0 or > SshMaxPacketLength)
-            throw new IOException($"implausible SSH packet length {packetLength}");
-
-        var messageCode = new byte[1];
-        await ReadExactAsync(stream, messageCode, ct);
-        return messageCode[0];
-    }
-
-    private static async Task ReadExactAsync(NetworkStream stream, byte[] buffer, CancellationToken ct)
-    {
-        var offset = 0;
-        while (offset < buffer.Length)
+        using var client = new SshClient(host, port, "warden-monitor", Guid.NewGuid().ToString("N"));
+        try
         {
-            var read = await stream.ReadAsync(buffer.AsMemory(offset), ct);
-            if (read == 0)
-                throw new IOException("connection closed before expected data arrived");
-            offset += read;
+            await client.ConnectAsync(ct);
+            return (true, null);
+        }
+        catch (SshAuthenticationException)
+        {
+            return (true, null);
+        }
+        catch (SshConnectionException ex)
+        {
+            return (false, ex.Message);
         }
     }
 

@@ -1,4 +1,4 @@
-using System.Text.Json;
+using System.Text.Json.Nodes;
 using Warden.Services;
 
 namespace Warden.Tests;
@@ -8,18 +8,19 @@ public sealed class MonitorSchedulerTests
     [Theory]
     [InlineData("""{"status":"ok"}""", "$.status", "ok")]
     [InlineData("""{"data":{"db":"up"}}""", "$.data.db", "up")]
-    [InlineData("""{"data":{"db":"up"}}""", "data.db", "up")]
-    public void ExtractJsonValue_ReadsNestedDotPath(string json, string path, string expected)
+    [InlineData("""{"pools":[{"name":"main","ok":true},{"name":"replica","ok":true}]}""", "$.pools[?@.ok==false]", null)]
+    [InlineData("""{"pools":["down","up","up"]}""", "$.pools[0]", "down")]
+    public void ExtractJsonValue_SupportsFullJsonPathSyntax(string json, string path, string? expected)
     {
-        using var doc = JsonDocument.Parse(json);
-        Assert.Equal(expected, MonitorScheduler.ExtractJsonValue(doc.RootElement, path));
+        var node = JsonNode.Parse(json);
+        Assert.Equal(expected, MonitorScheduler.ExtractJsonValue(node, path));
     }
 
     [Fact]
     public void ExtractJsonValue_MissingSegmentReturnsNull()
     {
-        using var doc = JsonDocument.Parse("""{"status":"ok"}""");
-        Assert.Null(MonitorScheduler.ExtractJsonValue(doc.RootElement, "$.missing.path"));
+        var node = JsonNode.Parse("""{"status":"ok"}""");
+        Assert.Null(MonitorScheduler.ExtractJsonValue(node, "$.missing.path"));
     }
 
     [Fact]

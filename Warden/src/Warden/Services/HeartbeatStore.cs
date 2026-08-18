@@ -159,7 +159,7 @@ public sealed class HeartbeatStore
         return (100.0 * up / total, span);
     }
 
-    // ponytail: fixed retention window; make it a per-monitor setting if that's ever needed.
+    // one retention window for all monitors, set via config.json's "retentionDays" or MonitorScheduler's default - intentionally not per-monitor
     public void PruneOlderThan(TimeSpan retention)
     {
         using var connection = Open();

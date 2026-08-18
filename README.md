@@ -25,7 +25,7 @@ content/
   locale/en.json    UI string overrides (single language)
 ```
 
-The status page itself is the site's root ("/") and isn't authored as Markdown. Warden checks your configured targets on a timer and renders it live from what it's collected, using the same theme and layout as the rest of the site. Everything else (`/about`, `/guide`, any page you add under `content/pages/`) is a plain Markdown file with front matter, exactly like Teatime:
+The status page itself is the site's root ("/") and isn't authored as Markdown. Warden checks your configured targets on a timer and renders it live from what it's collected, using the same theme and layout as the rest of the site. Everything else (`/about`, `/guide`, any page you add under `content/pages/`) is a plain Markdown file with front matter:
 
 ```markdown
 ---
@@ -89,7 +89,7 @@ The zip already includes a `web.config` wired for in process hosting, so no manu
 
 ## Writing
 
-Warden renders your own pages through the same Markdig pipeline Teatime uses. If you would like a refresher on the syntax itself, the [Markdown Guide](https://www.markdownguide.org/) is a friendly and thorough place to start. You also get:
+Warden renders your own pages through its Markdig pipeline. If you would like a refresher on the syntax itself, the [Markdown Guide](https://www.markdownguide.org/) is a friendly and thorough place to start. You also get:
 
 - A live status page at the root: per-monitor up/down badges, a 90-day history bar, 24h uptime, and hand-written incidents/maintenance from `content/incidents/`, each with its own page
 - Standalone pages under `content/pages/`, each rendered with the site's theme

@@ -1,7 +1,7 @@
 ---
 title: Markdown Reference
 description: Every container, code block, image, and map option Warden adds on top of plain Markdown.
-page-prev: /guide/
+page-prev: /examples/
 page-next: /examples/frontmatter/
 ---
 

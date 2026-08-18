@@ -2,7 +2,7 @@
 title: Running Warden with Docker
 description: A take on deploying Warden as a container.
 page-prev: /deploy/
-page-next: /examples/markdown/
+page-next: /examples/
 ---
 
 The published image runs on any host with Docker. Start with a `docker-compose.yml`:

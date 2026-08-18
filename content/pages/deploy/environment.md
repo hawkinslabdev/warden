@@ -2,7 +2,7 @@
 title: Environment Variables
 description: Every setting Warden reads from the environment.
 page-prev: /deploy/
-page-next: /examples/markdown/
+page-next: /examples/
 ---
 
 None of these need to be set; the defaults work. They matter at deployment time: the port, which sites to watch, and how often to check them.

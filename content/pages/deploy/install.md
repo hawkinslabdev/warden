@@ -2,7 +2,7 @@
 title: Installation
 description: Run Warden with Docker, or on Windows with IIS.
 page-prev: /deploy/
-page-next: /examples/markdown/
+page-next: /examples/
 ---
 
 The container image is the fastest path: everything's bundled. A ready-to-run build ships with every release for Windows.

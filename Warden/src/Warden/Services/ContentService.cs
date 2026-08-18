@@ -259,7 +259,6 @@ public sealed partial class ContentService : IHostedService, IDisposable
             cancellationToken.ThrowIfCancellationRequested();
 
             var relativePath = Path.GetRelativePath(docsPath, file);
-            var pagePath = PagePath.FromFile(relativePath);
 
             var content = await File.ReadAllTextAsync(file, cancellationToken);
             hashInput.Append(relativePath).Append('\0').Append(content).Append('\0');
@@ -282,6 +281,8 @@ public sealed partial class ContentService : IHostedService, IDisposable
 
             var normalizedRelativePath = relativePath.Replace('\\', '/');
             var parsed = _markdown.Parse(content, defaultTitle, filePath: normalizedRelativePath);
+            var pagePath = ResolveIncidentPath(normalizedRelativePath, parsed.PublishDate, config?.Monitoring?.IncidentUrlPattern)
+                           ?? PagePath.FromFile(relativePath);
 
             var html = WrapTables(parsed.Html);
             html = VersionAssets(html);
@@ -461,6 +462,22 @@ public sealed partial class ContentService : IHostedService, IDisposable
 
     [GeneratedRegex(@"<table[^>]*>[\s\S]*?</table>", RegexOptions.IgnoreCase)]
     private static partial Regex TableRegex();
+
+    // incidents/ only, and only when a pattern is configured: derives the URL from the file's own date front matter
+    // instead of its folder placement, so a flat content/incidents/ folder can still get /incidents/{year}/{slug}/ URLs
+    private static PagePath? ResolveIncidentPath(string normalizedRelativePath, DateTime? publishDate, string? pattern)
+    {
+        if (pattern is not ("year" or "year-month") || !normalizedRelativePath.StartsWith("incidents/", StringComparison.OrdinalIgnoreCase))
+            return null;
+        if (publishDate is not { } date)
+            return null;
+
+        var slug = PagePath.FromFile(normalizedRelativePath).Segments[^1];
+        var templated = pattern == "year-month"
+            ? $"incidents/{date.Year}/{date.Month:D2}/{slug}"
+            : $"incidents/{date.Year}/{slug}";
+        return new PagePath(templated);
+    }
 
     private static string WrapTables(string html) =>
         TableRegex().Replace(html, m => $"<div class=\"table-wrapper\">{m.Value}</div>");

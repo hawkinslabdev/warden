@@ -39,7 +39,9 @@ public sealed record MonitoringConfig(
     int? MaintenanceWindowDays,
     int? MaintenanceMaxShown,
     // opt-in only; unset renders one flat grid. "type" groups by each target's type, "custom" groups by each target's own "group" field (falling back to its type)
-    string? Group = null);
+    string? Group = null,
+    // opt-in only; unset keeps a content/incidents/*.md file's own folder placement as its URL. "year" -> /incidents/{year}/{slug}/, "year-month" -> /incidents/{year}/{month}/{slug}/, derived from the incident's date front matter regardless of which folder the file actually lives in
+    string? IncidentUrlPattern = null);
 
 public enum MonitorStatus
 {

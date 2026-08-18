@@ -232,4 +232,32 @@ public sealed class ContentServiceTests : IDisposable
         Assert.Equal(new DateTime(2025, 6, 28), page!.LastModified);
     }
 
+    [Fact]
+    public async Task StartAsync_IncidentUrlPatternYear_DerivesPathFromDateNotFolder()
+    {
+        Directory.CreateDirectory(Path.Combine(_tempDir, "incidents"));
+        await File.WriteAllTextAsync(Path.Combine(_tempDir, "incidents", "outage.md"),
+            "---\ntitle: Outage\ndate: 2025-03-01\n---\n\nDown for a bit.\n");
+        await File.WriteAllTextAsync(Path.Combine(_tempDir, "config.json"), """
+            { "monitoring": { "incidentUrlPattern": "year-month" } }
+            """);
+
+        await _service.StartAsync(CancellationToken.None);
+
+        Assert.NotNull(await _service.GetPageAsync("incidents/2025/03/outage"));
+        Assert.Null(await _service.GetPageAsync("incidents/outage"));
+    }
+
+    [Fact]
+    public async Task StartAsync_IncidentUrlPatternUnset_KeepsFolderPlacement()
+    {
+        Directory.CreateDirectory(Path.Combine(_tempDir, "incidents"));
+        await File.WriteAllTextAsync(Path.Combine(_tempDir, "incidents", "outage.md"),
+            "---\ntitle: Outage\ndate: 2025-03-01\n---\n\nDown for a bit.\n");
+
+        await _service.StartAsync(CancellationToken.None);
+
+        Assert.NotNull(await _service.GetPageAsync("incidents/outage"));
+    }
+
 }

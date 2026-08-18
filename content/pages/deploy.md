@@ -4,10 +4,8 @@ page-prev: /guide/
 page-next: /deploy/install/
 ---
 
-We've set-up the following pages for you:
+Three pages, depending on what you need:
 
-1. [Installation](/deploy/install) covering the installation process
-2. [Docker](/deploy/containers) going through the set-up process with Docker
-3. [Environment variables](/deploy/environment) summarizing every environment setting
-
-Have fun reading!
+1. [Installation](/deploy/install): Docker or Windows/IIS
+2. [Docker](/deploy/containers): the compose setup in more detail
+3. [Environment variables](/deploy/environment): every setting, in one table

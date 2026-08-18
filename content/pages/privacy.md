@@ -1,8 +1,8 @@
 ---
 title: Privacy
-description: We'll explain how Warden handles your privacy
+description: How this status page handles visitor data.
 ---
 
-If you are concerned about Warden and GDPR compliance, there is good news: the platform does not use tracking cookies.
+Warden itself sets no tracking cookies and runs no analytics.
 
-Although you will eventually be able to integrate your own products, services, or advertisements into the platform, you should always include a privacy page to clearly explain how you handle subscriber data.
+If you add your own (a product, a form, an ad), replace this page with a real explanation of what you collect and why.

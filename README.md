@@ -4,9 +4,9 @@
 [![Last commit](https://img.shields.io/github/last-commit/melosso/warden)](https://github.com/melosso/warden/commits/main)
 [![Docker](https://img.shields.io/badge/ghcr.io-melosso%2Fwarden-blue?logo=docker)](https://github.com/melosso/warden/pkgs/container/warden)
 
-Warden is a lightweight, self-contained status page system with zero external backends or build steps required. Running on a timer with local SQLite history, it handles site monitoring, uptime tracking, per-monitor statistics, and outage reporting natively.
+Warden is a self-contained status page. It checks your configured sites on a timer, keeps the history in its own local SQLite database, and reports uptime, downtime, and outages from it, no external backend to run or register with.
 
-As a child project of [Teatime](https://github.com/melosso/teatime), Warden reuses its markdown engine, theming, and page-structure architecture. It records every heartbeat locally while giving you full control over Markdown content, themes, UI strings, and multi-language support.
+It's a child project of [Teatime](https://github.com/melosso/teatime), and reuses that project's Markdown engine, theming, and page-structure system unchanged. Everything around the status page itself (Markdown content, themes, single-language locale files) works the same way it does there.
 
 <div>
       <p align="center"><strong>🔍 <a href="https://melosso.github.io/warden/">See it in action!</a></strong></p>
@@ -64,7 +64,7 @@ services:
       - ./data:/app/data
 ```
 
-Your own `content/` folder, holding your `.md` pages and `config.json`, is mounted from the host, and so is `data/`, that's where the SQLite heartbeat history lives, and without a volume it resets on every container recreate. `PublicBaseUrl` is set to the origin you serve from. What to check lives in `content/config.json` (see [Configuring your site](#configuring-your-site)). With that in place, you can bring it up:
+Your own `content/` folder (`.md` pages and `config.json`) mounts from the host, and so does `data/`, where the SQLite heartbeat history lives; without that volume, history resets on every container recreate. `PublicBaseUrl` is the origin you serve from. What to check lives in `content/config.json`, see [Configuring your site](#configuring-your-site). With that in place, bring it up:
 
 ```bash
 docker compose up -d
@@ -100,7 +100,7 @@ Both incidents and standalone pages go through the same Markdig pipeline, so dia
 
 ## Configuring your site
 
-The `content/config.json` file serves as the main setup file for your site. It allows you to define your monitoring preferences and specify additional details such as your site title, description, social media links:
+`content/config.json` is entirely optional. It sets your site title, description, social links, and what to monitor:
 
 ```json
 {
@@ -119,9 +119,11 @@ The `content/config.json` file serves as the main setup file for your site. It a
 }
 ```
 
-The `id` in `monitoring` is a custom slug that acts as the database row key. Renaming it resets that target's history, but frontmatter can reference this ID directly for incident reports. This block hot-reloads with `config.json`—adding, removing, or rescheduling targets takes effect on the next check cycle without a restart. If a target is unreachable, the status page safely renders it as down instead of throwing an error.
+The `id` in `monitoring` is a custom slug that acts as the database row key. Renaming it resets that target's history, but front matter can reference this ID directly for incident reports. This block hot-reloads with `config.json`: adding, removing, or rescheduling targets takes effect on the next check cycle without a restart. An unreachable target renders as down on the status page instead of throwing an error.
 
-Only where the SQLite file itself lives is a deployment concern, make sure to properly configure the path in `appsettings.json` (or `Monitoring__DatabasePath` / `DatabasePath` as environment variable):
+Every field, for every monitor type, is in the [config.json reference](content/pages/examples/config.md).
+
+Only where the SQLite file lives is a deployment concern: set the path in `appsettings.json`, or as an environment variable (`Monitoring__DatabasePath` or the shorter `DatabasePath`):
 
 ```json
 {

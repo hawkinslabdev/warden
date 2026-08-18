@@ -2,12 +2,12 @@
 title: Environment Variables
 description: Every setting Warden reads from the environment.
 page-prev: /deploy/
-page-next: /examples/
+page-next: /examples/markdown/
 ---
 
-Warden runs fine with none of these set. They earn their keep at deployment time: the port, which sites to watch, and how often to check them.
+None of these need to be set; the defaults work. They matter at deployment time: the port, which sites to watch, and how often to check them.
 
-Environment variables win over `appsettings.json`. Nested keys use a double underscore, so `Docs:PageSize` becomes `Docs__PageSize`.
+An environment variable overrides the matching `appsettings.json` value. Nested keys use a double underscore, so `Docs:PageSize` becomes `Docs__PageSize`.
 
 ## Hosting
 
@@ -21,7 +21,7 @@ Environment variables win over `appsettings.json`. Nested keys use a double unde
 
 ### Behind a reverse proxy
 
-Rate limits are counted per reader IP, and behind nginx, Caddy, or a container ingress every request arrives from the proxy instead. Left unconfigured, the API budget of thirty per minute ends up shared by everyone, and a single bot can close it out for the whole site.
+Rate limits are counted per reader IP. Behind nginx, Caddy, or a container ingress, every request arrives from the proxy instead, so the API budget of thirty per minute ends up shared by everyone, and a single bot can close it out for the whole site.
 
 Listing your proxy fixes it. Loopback is trusted already, so a proxy on the same host needs nothing:
 
@@ -30,11 +30,11 @@ Proxy__Trusted__0=10.0.0.0/8
 Proxy__Trusted__1=172.18.0.5
 ```
 
-`Proxy__TrustAny=true` skips the list entirely, which is convenient when your ingress has no fixed address. It does mean any caller who can reach the port may claim any IP, so it suits a container that only its proxy can talk to, and little else. Warden notes the choice in the startup log.
+`Proxy__TrustAny=true` skips the list entirely, useful when your ingress has no fixed address. It also means any caller who can reach the port may claim any IP, so it suits a container that only its proxy can talk to, and little else. Warden logs the choice at startup.
 
 ## Monitoring
 
-Warden will check the targets defined. That configuration is defined in `content/config.json` instead of here, see the [guide](/guide/#1-tell-warden-what-to-watch) for the `monitoring` block. Only where the database file lives is a deployment concern:
+What to check, and how often, lives in `content/config.json`, not here; see the [guide](/guide/#get-your-first-monitor-running) for the `monitoring` block. The database file's location is the one deployment concern:
 
 ```json [appsettings.json]
 {
@@ -47,7 +47,7 @@ Warden will check the targets defined. That configuration is defined in `content
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `Monitoring__DatabasePath` | `data/warden.db` | Where the SQLite heartbeat history lives, relative to the app unless rooted. |
-| `DatabasePath` | - | A flat alias for the same setting, easier to spell in a `docker-compose.yml` `environment:` block. Wins over `Monitoring__DatabasePath` when both are set. |
+| `DatabasePath` | none | A shorter name for the same setting, simpler to type in a `docker-compose.yml` `environment:` block. Takes priority over `Monitoring__DatabasePath` when both are set. |
 
 ## Content
 
@@ -60,7 +60,7 @@ Warden will check the targets defined. That configuration is defined in `content
 | `Docs__ContentSecurityPolicy` | built in | Replaces the default policy. |
 | `Docs__Themes__Name` | none | Built-in theme name, overriding `config.json`. |
 
-`Docs__BasePath` prefixes every internal link. Pass the same value to a static export with `--base-path` so the two agree.
+`Docs__BasePath` prefixes every internal link. Give a static export the same value with `--base-path` so the two agree.
 
 `Docs__Themes__Name` suits a deployment that wants a different look than the one in version control. It outranks `theme` in `config.json`, and `--theme <name>` on the command line outranks both.
 
@@ -72,13 +72,13 @@ Warden will check the targets defined. That configuration is defined in `content
 { "status": "ok", "buildVersion": 17, "pages": 42, "uptimeSeconds": 3600 }
 ```
 
-It answers `503` with `"status": "empty"` when no content has been built, which is what an external uptime monitor watching Warden itself should watch for. The route adapts no rate limit, so polling it every few seconds is fine.
+It answers `503` with `"status": "empty"` when no content has been built. That's the signal an external uptime monitor watching this deployment should watch for. The route carries no rate limit, so polling it every few seconds is fine.
 
 ## Logs
 
-Warnings and errors are written to `logs/warden-<date>.log` beside the binary, rolling daily and keeping a fortnight. Everything at `Information` continues to go to the console only, which keeps the file small enough to read.
+Warnings and errors go to `logs/warden-<date>.log` beside the binary, rolling daily and keeping a fortnight. Everything at `Information` stays on the console only, so the file itself stays small.
 
-The `Serilog` section of `appsettings.json` holds the settings, so pointing `path` at a mounted volume or lowering `restrictedToMinimumLevel` are both single-line changes. Setting `Serilog__WriteTo__1__Args__path` in the environment works too.
+The `Serilog` section of `appsettings.json` holds these settings, so pointing `path` at a mounted volume or lowering `restrictedToMinimumLevel` are both single-line changes. Setting `Serilog__WriteTo__1__Args__path` in the environment works too.
 
 ## In a container
 
@@ -93,8 +93,8 @@ services:
       - ./data:/app/data
 ```
 
-Mount `data/` too, that's where the SQLite database lives, and without a volume the check history resets on every container recreate.
+Mount `data/` too. That's where the SQLite database lives, and without a volume the check history resets on every container recreate.
 
 ::: Warning
- If a setting seems ignored, check for a single underscore where a double belongs. `Docs_PageSize` is nothing at all, `Docs__PageSize` is the setting you meant.
+If a setting seems ignored, check for a single underscore where a double belongs. `Docs_PageSize` is nothing at all; `Docs__PageSize` is the setting you meant.
 :::

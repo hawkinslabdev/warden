@@ -2,9 +2,10 @@
 title: Markdown Reference
 description: Every container, code block, image, and map option Warden adds on top of plain Markdown.
 page-prev: /guide/
+page-next: /examples/frontmatter/
 ---
 
-Your pages are Markdown, and Warden gives you more than the basics. This page is the syntax reference. For the fields that go above the content, see [Front Matter](/examples/frontmatter/).
+Your pages are Markdown, with more on top of the basics. This page is the syntax reference. For the fields that go above the content, see [Front Matter](/examples/frontmatter/).
 
 ## Callout containers
 
@@ -32,7 +33,7 @@ Small inline labels help with versions or status <Badge type="tip">v1.0+</Badge>
 
 ## Code blocks
 
-A code block can carry a title, highlight a line, and number its lines:
+A code block can take a title, highlight a line, and number its lines:
 
 ````md
 ```csharp:line-numbers {3} [Program.cs]
@@ -90,7 +91,7 @@ Leave `zoom` and `center` out and the map frames every pin for you. Maps use [Op
 
 ## Abbreviations
 
-Define a term once and every mention of it on the page carries its explanation:
+Define a term once and every mention of it on the page picks up the explanation:
 
 ````md
 The HTML spec is written by the WHATWG and rendered here over HTTP.

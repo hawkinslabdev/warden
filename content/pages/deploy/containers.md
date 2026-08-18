@@ -2,10 +2,10 @@
 title: Running Warden with Docker
 description: A take on deploying Warden as a container.
 page-prev: /deploy/
-page-next: /examples/
+page-next: /examples/markdown/
 ---
 
-Warden is built to be published as a containerized image, so it'll run anywhere Docker does. To get started, create a `docker-compose.yml`:
+The published image runs on any host with Docker. Start with a `docker-compose.yml`:
 
 ```yaml [docker-compose.yml]
 services:
@@ -18,16 +18,16 @@ services:
       - ./content:/app/content
 ```
 
-Mount your `content/` folder so your pages stay editable from the host, then bring it up:
+Mount `content/` so your pages stay editable from the host, then bring it up:
 
 ```bash
 docker compose up -d
 ```
 
-Your status page is then available at `http://localhost:8080`.
+The status page is now at `http://localhost:8080`.
 
 ::: tip
-Because `content/` is a volume, dropping in a new Markdown page is enough for it to appear. There is no process to restart since the server will pick these changes up automagically.
+`content/` is a volume, so a new Markdown file is picked up as soon as it's saved, no restart.
 :::
 
-Behind a reverse proxy, set `Docs:BasePath` (or `--base-path` for a static export) so every internal link resolves under your chosen path. For the one time setup, the [installation guide](/deploy/install/) covers the rest, and [environment variables](/deploy/environment/) lists what you can set from your compose file.
+Behind a reverse proxy, set `Docs:BasePath` (or `--base-path` for a static export) so internal links resolve under your chosen path. The [installation guide](/deploy/install/) covers first-time setup, and [environment variables](/deploy/environment/) lists what the compose file accepts.

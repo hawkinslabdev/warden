@@ -320,7 +320,7 @@ public sealed partial class ContentService : IHostedService, IDisposable
         if (File.Exists(configPath))
             hashInput.Append(await File.ReadAllTextAsync(configPath, cancellationToken));
 
-        // Locale JSON drives the UI string table only, never enumerated as pages; hash it so an edit bumps BuildVersion.
+        // Locale JSON drives the locale table only, never enumerated as pages; hash it so an edit bumps BuildVersion.
         var localeDir = Path.Combine(docsPath, "locale");
         if (Directory.Exists(localeDir))
             foreach (var localeFile in Directory.GetFiles(localeDir, "*.json").Order())

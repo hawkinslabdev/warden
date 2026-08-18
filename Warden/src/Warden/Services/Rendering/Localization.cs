@@ -4,7 +4,7 @@ using Warden.Models;
 
 namespace Warden.Services.Rendering;
 
-/// <summary>Server-side UI string table. English defaults are the floor; content/locale/{code}.json
+/// <summary>Server-side locale table. English defaults are the floor; content/locale/{code}.json
 /// overrides them per key. Swapped atomically on content reload. Never served to clients.</summary>
 public sealed class Localization
 {

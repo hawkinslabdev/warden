@@ -23,7 +23,7 @@ content/
   incidents/    incident and maintenance reports, linked to your monitors
   pages/        standalone pages like About, served at /about
   config.json   optional site settings
-  locale/en.json    UI string overrides (single language)
+  locale/en.json    locale overrides (single language)
 ```
 
 The status page itself is the site's root ("/") and isn't authored as Markdown. Warden checks your configured targets on a timer and renders it live from what it's collected, using the same theme and layout as the rest of the site. Everything else (`/about`, `/guide`, any page you add under `content/pages/`) is a plain Markdown file with front matter:

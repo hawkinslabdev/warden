@@ -64,7 +64,7 @@ public class Config
     /// <summary>Root-level date culture (e.g. "en-GB"), merged with <c>locale.culture</c>.</summary>
     public string? Culture { get; set; }
 
-    /// <summary>Locale settings: date culture and the UI string table. Accepts the object form
+    /// <summary>Locale settings: date culture and the locale table. Accepts the object form
     /// <c>{ "culture": "en-GB", "code": "en" }</c> or a bare code string <c>"en"</c>.</summary>
     [JsonConverter(typeof(LocaleOptionsConverter))]
     public LocaleOptions? Locale { get; set; }

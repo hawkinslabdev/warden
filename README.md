@@ -1,12 +1,12 @@
-# 🛡️ Warden
+# 🧿 Warden
 
 [![License](https://img.shields.io/badge/license-EUPL%201.2-blue)](LICENSE)
 [![Last commit](https://img.shields.io/github/last-commit/melosso/warden)](https://github.com/melosso/warden/commits/main)
 [![Docker](https://img.shields.io/badge/ghcr.io-melosso%2Fwarden-blue?logo=docker)](https://github.com/melosso/warden/pkgs/container/warden)
 
-Meet Warden: a self-contained status page. It checks the sites you list itself, on a timer, keeps the history in its own local SQLite database, and renders a Markdown-themed status page from it, uptime, downtime, per-monitor statistics, and outage reporting, no external monitoring backend, no build step, no extra dependencies.
+Warden is a lightweight, self-contained status page system with zero external backends or build steps required. Running on a timer with local SQLite history, it handles site monitoring, uptime tracking, per-monitor statistics, and outage reporting natively.
 
-Warden is a child project of [Teatime](https://github.com/melosso/teatime), inheriting its markdown engine, theming and page-structure system unchanged. Where Teatime renders a blog, Warden renders a status page: it checks your configured targets, stores every heartbeat itself, and layers your own Markdown pages, theme, and single-language UI strings on top.
+As a child project of [Teatime](https://github.com/melosso/teatime), Warden reuses its markdown engine, theming, and page-structure architecture. It records every heartbeat locally while giving you full control over Markdown content, themes, UI strings, and multi-language support.
 
 <div>
       <p align="center"><strong>🔍 <a href="https://melosso.github.io/warden/">See it in action!</a></strong></p>

@@ -5,7 +5,7 @@
   "lang": "en",
   "culture": "en-GB",
   "theme": "default",
-  "structure": "clean",
+  "structure": "default",
   "organization": "Melosso",
   "favicon": "🧿",
   "brandImage": "",
@@ -23,17 +23,18 @@
   "footer": "Built with [Warden](https://github.com/melosso/warden){target=\"_blank\" rel=\"noopener\"}.",
   "menu": [
     { "title": "Status", "path": "/" },
+    { "title": "About", "path": "/about/" },
     {
-      "title": "More",
+      "title": "Setup",
       "items": [
-        { "title": "About", "path": "/about/" },
         { "title": "Guide", "path": "/guide/" },
-        { "title": "Deploy", "path": "/deploy/" }
+        { "title": "Deploy", "path": "/deploy/" },
+        { "title": "Examples", "path": "/examples/" }
       ]
     }
   ],
   "footerMenu": [
-    { "title": "Status API", "path": "/api/status" },
+    { "title": "Status API", "path": "/api/status", "external": true },
     { "title": "Privacy", "path": "/privacy/" }    
   ],
   "socialLinks": [

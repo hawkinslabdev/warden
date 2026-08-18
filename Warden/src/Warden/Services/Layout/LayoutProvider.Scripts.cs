@@ -854,16 +854,20 @@ public static partial class LayoutProvider
 
                 function storedTimezone() {{ try {{ return localStorage.getItem('warden-tz'); }} catch (e) {{ return null; }} }}
 
-                function makeOption(zone, tag) {{
+                var TZ_ICON_AUTO = '<svg viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" aria-hidden=""true""><circle cx=""12"" cy=""12"" r=""10""/><path d=""M12 6v6l4 2""/></svg>';
+                var TZ_ICON_CURRENT = '<svg viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" aria-hidden=""true""><path d=""M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z""/><circle cx=""12"" cy=""10"" r=""2.5""/></svg>';
+
+                function makeOption(zone, iconSvg, tagLabel, highlight) {{
                     var btn = document.createElement('button');
                     btn.type = 'button';
-                    btn.className = 'timezone-option';
+                    btn.className = highlight ? 'timezone-option timezone-option--current' : 'timezone-option';
                     btn.setAttribute('data-tz', zone);
-                    if (tag) {{
-                        var label = document.createElement('span');
-                        label.className = 'timezone-option-tag';
-                        label.textContent = tag;
-                        btn.appendChild(label);
+                    if (iconSvg) {{
+                        var tag = document.createElement('span');
+                        tag.className = 'timezone-option-tag';
+                        tag.title = tagLabel;
+                        tag.innerHTML = iconSvg;
+                        btn.appendChild(tag);
                     }}
                     btn.appendChild(document.createTextNode(zone.replace(/_/g, ' ')));
                     btn.addEventListener('click', function() {{ selectTimezone(zone); }});
@@ -876,8 +880,8 @@ public static partial class LayoutProvider
                     if (q === '') {{
                         var autoZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
                         var stored = storedTimezone();
-                        tzOptions.appendChild(makeOption(autoZone, 'Auto'));
-                        if (stored && stored !== autoZone) tzOptions.appendChild(makeOption(stored, 'Current'));
+                        tzOptions.appendChild(makeOption(autoZone, TZ_ICON_AUTO, 'Auto'));
+                        if (stored && stored !== autoZone) tzOptions.appendChild(makeOption(stored, TZ_ICON_CURRENT, 'Current', true));
                         var divider = document.createElement('div');
                         divider.className = 'timezone-options-divider';
                         tzOptions.appendChild(divider);

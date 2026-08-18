@@ -115,7 +115,7 @@ public sealed class PageRequestHandler
             badgeText = resolvedAt is null ? l.StatusDown : l.StatusResolved;
             AppendMeta(meta, l.StatusIncidentStarted, IncidentContent.TimeHtml(start));
             if (resolvedAt is { } end)
-                AppendMeta(meta, l.StatusResolved, IncidentContent.TimeHtml(end));
+                AppendMeta(meta, l.StatusIncidentEnded, IncidentContent.TimeHtml(end));
         }
 
         var badgeGroup = page.Maintenance ? "status-maintenance-badge" : "status-incident-badge";

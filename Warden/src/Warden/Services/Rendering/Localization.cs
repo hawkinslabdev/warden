@@ -44,8 +44,9 @@ public sealed class Localization
         ["statusDownSince"] = "Down since {0}",
         ["statusOutagePeriod"] = "Down {0} – {1}",
         ["statusResolved"] = "Resolved",
+        ["statusIncidentEnded"] = "Ended",
         ["statusIncidentStarted"] = "Started",
-        ["statusIncidentBack"] = "Back to status",
+        ["statusIncidentBack"] = "￩ Back to status",
         ["statusFilterShowing"] = "Showing {0}",
         ["statusFilterClear"] = "Clear filter",
         ["statusUnavailable"] = "Status data is temporarily unavailable.",
@@ -121,6 +122,7 @@ public sealed class Localization
     public string StatusDownSince(string when) => Format("statusDownSince", when);
     public string StatusOutagePeriod(string start, string end) => Format("statusOutagePeriod", start, end);
     public string StatusResolved => this["statusResolved"];
+    public string StatusIncidentEnded => this["statusIncidentEnded"];
     public string StatusIncidentStarted => this["statusIncidentStarted"];
     public string StatusIncidentBack => this["statusIncidentBack"];
     public string StatusFilterShowing(string when) => Format("statusFilterShowing", when);

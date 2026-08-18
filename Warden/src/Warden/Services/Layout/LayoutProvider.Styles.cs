@@ -122,7 +122,7 @@ public static partial class LayoutProvider
         }}
         .timezone-option {{
             appearance: none; -webkit-appearance: none;
-            display: block;
+            display: flex; align-items: center; gap: 0.5rem;
             width: 100%;
             text-align: left;
             font: inherit;
@@ -139,9 +139,22 @@ public static partial class LayoutProvider
             color: var(--accent);
             outline: none;
         }}
+        .timezone-option--current {{
+            background-color: var(--accent-light);
+            color: var(--accent);
+        }}
+        .timezone-option--current:hover, .timezone-option--current:focus {{
+            background-color: var(--accent-light);
+            filter: brightness(0.96);
+        }}
         .timezone-option-tag {{
-            display: inline-block; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.04em;
-            text-transform: uppercase; color: var(--text-muted); margin-right: 0.4rem;
+            display: inline-flex; flex: none; color: var(--text-muted);
+        }}
+        .timezone-option--current .timezone-option-tag {{
+            color: var(--accent);
+        }}
+        .timezone-option-tag svg {{
+            width: 14px; height: 14px;
         }}
         .timezone-options-divider {{
             height: 1px; background: var(--border); margin: 0.35rem 0;

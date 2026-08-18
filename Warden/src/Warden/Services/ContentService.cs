@@ -349,13 +349,13 @@ public sealed partial class ContentService : IHostedService, IDisposable
         // Prevent unnecessary client reloads from spurious file events by verifying content changes!
         if (contentHash == _lastContentHash)
         {
-            _logger.LogDebug("Rebuilt documentation but content is unchanged, skipping version bump");
+            _logger.LogDebug("Rebuilt pages but content is unchanged, skipping version bump");
             return;
         }
 
         _lastContentHash = contentHash;
         BuildVersion++;
-        _logger.LogInformation("Built documentation with {PageCount} pages", pages.Count);
+        _logger.LogInformation("Built pages with {PageCount} pages", pages.Count);
 
         LogDeadLinks(pages, pageMap);
     }

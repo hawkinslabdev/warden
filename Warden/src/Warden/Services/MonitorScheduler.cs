@@ -37,8 +37,7 @@ public sealed class MonitorScheduler(
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
                 {
-                    // one bad cycle must not end the loop - a single check bug would otherwise
-                    // silently kill monitoring for every target until the next deploy
+                    // one bad cycle must not end the loop, or a single check bug silently kills monitoring for every target until the next deploy
                     logger.LogError(ex, "Monitor check cycle failed unexpectedly");
                 }
             }
@@ -54,8 +53,7 @@ public sealed class MonitorScheduler(
         }
     }
 
-    // targets are independent I/O-bound probes (HTTP, TCP, DNS, ...) with a per-check timeout,
-    // so they run with bounded concurrency instead of one-at-a-time
+    // targets are independent I/O-bound probes with a per-check timeout, so they run with bounded concurrency instead of one-at-a-time
     private async Task CheckAllAsync(IReadOnlyList<MonitorTarget> targets, CancellationToken cancellationToken)
     {
         var client = httpClientFactory.CreateClient(HttpClientName);
@@ -101,8 +99,7 @@ public sealed class MonitorScheduler(
             _ => CheckHttpAsync(target, client, ct),
         };
 
-    // config validation as data, not exceptions - a target missing 'host'/'port' is an expected
-    // authoring mistake, and throwing here would escape Parallel.ForEachAsync's catch filter below
+    // config validation as data, not exceptions - throwing here would escape Parallel.ForEachAsync's catch filter below
     private static Task<(bool, string?)> RequireHost(MonitorTarget target, Func<string, Task<(bool, string?)>> check) =>
         target.Host is { } host ? check(host) : Task.FromResult<(bool, string?)>((false, $"target '{target.Id}' is missing 'host'"));
 
@@ -138,7 +135,7 @@ public sealed class MonitorScheduler(
     }
 
     // supports plain dot paths ("$.status" / "status.nested"); no array indices or filters
-    // ponytail: hand-rolled, swap for a JSONPath package if targets start needing array/wildcard paths
+    // ponytail: hand-rolled, swap for a JSONPath package if that's ever needed
     internal static string? ExtractJsonValue(JsonElement root, string path)
     {
         var current = root;
@@ -197,10 +194,8 @@ public sealed class MonitorScheduler(
     private const byte SshMsgKexInit = 20;
     private const int SshMaxPacketLength = 35_000; // RFC 4253 §6.1 cap
 
-    // verifies the identification-string exchange AND that the server follows with a well-formed
-    // SSH_MSG_KEXINIT packet (RFC 4253 §7.1) - proof of a real SSH transport, not a banner-echoing decoy.
-    // ponytail: stops short of the actual Diffie-Hellman exchange + host-key verification; add an
-    // SSH.NET dependency for that if a decoy that fakes one valid KEXINIT packet is ever a real threat
+    // verifies the server follows its banner with a well-formed SSH_MSG_KEXINIT packet (RFC 4253 §7.1) - proof of a real SSH transport, not a banner-echoing decoy
+    // ponytail: stops short of the Diffie-Hellman exchange + host-key verification; add SSH.NET if a decoy that fakes one valid KEXINIT packet is ever a real threat
     private static async Task<(bool, string?)> CheckSftpAsync(string host, int port, CancellationToken ct)
     {
         using var client = new TcpClient();
@@ -217,8 +212,7 @@ public sealed class MonitorScheduler(
             : (false, $"expected SSH_MSG_KEXINIT (20) after banner, got message {messageCode}");
     }
 
-    // binary packet framing per RFC 4253 §6: uint32 packet_length, byte padding_length, then payload;
-    // we only need the payload's first byte (the message code), so the rest of the packet is skipped
+    // binary packet framing per RFC 4253 §6; we only need the payload's first byte (the message code)
     private static async Task<byte> ReadSshMessageCodeAsync(NetworkStream stream, CancellationToken ct)
     {
         var header = new byte[4];
@@ -278,8 +272,7 @@ public sealed class MonitorScheduler(
         return (true, null);
     }
 
-    // reads exactly one CRLF-terminated line and no further - a buffered/bulk read here would risk
-    // swallowing the start of whatever binary data follows (e.g. the SFTP check's KEXINIT packet)
+    // reads exactly one CRLF-terminated line and no further - a bulk read here risks swallowing the start of whatever binary data follows (e.g. the SFTP check's KEXINIT packet)
     private static async Task<string> ReadLineAsync(NetworkStream stream, CancellationToken ct)
     {
         var line = new List<byte>();

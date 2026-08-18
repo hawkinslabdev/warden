@@ -24,6 +24,57 @@ public sealed class HeartbeatStoreTests : IDisposable
     }
 
     [Fact]
+    public void Construction_EnablesIncrementalAutoVacuum()
+    {
+        Assert.Equal(2, ReadAutoVacuumMode(_dbPath));
+    }
+
+    [Fact]
+    public void Construction_MigratesLegacyDatabaseWithoutLosingData()
+    {
+        var legacyDbPath = Path.Combine(Path.GetTempPath(), $"warden-test-{Guid.NewGuid():N}.db");
+        try
+        {
+            using (var seed = new Microsoft.Data.Sqlite.SqliteConnection(
+                new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = legacyDbPath }.ToString()))
+            {
+                seed.Open();
+                using var create = seed.CreateCommand();
+                create.CommandText = """
+                    CREATE TABLE heartbeats (id TEXT PRIMARY KEY, monitor_id TEXT NOT NULL, timestamp TEXT NOT NULL, data TEXT NOT NULL);
+                    INSERT INTO heartbeats VALUES ('abc123', 'legacy-site', '2026-01-01T00:00:00+00:00', '{"up":true,"responseMs":42,"error":null}');
+                    """;
+                create.ExecuteNonQuery();
+            }
+            Assert.Equal(0, ReadAutoVacuumMode(legacyDbPath)); // legacy default, before HeartbeatStore ever touches it
+
+            var migrated = new HeartbeatStore(new MonitoringOptions { DatabasePath = legacyDbPath }, NullLogger<HeartbeatStore>.Instance);
+
+            Assert.Equal(2, ReadAutoVacuumMode(legacyDbPath));
+            var latest = migrated.GetLatest("legacy-site");
+            Assert.NotNull(latest);
+            Assert.True(latest!.Data.Up);
+            Assert.Equal(42, latest.Data.ResponseMs);
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            foreach (var path in new[] { legacyDbPath, legacyDbPath + "-wal", legacyDbPath + "-shm" })
+                if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    private static int ReadAutoVacuumMode(string dbPath)
+    {
+        using var connection = new Microsoft.Data.Sqlite.SqliteConnection(
+            new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = dbPath }.ToString());
+        connection.Open();
+        using var pragma = connection.CreateCommand();
+        pragma.CommandText = "PRAGMA auto_vacuum;";
+        return Convert.ToInt32(pragma.ExecuteScalar());
+    }
+
+    [Fact]
     public void GetLatest_ReturnsMostRecentHeartbeat()
     {
         var now = DateTimeOffset.UtcNow;

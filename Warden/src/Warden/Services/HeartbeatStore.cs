@@ -28,6 +28,7 @@ public sealed class HeartbeatStore
             pragma.CommandText = "PRAGMA journal_mode=WAL;";
             pragma.ExecuteNonQuery();
         }
+        EnsureIncrementalVacuum(connection);
         using var create = connection.CreateCommand();
         create.CommandText = """
             CREATE TABLE IF NOT EXISTS heartbeats (
@@ -41,13 +42,29 @@ public sealed class HeartbeatStore
         create.ExecuteNonQuery();
     }
 
+    // auto_vacuum only takes effect on an empty database, so migrating an existing file needs a one-time VACUUM; idempotent since later startups see mode already INCREMENTAL
+    private static void EnsureIncrementalVacuum(SqliteConnection connection)
+    {
+        using var check = connection.CreateCommand();
+        check.CommandText = "PRAGMA auto_vacuum;";
+        var mode = Convert.ToInt32(check.ExecuteScalar());
+        if (mode == 2) // already INCREMENTAL
+            return;
+
+        using var setMode = connection.CreateCommand();
+        setMode.CommandText = "PRAGMA auto_vacuum = INCREMENTAL;";
+        setMode.ExecuteNonQuery();
+
+        using var vacuum = connection.CreateCommand();
+        vacuum.CommandText = "VACUUM;";
+        vacuum.ExecuteNonQuery();
+    }
+
     private SqliteConnection Open()
     {
         var connection = new SqliteConnection(_connectionString);
         connection.Open();
-        // monitor checks now run concurrently (Parallel.ForEachAsync in MonitorScheduler), so
-        // Record() can be called from several threads at once; let SQLite wait out a busy writer
-        // instead of throwing SQLITE_BUSY immediately
+        // Record() can now be called from several threads at once, so let SQLite wait out a busy writer instead of throwing SQLITE_BUSY immediately
         using var pragma = connection.CreateCommand();
         pragma.CommandText = "PRAGMA busy_timeout=5000;";
         pragma.ExecuteNonQuery();
@@ -151,7 +168,13 @@ public sealed class HeartbeatStore
         delete.Parameters.AddWithValue("$cutoff", (DateTimeOffset.UtcNow - retention).ToString("O"));
         var removed = delete.ExecuteNonQuery();
         if (removed > 0)
+        {
             _logger.LogDebug("Pruned {Count} heartbeats older than {Retention}", removed, retention);
+            // reclaims the pages the delete just freed, without a full VACUUM's whole-file rewrite
+            using var incrementalVacuum = connection.CreateCommand();
+            incrementalVacuum.CommandText = "PRAGMA incremental_vacuum;";
+            incrementalVacuum.ExecuteNonQuery();
+        }
     }
 
     private static HeartbeatRecord ReadRecord(SqliteDataReader reader, string monitorId) =>

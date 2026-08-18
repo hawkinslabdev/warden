@@ -2,14 +2,14 @@ using Warden.Services.Theming.Structures;
 
 namespace Warden.Services.Theming;
 
-/// <summary>Built-in page structures. To add your own, implement <see cref="IWardenStructure"/> and add a line to <see cref="All"/>.</summary>
+/// <summary>Built-in page structures. The blog-inherited "editorial" shape was removed, it fit Teatime's blog layout, not a status page; "default" is a new, unrelated status-page-only structure now. To add your own, implement <see cref="IWardenStructure"/> and add a line to <see cref="All"/>.</summary>
 public static class StructureRegistry
 {
     public static IReadOnlyList<IWardenStructure> All { get; } =
     [
+        new CleanStructure(),
         new DefaultStructure(),
-        new EditorialStructure(),
-        new CleanStructure()
+        new DashboardStructure()
     ];
 
     public static IWardenStructure Default { get; } = All[0];

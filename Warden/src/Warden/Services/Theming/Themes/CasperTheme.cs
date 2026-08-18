@@ -1,6 +1,6 @@
 namespace Warden.Services.Theming.Themes;
 
-/// <summary>White paper, near-black type, violet accent. Pair with <c>structure: editorial</c> for the matching page shape.</summary>
+/// <summary>White paper, near-black type, violet accent.</summary>
 public sealed class CasperTheme : IWardenTheme
 {
     public string Name => "casper";
@@ -31,6 +31,6 @@ public sealed class CasperTheme : IWardenTheme
         ["--code-bg"] = "#1E2024"
     };
 
-    /// <summary>Empty like every other palette-only theme: the page shape lives in <see cref="Structures.EditorialStructure"/> now.</summary>
+    /// <summary>Empty like every other palette-only theme: page shape lives in <see cref="Structures.CleanStructure"/>.</summary>
     public string ComponentCss => string.Empty;
 }

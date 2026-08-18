@@ -56,6 +56,11 @@ public sealed class Localization
         ["statusMaintenanceEnded"] = "Completed",
         ["statusMaintenanceEnds"] = "Ends",
         ["statusMaintenanceWindow"] = "{0} – {1}",
+        ["statusOngoingIncidentsHeading"] = "Ongoing incidents",
+        ["statusOverallUptime"] = "{0}% uptime over the last {1} days",
+        ["statusResponseTimeChartLabel"] = "Response time, last {0} days",
+        ["statusTimezoneAriaLabel"] = "Change displayed timezone",
+        ["statusTimezoneSearchPlaceholder"] = "Search timezone…",
     };
 
     private readonly IReadOnlyDictionary<string, string> _map;
@@ -128,6 +133,11 @@ public sealed class Localization
     public string StatusMaintenanceEnded => this["statusMaintenanceEnded"];
     public string StatusMaintenanceEnds => this["statusMaintenanceEnds"];
     public string StatusMaintenanceWindow(string start, string end) => Format("statusMaintenanceWindow", start, end);
+    public string StatusOngoingIncidentsHeading => this["statusOngoingIncidentsHeading"];
+    public string StatusOverallUptime(double uptimePercent, int days) => Format("statusOverallUptime", uptimePercent.ToString("0.##", CultureInfo.InvariantCulture), days);
+    public string StatusResponseTimeChartLabel(int days) => Format("statusResponseTimeChartLabel", days);
+    public string StatusTimezoneAriaLabel => this["statusTimezoneAriaLabel"];
+    public string StatusTimezoneSearchPlaceholder => this["statusTimezoneSearchPlaceholder"];
 
     // Overlays content/locale/{code}.json on the defaults. Missing file: silent. Corrupt/unknown keys: warn.
     public static Localization From(string docsPath, Config? config, ILogger logger)

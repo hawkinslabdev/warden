@@ -131,6 +131,38 @@ public sealed class HeartbeatStore
         return result;
     }
 
+    // one bucket per UTC calendar day, average of that day's recorded response times (down/errored checks carry no responseMs and don't count); for the per-monitor latency chart
+    public List<DailyResponseTime> GetResponseTimeHistory(string monitorId, int days)
+    {
+        var sinceDay = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-(days - 1));
+
+        using var connection = Open();
+        using var select = connection.CreateCommand();
+        select.CommandText = "SELECT timestamp, data FROM heartbeats WHERE monitor_id = $monitorId AND timestamp >= $since ORDER BY timestamp ASC;";
+        select.Parameters.AddWithValue("$monitorId", monitorId);
+        select.Parameters.AddWithValue("$since", sinceDay.ToDateTime(TimeOnly.MinValue).ToString("O"));
+
+        var sumByDay = new Dictionary<DateOnly, (long Sum, int Count)>();
+        using var reader = select.ExecuteReader();
+        while (reader.Read())
+        {
+            var day = DateOnly.FromDateTime(DateTimeOffset.Parse(reader.GetString(0)).UtcDateTime);
+            if (Deserialize(reader.GetString(1)).ResponseMs is not { } ms)
+                continue;
+            var (sum, count) = sumByDay.GetValueOrDefault(day);
+            sumByDay[day] = (sum + ms, count + 1);
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var result = new List<DailyResponseTime>();
+        for (var day = sinceDay; day <= today; day = day.AddDays(1))
+        {
+            var avg = sumByDay.TryGetValue(day, out var bucket) ? (double)bucket.Sum / bucket.Count : (double?)null;
+            result.Add(new DailyResponseTime(day, avg));
+        }
+        return result;
+    }
+
     // share of "up" heartbeats within window, plus how much of the window is actually covered by data (a fresh target has minutes of history, not the full window); null when there's no data yet
     public (double Percent, TimeSpan Span)? GetUptime(string monitorId, TimeSpan window)
     {

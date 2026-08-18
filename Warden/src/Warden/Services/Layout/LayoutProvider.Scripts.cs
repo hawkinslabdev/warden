@@ -754,7 +754,7 @@ public static partial class LayoutProvider
 
             // tooltip is a ::after pseudo-element JS can't measure, so this clamps against the CSS `max-width: min(15rem, 60vw)` upper bound instead of real rendered width - can over-shift a short tip slightly, never lets one overflow
             function positionAbbrTip(e) {{
-                var abbr = e.target.closest && e.target.closest('abbr[data-tip], .status-tick[data-tip]');
+                var abbr = e.target.closest && e.target.closest('abbr[data-tip], .status-tick[data-tip], .icon-btn[data-tip]');
                 if (!abbr) return;
                 var vw = document.documentElement.clientWidth || window.innerWidth;
                 var rootFontPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
@@ -769,16 +769,182 @@ public static partial class LayoutProvider
             document.addEventListener('mouseover', positionAbbrTip);
             document.addEventListener('focusin', positionAbbrTip);
 
-            // server renders a UTC fallback; this rewrites it to the viewer's own locale and timezone
+            // server renders a UTC fallback; this rewrites it to the viewer's own locale, in whatever
+            // timezone is currently selected (device default until the timezone picker below overrides it)
+            function currentTimezone() {{
+                try {{
+                    return localStorage.getItem('warden-tz') || Intl.DateTimeFormat().resolvedOptions().timeZone;
+                }} catch (e) {{ return Intl.DateTimeFormat().resolvedOptions().timeZone; }}
+            }}
             function formatLocalMoment(iso) {{
                 try {{
-                    return new Date(iso).toLocaleString(undefined, {{ day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }});
+                    return new Date(iso).toLocaleString(undefined, {{ day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: currentTimezone() }});
                 }} catch (e) {{ return iso; }}
             }}
-            document.querySelectorAll('.status-time[data-iso]').forEach(function(el) {{
-                el.textContent = formatLocalMoment(el.getAttribute('data-iso'));
+            function applyTimezone() {{
+                document.querySelectorAll('.status-time[data-iso]').forEach(function(el) {{
+                    el.textContent = formatLocalMoment(el.getAttribute('data-iso'));
+                }});
+            }}
+            applyTimezone();
+
+            // swaps a clicked day tick's or Clear filter's link in place instead of a full reload; falls back to a real navigation if fetch fails or JS is off
+            document.addEventListener('click', function(e) {{
+                var link = e.target.closest && e.target.closest('.status-tick[href], .status-filter-clear[href]');
+                if (!link) return;
+                var url = new URL(link.getAttribute('href'), window.location.href);
+                if (url.origin !== window.location.origin) return;
+                e.preventDefault();
+                loadDayFilter(url, link.classList.contains('status-tick'));
             }});
 
+            async function loadDayFilter(url, shouldScroll) {{
+                var article = document.querySelector('article.content');
+                if (!article) {{ window.location.href = url.href; return; }}
+                try {{
+                    var response = await fetch(url.href, {{ headers: {{ 'X-Requested-With': 'fetch' }} }});
+                    if (!response.ok) throw new Error('bad response');
+                    var html = await response.text();
+                    var next = new DOMParser().parseFromString(html, 'text/html').querySelector('article.content');
+                    if (!next) throw new Error('no content in response');
+                    article.replaceChildren(...next.childNodes);
+                }} catch (e) {{
+                    window.location.href = url.href;
+                    return;
+                }}
+
+                history.pushState(null, '', url.href);
+                applyTimezone();
+
+                // the swap already gave every tick a fresh, unhighlighted element; this just marks the filtered day's, and stays until the next swap replaces them again
+                var day = url.searchParams.get('on');
+                if (day) {{
+                    document.querySelectorAll('.status-tick[href*=""on=' + day + '""]').forEach(function(t) {{
+                        t.classList.add('status-tick--active-day');
+                    }});
+                }}
+
+                if (!shouldScroll) return;
+                var incidents = document.getElementById('status-incidents');
+                if (!incidents) return;
+                var rect = incidents.getBoundingClientRect();
+                var alreadyVisible = rect.top >= 0 && rect.top <= window.innerHeight * 0.5;
+                if (alreadyVisible) return;
+                var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                incidents.scrollIntoView({{ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' }});
+            }}
+
+            var tzToggle = document.getElementById('timezone-toggle');
+            var tzDropdown = document.getElementById('timezone-dropdown');
+            if (tzToggle && tzDropdown && typeof Intl.supportedValuesOf === 'function') {{
+                var tzSearch = document.getElementById('timezone-search');
+                var tzOptions = document.getElementById('timezone-options');
+                var allZones = Intl.supportedValuesOf('timeZone');
+                var MAX_RESULTS = 40;
+                // the zone name shows as a hover/focus tooltip (existing [data-tip] bubble), not inline text,
+                // so it also has to ride along in aria-label for anyone not hovering a mouse
+                var tzBaseLabel = tzToggle.getAttribute('aria-label');
+
+                function setTzBadge(zone) {{
+                    tzToggle.setAttribute('data-tip', zone);
+                    tzToggle.setAttribute('aria-label', tzBaseLabel + ' (' + zone + ')');
+                    var isOverridden = zone !== Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    tzToggle.classList.toggle('timezone-toggle--overridden', isOverridden);
+                }}
+
+                function storedTimezone() {{ try {{ return localStorage.getItem('warden-tz'); }} catch (e) {{ return null; }} }}
+
+                function makeOption(zone, tag) {{
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'timezone-option';
+                    btn.setAttribute('data-tz', zone);
+                    if (tag) {{
+                        var label = document.createElement('span');
+                        label.className = 'timezone-option-tag';
+                        label.textContent = tag;
+                        btn.appendChild(label);
+                    }}
+                    btn.appendChild(document.createTextNode(zone.replace(/_/g, ' ')));
+                    btn.addEventListener('click', function() {{ selectTimezone(zone); }});
+                    return btn;
+                }}
+
+                function renderOptions(query) {{
+                    var q = query.trim().toLowerCase();
+                    tzOptions.innerHTML = '';
+                    if (q === '') {{
+                        var autoZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                        var stored = storedTimezone();
+                        tzOptions.appendChild(makeOption(autoZone, 'Auto'));
+                        if (stored && stored !== autoZone) tzOptions.appendChild(makeOption(stored, 'Current'));
+                        var divider = document.createElement('div');
+                        divider.className = 'timezone-options-divider';
+                        tzOptions.appendChild(divider);
+                    }}
+                    var matches = (q === '' ? allZones : allZones.filter(function(z) {{ return z.toLowerCase().indexOf(q) !== -1; }})).slice(0, MAX_RESULTS);
+                    matches.forEach(function(zone) {{ tzOptions.appendChild(makeOption(zone)); }});
+                }}
+
+                function selectTimezone(zone) {{
+                    var autoZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    try {{ if (zone === autoZone) localStorage.removeItem('warden-tz'); else localStorage.setItem('warden-tz', zone); }} catch (e) {{}}
+                    setTzBadge(currentTimezone());
+                    applyTimezone();
+                    closeTimezoneDropdown();
+                    tzToggle.focus();
+                }}
+
+                function openTimezoneDropdown() {{
+                    tzDropdown.hidden = false;
+                    tzToggle.setAttribute('aria-expanded', 'true');
+                    tzSearch.value = '';
+                    renderOptions('');
+                    tzSearch.focus();
+                }}
+                function closeTimezoneDropdown() {{
+                    tzDropdown.hidden = true;
+                    tzToggle.setAttribute('aria-expanded', 'false');
+                }}
+
+                setTzBadge(currentTimezone());
+                tzToggle.addEventListener('click', function(e) {{
+                    e.stopPropagation();
+                    if (tzDropdown.hidden) openTimezoneDropdown(); else closeTimezoneDropdown();
+                }});
+                document.addEventListener('click', function(e) {{
+                    if (!tzDropdown.hidden && !tzDropdown.contains(e.target) && e.target !== tzToggle)
+                        closeTimezoneDropdown();
+                }});
+                document.addEventListener('keydown', function(e) {{
+                    if (e.key === 'Escape' && !tzDropdown.hidden) {{ closeTimezoneDropdown(); tzToggle.focus(); }}
+                }});
+                tzSearch.addEventListener('input', function() {{ renderOptions(tzSearch.value); }});
+                tzSearch.addEventListener('keydown', function(e) {{
+                    if (e.key === 'ArrowDown') {{
+                        e.preventDefault();
+                        var first = tzOptions.querySelector('.timezone-option');
+                        if (first) first.focus();
+                    }} else if (e.key === 'Enter') {{
+                        e.preventDefault();
+                        var top = tzOptions.querySelector('.timezone-option');
+                        if (top) selectTimezone(top.getAttribute('data-tz'));
+                    }}
+                }});
+                tzOptions.addEventListener('keydown', function(e) {{
+                    var items = Array.prototype.slice.call(tzOptions.querySelectorAll('.timezone-option'));
+                    var idx = items.indexOf(document.activeElement);
+                    if (e.key === 'ArrowDown') {{
+                        e.preventDefault();
+                        items[Math.min(idx + 1, items.length - 1)].focus();
+                    }} else if (e.key === 'ArrowUp') {{
+                        e.preventDefault();
+                        if (idx <= 0) tzSearch.focus(); else items[idx - 1].focus();
+                    }}
+                }});
+            }} else if (tzToggle) {{
+                tzToggle.style.display = 'none';
+            }}
         }});
     </script>
 ";

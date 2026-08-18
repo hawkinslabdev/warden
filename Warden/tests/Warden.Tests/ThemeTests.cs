@@ -56,16 +56,33 @@ public sealed class StructureRegistryTests
     }
 
     [Theory]
-    [InlineData("editorial")]
-    [InlineData("EDITORIAL")]
-    [InlineData("  Editorial  ")]
+    [InlineData("clean")]
+    [InlineData("CLEAN")]
+    [InlineData("  Clean  ")]
     public void Resolve_IsCaseAndWhitespaceInsensitive(string name)
     {
-        Assert.Equal("editorial", StructureRegistry.Resolve(name).Name);
+        Assert.Equal("clean", StructureRegistry.Resolve(name).Name);
     }
 
     [Fact]
-    public void DefaultStructure_AddsNoComponentCss() => Assert.Equal(string.Empty, StructureRegistry.Default.ComponentCss);
+    public void CleanIsFirstAndDefault() =>
+        Assert.Equal("clean", StructureRegistry.Default.Name);
+
+    [Fact]
+    public void OnlyDashboardUsesTheGroupedStatusLayout()
+    {
+        Assert.False(StructureRegistry.Resolve("clean").UseGroupedStatusLayout);
+        Assert.False(StructureRegistry.Resolve("default").UseGroupedStatusLayout);
+        Assert.True(StructureRegistry.Resolve("dashboard").UseGroupedStatusLayout);
+    }
+
+    [Fact]
+    public void OnlyCleanHidesTheStatusHeader()
+    {
+        Assert.False(StructureRegistry.Resolve("clean").ShowStatusHeader);
+        Assert.True(StructureRegistry.Resolve("default").ShowStatusHeader);
+        Assert.True(StructureRegistry.Resolve("dashboard").ShowStatusHeader);
+    }
 }
 
 public sealed class ThemeSelectionTests
@@ -245,7 +262,7 @@ public sealed partial class ThemeCssIntegrityTests
 {
     /// <summary>Set inline on the elements that read them, not by any theme.</summary>
     private static readonly string[] ExternallyDefined =
-        ["--shiki-light", "--shiki-dark", "--slug-hue", "--tip-shift", "--icon"];
+        ["--shiki-light", "--shiki-dark", "--slug-hue", "--tip-shift", "--icon", "--bar-h"];
 
     public static TheoryData<string> ThemeNames() => [.. ThemeRegistry.All.Select(t => t.Name)];
 

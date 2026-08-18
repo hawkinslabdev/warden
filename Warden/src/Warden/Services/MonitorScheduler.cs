@@ -1,7 +1,9 @@
+using System.Collections.Concurrent;
 using System.Net.NetworkInformation;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Text.Json.Nodes;
+using DnsClient;
 using Json.Path;
 using Renci.SshNet;
 using Renci.SshNet.Common;
@@ -17,10 +19,14 @@ public sealed class MonitorScheduler(
     ILogger<MonitorScheduler> logger) : BackgroundService
 {
     public const string HttpClientName = "monitor-check";
+    public const string InsecureHttpClientName = "monitor-check-insecure";
     private const int DefaultIntervalSeconds = 60;
     private const int DefaultRetentionDays = 30;
     private const int CheckTimeoutSeconds = 10;
     private const int MaxConcurrentChecks = 8;
+
+    // in-memory only (resets on restart); a failure short of target.Retries is pending, not recorded, so one blip doesn't flip the public status
+    private readonly ConcurrentDictionary<string, int> _consecutiveFailures = new();
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -60,6 +66,7 @@ public sealed class MonitorScheduler(
     private async Task CheckAllAsync(IReadOnlyList<MonitorTarget> targets, CancellationToken cancellationToken)
     {
         var client = httpClientFactory.CreateClient(HttpClientName);
+        var insecureClient = httpClientFactory.CreateClient(InsecureHttpClientName);
         await Parallel.ForEachAsync(
             targets,
             new ParallelOptions { MaxDegreeOfParallelism = MaxConcurrentChecks, CancellationToken = cancellationToken },
@@ -72,34 +79,61 @@ public sealed class MonitorScheduler(
                 var startedAt = System.Diagnostics.Stopwatch.GetTimestamp();
                 try
                 {
-                    var (up, error) = await CheckOneAsync(target, client, timeoutCts.Token);
+                    var (up, error) = await CheckOneAsync(target, target.Insecure == true ? insecureClient : client, timeoutCts.Token);
                     var elapsedMs = (int)System.Diagnostics.Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
-                    store.Record(target.Id, timestamp, up, elapsedMs, error);
-                    if (!up)
-                        logger.LogWarning("Check failed for {MonitorId} ({Type}): {Message}", target.Id, target.Type, error);
+                    if (up)
+                        RecordUp(target, timestamp, elapsedMs);
+                    else
+                        RecordDown(target, timestamp, elapsedMs, error);
                 }
                 catch (Exception ex) when (ex is HttpRequestException or SocketException or IOException or PingException
                     || (ex is OperationCanceledException && !ct.IsCancellationRequested))
                 {
                     var elapsedMs = (int)System.Diagnostics.Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
                     var message = ex is OperationCanceledException ? "timed out" : ex.Message;
-                    store.Record(target.Id, timestamp, up: false, elapsedMs, message);
-                    logger.LogWarning("Check failed for {MonitorId} ({Type}): {Message}", target.Id, target.Type, message);
+                    RecordDown(target, timestamp, elapsedMs, message);
                 }
             });
+    }
+
+    // routine "up" stays at Debug (too noisy for `docker compose logs` by default); anything worth watching - a retry, a real down, a recovery - logs at Information
+    private void RecordUp(MonitorTarget target, DateTimeOffset timestamp, int elapsedMs)
+    {
+        var wasDown = _consecutiveFailures.TryRemove(target.Id, out var failures) && failures > (target.Retries ?? 0);
+        store.Record(target.Id, timestamp, up: true, elapsedMs);
+        if (wasDown)
+            logger.LogInformation("[{MonitorId}] recovered ({Type}, {ElapsedMs}ms)", target.Id, target.Type, elapsedMs);
+        else
+            logger.LogDebug("[{MonitorId}] up ({Type}, {ElapsedMs}ms)", target.Id, target.Type, elapsedMs);
+    }
+
+    // a failure within target.Retries is "pending": logged but not recorded; Retries unset/0 keeps the original behavior - down on the very first failed check
+    private void RecordDown(MonitorTarget target, DateTimeOffset timestamp, int elapsedMs, string? message)
+    {
+        var threshold = target.Retries ?? 0;
+        var failures = _consecutiveFailures.AddOrUpdate(target.Id, 1, (_, n) => n + 1);
+        if (failures <= threshold)
+        {
+            logger.LogInformation("[{MonitorId}] pending ({Type}): retry {Failures}/{Threshold} - {Message}", target.Id, target.Type, failures, threshold, message);
+            return;
+        }
+        store.Record(target.Id, timestamp, up: false, elapsedMs, message);
+        logger.LogWarning("[{MonitorId}] down ({Type}): {Message}", target.Id, target.Type, message);
     }
 
     private static Task<(bool Up, string? Error)> CheckOneAsync(MonitorTarget target, HttpClient client, CancellationToken ct) =>
         target.Type switch
         {
-            "service_backend" => CheckServiceBackendAsync(target, client, ct),
+            "http" => RequireUrl(target, url => CheckHttpAsync(url, client, ct)),
+            "service_backend" => RequireUrl(target, url => CheckServiceBackendAsync(target, url, client, ct)),
             "ping" => RequireHost(target, host => CheckPingAsync(host, ct)),
             "tcp" or "database" => RequireHostAndPort(target, (host, port) => CheckTcpAsync(host, port, ct)),
             "ftp" => RequireHost(target, host => CheckFtpAsync(target, host, ct)),
             "sftp" => RequireHost(target, host => CheckSftpAsync(host, target.Port ?? 22, ct)),
             "dns" => RequireHost(target, host => CheckDnsAsync(target, host, ct)),
             "ssl" => RequireHost(target, host => CheckSslAsync(target, host, ct)),
-            _ => CheckHttpAsync(target, client, ct),
+            // an unrecognized type must not silently fall back to an http check with no url to call - that's the crash this guards against
+            _ => Task.FromResult<(bool, string?)>((false, $"target '{target.Id}' has unknown type '{target.Type}'")),
         };
 
     // config validation as data, not exceptions - throwing here would escape Parallel.ForEachAsync's catch filter below
@@ -111,15 +145,18 @@ public sealed class MonitorScheduler(
         : target.Port is not { } port ? Task.FromResult<(bool, string?)>((false, $"target '{target.Id}' is missing 'port'"))
         : check(host, port);
 
-    private static async Task<(bool, string?)> CheckHttpAsync(MonitorTarget target, HttpClient client, CancellationToken ct)
+    private static Task<(bool, string?)> RequireUrl(MonitorTarget target, Func<string, Task<(bool, string?)>> check) =>
+        target.Url is { } url ? check(url) : Task.FromResult<(bool, string?)>((false, $"target '{target.Id}' is missing 'url'"));
+
+    private static async Task<(bool, string?)> CheckHttpAsync(string url, HttpClient client, CancellationToken ct)
     {
-        using var response = await client.GetAsync(target.Url, HttpCompletionOption.ResponseHeadersRead, ct);
+        using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
         return response.IsSuccessStatusCode ? (true, null) : (false, $"HTTP {(int)response.StatusCode}");
     }
 
-    private static async Task<(bool, string?)> CheckServiceBackendAsync(MonitorTarget target, HttpClient client, CancellationToken ct)
+    private static async Task<(bool, string?)> CheckServiceBackendAsync(MonitorTarget target, string url, HttpClient client, CancellationToken ct)
     {
-        using var response = await client.GetAsync(target.Url, HttpCompletionOption.ResponseContentRead, ct);
+        using var response = await client.GetAsync(url, HttpCompletionOption.ResponseContentRead, ct);
         var expectedStatus = target.ExpectedStatus ?? 200;
         if ((int)response.StatusCode != expectedStatus)
             return (false, $"HTTP {(int)response.StatusCode}, expected {expectedStatus}");
@@ -186,9 +223,7 @@ public sealed class MonitorScheduler(
         return (true, null);
     }
 
-    // connects with throwaway credentials - the point isn't to log in, it's to force the server through
-    // a full key exchange and host-key exchange before it can even reject the password. SshAuthenticationException
-    // only fires after that transport handshake succeeds, so catching it here is the proof of a real SSH server
+    // connects with throwaway credentials to force a full key exchange before the server can even reject the password; SshAuthenticationException only fires after that handshake succeeds
     private static async Task<(bool, string?)> CheckSftpAsync(string host, int port, CancellationToken ct)
     {
         using var client = new SshClient(host, port, "warden-monitor", Guid.NewGuid().ToString("N"));
@@ -209,14 +244,44 @@ public sealed class MonitorScheduler(
 
     private static async Task<(bool, string?)> CheckDnsAsync(MonitorTarget target, string host, CancellationToken ct)
     {
-        var addresses = await System.Net.Dns.GetHostAddressesAsync(host, ct);
-        if (addresses.Length == 0)
+        var addresses = await ResolveAsync(target, host, ct);
+        if (addresses.Count == 0)
             return (false, "no addresses returned");
         if (target.ExpectedIp is null)
             return (true, null);
-        return addresses.Any(a => a.ToString() == target.ExpectedIp)
+        return addresses.Contains(target.ExpectedIp)
             ? (true, null)
-            : (false, $"resolved to [{string.Join(", ", addresses.Select(a => a.ToString()))}], expected {target.ExpectedIp}");
+            : (false, $"resolved to [{string.Join(", ", addresses)}], expected {target.ExpectedIp}");
+    }
+
+    // the OS resolver covers the common case; DnsClient only gets pulled in when DnsServer/Family are actually set
+    private static async Task<List<string>> ResolveAsync(MonitorTarget target, string host, CancellationToken ct)
+    {
+        if (target.DnsServer is null && target.Family is null)
+            return [.. (await System.Net.Dns.GetHostAddressesAsync(host, ct)).Select(a => a.ToString())];
+
+        var lookup = target.DnsServer is { } server ? new LookupClient(System.Net.IPAddress.Parse(server), 53) : new LookupClient();
+        var queryTypes = target.Family?.ToLowerInvariant() switch
+        {
+            "ipv6" => (QueryType[])[QueryType.AAAA],
+            "ipv4" => [QueryType.A],
+            _ => [QueryType.A, QueryType.AAAA],
+        };
+
+        var addresses = new List<string>();
+        foreach (var queryType in queryTypes)
+        {
+            var result = await lookup.QueryAsync(host, queryType, cancellationToken: ct);
+            addresses.AddRange(result.Answers
+                .Select(record => record switch
+                {
+                    DnsClient.Protocol.ARecord a => a.Address.ToString(),
+                    DnsClient.Protocol.AaaaRecord aaaa => aaaa.Address.ToString(),
+                    _ => null,
+                })
+                .Where(a => a is not null)!);
+        }
+        return addresses;
     }
 
     private static async Task<(bool, string?)> CheckSslAsync(MonitorTarget target, string host, CancellationToken ct)

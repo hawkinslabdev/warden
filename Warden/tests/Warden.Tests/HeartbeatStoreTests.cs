@@ -155,6 +155,23 @@ public sealed class HeartbeatStoreTests : IDisposable
     }
 
     [Fact]
+    public void GetResponseTimeHistory_AveragesSameDayHeartbeats_ExcludingDownChecks()
+    {
+        var now = DateTimeOffset.UtcNow;
+        _store.Record("site", now.AddHours(-2), up: true, responseMs: 100);
+        _store.Record("site", now.AddHours(-1), up: true, responseMs: 200);
+        _store.Record("site", now, up: false, responseMs: null);
+
+        var history = _store.GetResponseTimeHistory("site", 1);
+
+        Assert.Equal(150.0, Assert.Single(history).AvgResponseMs);
+    }
+
+    [Fact]
+    public void GetResponseTimeHistory_NullForDaysWithNoData() =>
+        Assert.All(_store.GetResponseTimeHistory("nothing-recorded", 3), d => Assert.Null(d.AvgResponseMs));
+
+    [Fact]
     public void PruneOlderThan_RemovesOnlyStaleRows()
     {
         var now = DateTimeOffset.UtcNow;

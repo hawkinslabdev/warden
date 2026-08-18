@@ -80,6 +80,16 @@ public static partial class LayoutProvider
             ? "<script" + nonceAttr + ">(function(){try{var t=localStorage.getItem('warden-theme');if(t==='dark'||t==='light'){var r=document.documentElement;r.setAttribute('data-theme',t);r.style.colorScheme=t;}}catch(e){}})();</script>"
             : "";
 
+        var timezoneWidgetHtml = $@"<div class=""timezone-widget"">
+                <button type=""button"" class=""icon-btn timezone-toggle"" id=""timezone-toggle"" aria-haspopup=""true"" aria-expanded=""false"" aria-label=""{HtmlEncode(l.StatusTimezoneAriaLabel)}"">
+                    <svg viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" aria-hidden=""true""><circle cx=""12"" cy=""12"" r=""10""/><path d=""M12 6v6l4 2""/></svg>
+                </button>
+                <div class=""timezone-dropdown"" id=""timezone-dropdown"" hidden>
+                    <input type=""text"" class=""timezone-search"" id=""timezone-search"" placeholder=""{HtmlEncode(l.StatusTimezoneSearchPlaceholder)}"" autocomplete=""off"" spellcheck=""false"" aria-label=""{HtmlEncode(l.StatusTimezoneSearchPlaceholder)}"">
+                    <div class=""timezone-options"" id=""timezone-options""></div>
+                </div>
+            </div>";
+
         var themeToggleHtml = enableDarkMode
             ? $@"<button type=""button"" class=""icon-btn theme-toggle"" id=""theme-toggle"" role=""switch"" aria-checked=""false"" aria-label=""{HtmlEncode(l.ThemeToggle)}"">
                 <svg class=""icon-sun"" viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" aria-hidden=""true""><circle cx=""12"" cy=""12"" r=""4""/><path d=""M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41""/></svg>
@@ -129,6 +139,7 @@ public static partial class LayoutProvider
     <header class=""topbar"">
         <div class=""masthead-actions"">
             {socialLinksHtml}
+            {timezoneWidgetHtml}
             {themeToggleHtml}
         </div>
         <a class=""brand"" href=""{homeHref}"">{brandMarkHtml}{brandText ?? "Warden"}</a>

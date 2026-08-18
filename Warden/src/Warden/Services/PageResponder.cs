@@ -73,6 +73,11 @@ public sealed class PageResponder
     private static string NewNonce() =>
         Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
 
+    // exposed so an endpoint can decide its own markup (e.g. StatusEndpoints' grouped-vs-flat layout)
+    // before calling WriteAsync, using the exact same resolution WriteAsync uses internally
+    public IWardenStructure ResolveStructure() =>
+        StructureRegistry.Resolve(_settings.CliStructure ?? _content.SiteConfig?.Structure);
+
     public async Task WriteAsync(HttpContext context, PageView view)
     {
         var basePath = _settings.BasePath;

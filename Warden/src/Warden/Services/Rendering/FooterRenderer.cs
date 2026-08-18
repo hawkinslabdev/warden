@@ -15,7 +15,7 @@ public static class FooterRenderer
 
         var note = config?.Footer?
             .Replace("{year}", DateTime.UtcNow.Year.ToString())
-            .Replace("{author}", config.Author ?? string.Empty)
+            .Replace("{author}", config.Organization ?? config.Organisation ?? config.Owner ?? config.Author ?? string.Empty)
             .Replace("{title}", config.Title ?? string.Empty);
         note = !string.IsNullOrEmpty(note)
             ? markdown.ToHtml(note).Replace("<p>", "").Replace("</p>", "").Trim()

@@ -17,7 +17,17 @@ public sealed record MonitorTarget(
     int? WarnDaysBefore = null,
     string? ExpectedJsonPath = null,
     string? ExpectedValue = null,
-    int? ExpectedStatus = null);
+    int? ExpectedStatus = null,
+    // consecutive failures required before a check is recorded as down; unset/0 keeps the old behavior (down on the first failure)
+    int? Retries = null,
+    // skips TLS certificate validation for http/service_backend checks - for a self-signed internal service
+    bool? Insecure = null,
+    // dns type only: query this resolver directly instead of the OS default
+    string? DnsServer = null,
+    // dns type only: "ipv4" or "ipv6" to query only that record type; unset queries both
+    string? Family = null,
+    // dashboard structure, monitoring.group: "custom" only: this target's own group heading; falls back to its type's label when unset
+    string? Group = null);
 
 // the "monitoring" block in content/config.json; hot-reloaded with the rest of the file
 public sealed record MonitoringConfig(
@@ -27,7 +37,9 @@ public sealed record MonitoringConfig(
     int? IncidentWindowDays,
     int? IncidentMaxShown,
     int? MaintenanceWindowDays,
-    int? MaintenanceMaxShown);
+    int? MaintenanceMaxShown,
+    // opt-in only; unset renders one flat grid. "type" groups by each target's type, "custom" groups by each target's own "group" field (falling back to its type)
+    string? Group = null);
 
 public enum MonitorStatus
 {
@@ -54,3 +66,6 @@ public sealed record StatusApiResponse(List<ApiMonitorStatus> Monitors, List<Api
 
 // one calendar day's aggregate for the history bar
 public sealed record DailyStatus(DateOnly Day, MonitorStatus Status);
+
+// one calendar day's average response time for the latency chart; null when no heartbeat landed that day
+public sealed record DailyResponseTime(DateOnly Day, double? AvgResponseMs);

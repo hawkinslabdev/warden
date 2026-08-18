@@ -25,6 +25,12 @@ The status page is the site's root ("/") and isn't authored as Markdown — Ward
 
 `id` is a short slug you choose, it's the key each check is stored under, so keep it stable once you've started collecting history. This block is hot-reloaded like the rest of `config.json`: add, remove, or re-time a target and it takes effect on the next check cycle, no restart needed. Every heartbeat lands in a local SQLite database, no external monitoring backend to run or register with.
 
+A target defaults to `"type": "http"` (a plain GET, checking for a successful status code). Set `type` to reach for something else - `ping`, `tcp`, `dns`, `ssl` (certificate expiry), `ftp`, `sftp`, `database` (TCP reachability), or `service_backend` (an HTTP health check with a JSON body assertion via `expectedJsonPath`/`expectedValue`). Non-HTTP types take `host`/`port` instead of `url`:
+
+```json [content/config.json]
+{ "id": "db", "name": "Postgres", "type": "tcp", "host": "db.internal", "port": 5432 }
+```
+
 Now run Warden — see [Deployment](/deploy/) for Docker, Windows, Linux, or running from source. Once it's up, your status page is live with that target on it. That's the whole quickstart.
 
 ## Going further
@@ -119,20 +125,32 @@ Warden ships nine built-in themes. Naming one in `config.json` is the whole opt-
 
 Every theme adapts to a full light and dark palette, so the toggle behaves the same whichever you pick. The dark-sounding names are not dark-only: `signal-dark` has a paper-toned light mode that swaps its amber for bronze. An unrecognized name logs a warning and falls back to `default`. The value hot-reloads with the rest of `config.json`, and [environment variables](/deploy/environment/) can override it per deployment.
 
-`theme` picks the palette; page *structure* is a separate setting, so any theme can pair with any structure:
+`theme` picks the palette; page *structure* is a separate setting, so any theme can pair with either structure:
 
 ```json [content/config.json]
 {
   "theme": "ocean",
-  "structure": "editorial"
+  "structure": "dashboard"
 }
 ```
 
 | Name | Shape |
 |---|---|
-| `default` | Warden's own layout. |
-| `editorial` | Magazine shape: a more wide approach. |
-| `clean` | Text-only post list, centered navigation, and bold headings. |
+| `clean` | The default. A plain monitor list, full 90-day history bars, centered narrow column - same shape every other page on the site uses. |
+| `dashboard` | Monitors as a card grid (status dot, badge, uptime, response-time chart, history bar), a pinned "ongoing incidents" panel above the grid, and a wider column to fit it. Only the status page changes - every other page still renders like `clean`. |
+
+`dashboard` reads more like Upptime or Kener; pick it if you'd rather glance at a grid than scroll a list. Group its cards by monitor type with `monitoring.group`:
+
+```json [content/config.json]
+{
+  "structure": "dashboard",
+  "monitoring": {
+    "group": "type"
+  }
+}
+```
+
+Leaving `group` unset renders one flat grid, no section headings - useful when most of your targets share a type anyway. `"type"` is the only supported value today.
 
 To pin one mode instead of following the reader's system, add `dark` or `light` to the same value:
 

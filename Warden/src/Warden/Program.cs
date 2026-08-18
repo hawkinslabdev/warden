@@ -39,9 +39,24 @@ try
     builder.Services.AddSingleton(docsOptions);
 
     var monitoringOptions = builder.Configuration.GetSection("Monitoring").Get<MonitoringOptions>() ?? new MonitoringOptions();
+    // plain `DatabasePath` is a docker-compose-friendly alias for `Monitoring__DatabasePath`; wins over it when both are set
+    if (builder.Configuration["DatabasePath"] is { Length: > 0 } databasePathAlias)
+        monitoringOptions = monitoringOptions with { DatabasePath = databasePathAlias };
     builder.Services.AddSingleton(monitoringOptions);
     builder.Services.AddSingleton<HeartbeatStore>();
-    builder.Services.AddHttpClient(MonitorScheduler.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(10));
+    void ConfigureMonitorClient(HttpClient client)
+    {
+        client.Timeout = TimeSpan.FromSeconds(10);
+        // some origins (Forgejo instances, api.github.com, ...) 403 a bare User-Agent regardless of reachability - identify as a real client
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("Warden-Uptime-Monitor/1.0 (+https://github.com/melosso/warden)");
+    }
+    builder.Services.AddHttpClient(MonitorScheduler.HttpClientName, ConfigureMonitorClient);
+    // a target opts into this with "insecure": true for a self-signed/untrusted internal service; every other target keeps strict validation
+    builder.Services.AddHttpClient(MonitorScheduler.InsecureHttpClientName, ConfigureMonitorClient)
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        });
 
     var proxyOptions = builder.Configuration.GetSection("Proxy").Get<ProxyOptions>() ?? new ProxyOptions();
     builder.Services.Configure<ForwardedHeadersOptions>(options => ForwardedHeaderSetup.Configure(options, proxyOptions));

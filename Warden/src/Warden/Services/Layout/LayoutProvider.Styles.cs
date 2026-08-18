@@ -80,6 +80,72 @@ public static partial class LayoutProvider
             width: 18px;
             height: 18px;
         }}
+        .timezone-widget {{
+            position: relative;
+        }}
+        .timezone-toggle {{
+            position: relative;
+        }}
+        .timezone-toggle--overridden::before {{
+            content: ""!"";
+            position: absolute; top: 3px; right: 3px;
+            width: 12px; height: 12px; border-radius: 50%;
+            background: var(--alert-warning); color: var(--bg-color);
+            font: 700 9px/12px var(--font-sans); text-align: center;
+            box-shadow: 0 0 0 2px var(--bg-color);
+        }}
+        .timezone-dropdown {{
+            position: absolute; top: calc(100% + 6px); right: -0.5rem; width: min(260px, calc(100vw - 2rem));
+            background-color: var(--bg-color); border: 1px solid var(--border); border-radius: 8px;
+            box-shadow: var(--shadow-md); z-index: 1003; padding: 0.5rem;
+        }}
+        .timezone-search {{
+            width: 100%;
+            box-sizing: border-box;
+            padding: 0.45rem 0.6rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-color);
+            color: var(--text-color);
+            font-size: 0.85rem;
+        }}
+        .timezone-search:focus {{
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
+        }}
+        .timezone-options {{
+            max-height: 220px;
+            overflow-y: auto;
+            margin-top: 0.4rem;
+            display: flex;
+            flex-direction: column;
+        }}
+        .timezone-option {{
+            appearance: none; -webkit-appearance: none;
+            display: block;
+            width: 100%;
+            text-align: left;
+            font: inherit;
+            font-size: 0.85rem;
+            color: var(--text-color);
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            padding: 0.4rem 0.6rem;
+            cursor: pointer;
+        }}
+        .timezone-option:hover, .timezone-option:focus {{
+            background-color: var(--code-bg);
+            color: var(--accent);
+            outline: none;
+        }}
+        .timezone-option-tag {{
+            display: inline-block; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.04em;
+            text-transform: uppercase; color: var(--text-muted); margin-right: 0.4rem;
+        }}
+        .timezone-options-divider {{
+            height: 1px; background: var(--border); margin: 0.35rem 0;
+        }}
         .topbar {{
             display: flex; align-items: center; justify-content: space-between;
             height: var(--topbar-height); padding: 0 1.5rem;
@@ -348,9 +414,10 @@ public static partial class LayoutProvider
         }}
         /* The browser's own abbr tooltip never opens on touch and cannot be styled, so MarkdownService
            moves the expansion to data-tip and this bubble replaces it: hover on desktop, tap on touch.
-           Status ticks reuse the same [data-tip] bubble for their per-check detail; a tick is also a
-           link (filters the page to that day), so it gets a pointer cursor instead of abbr's help cursor. */
-        .prose abbr[data-tip], .status-tick[data-tip] {{
+           Status ticks and topbar icon buttons (e.g. the timezone toggle) reuse the same [data-tip]
+           bubble for their own detail; a tick is also a link (filters the page to that day), so it
+           gets a pointer cursor instead of abbr's help cursor. */
+        .prose abbr[data-tip], .status-tick[data-tip], .icon-btn[data-tip] {{
             position: relative;
             -webkit-tap-highlight-color: transparent;
         }}
@@ -359,13 +426,13 @@ public static partial class LayoutProvider
             text-decoration: underline dotted var(--text-muted);
             text-decoration-thickness: 1px; text-underline-offset: 0.2em;
         }}
-        .prose abbr[data-tip]:focus, .status-tick[data-tip]:focus {{
+        .prose abbr[data-tip]:focus, .status-tick[data-tip]:focus, .icon-btn[data-tip]:focus {{
             outline: none;
         }}
-        .prose abbr[data-tip]:focus-visible, .status-tick[data-tip]:focus-visible {{
+        .prose abbr[data-tip]:focus-visible, .status-tick[data-tip]:focus-visible, .icon-btn[data-tip]:focus-visible {{
             outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px;
         }}
-        .prose abbr[data-tip]::after, .status-tick[data-tip]::after {{
+        .prose abbr[data-tip]::after, .status-tick[data-tip]::after, .icon-btn[data-tip]::after {{
             content: attr(data-tip);
             position: absolute; left: 50%; bottom: calc(100% + 0.45rem);
             transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(0.2rem); z-index: 20;
@@ -379,12 +446,24 @@ public static partial class LayoutProvider
             opacity: 0; visibility: hidden; pointer-events: none;
             transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s;
         }}
+        /* topbar buttons sit at the very top of the viewport, so their bubble opens downward instead */
+        .icon-btn[data-tip]::after {{
+            bottom: auto; top: calc(100% + 0.45rem);
+            transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(-0.2rem);
+        }}
         .prose abbr[data-tip]:hover::after, .prose abbr[data-tip]:focus::after,
         .status-tick[data-tip]:hover::after, .status-tick[data-tip]:focus::after {{
             opacity: 1; visibility: visible; transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(0);
         }}
+        .icon-btn[data-tip]:hover::after, .icon-btn[data-tip]:focus::after {{
+            opacity: 1; visibility: visible; transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(0);
+        }}
+        /* an open dropdown panel sits right where the hover bubble would, so suppress the bubble while open */
+        .icon-btn[aria-expanded=""true""]::after {{
+            display: none;
+        }}
         @media (prefers-reduced-motion: reduce) {{
-            .prose abbr[data-tip]::after, .status-tick[data-tip]::after {{
+            .prose abbr[data-tip]::after, .status-tick[data-tip]::after, .icon-btn[data-tip]::after {{
                 transition: none;
             }}
         }}
@@ -1445,6 +1524,18 @@ public static partial class LayoutProvider
             margin: 0 0 2.75rem;
             padding-top: 0.5rem;
         }}
+        .page-header:has(.status-filter-clear--header) {{
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 1rem;
+        }}
+        .status-filter-clear--header {{
+            font-size: 0.85rem;
+            font-weight: 500;
+            white-space: nowrap;
+            flex: none;
+        }}
         .page-title {{
             font-family: var(--font-display);
             font-size: clamp(2rem, 1.2rem + 3.2vw, 3.1rem);
@@ -1473,7 +1564,7 @@ public static partial class LayoutProvider
         .status-group {{
             margin: 0 0 2.5rem;
         }}
-        .content .status-group-heading {{
+        .content.reading .status-group-heading {{
             font-family: var(--font-display);
             font-size: 1.1rem;
             font-weight: 600;
@@ -1532,11 +1623,15 @@ public static partial class LayoutProvider
             color: var(--text-muted);
             font-variant-numeric: tabular-nums;
         }}
-        .status-monitor-bar {{
+        .status-monitor-bar, .status-response-chart {{
             display: flex;
-            gap: 2px;
+            gap: 1px;
             width: 100%;
-            margin-top: 0.35rem;
+            margin-top: 0.15rem;
+        }}
+        .status-response-chart {{
+            align-items: flex-end;
+            height: 26px;
         }}
         .status-tick {{
             appearance: none; -webkit-appearance: none;
@@ -1544,15 +1639,21 @@ public static partial class LayoutProvider
             font: inherit; color: inherit;
             flex: 1 1 0;
             height: 22px;
-            min-width: 3px;
+            min-width: 1px;
             border: 0;
             border-radius: 2px;
             padding: 0;
             text-decoration: none;
+            box-shadow: 0 0 0 0 transparent;
+            transition: box-shadow 0.2s ease;
         }}
         .status-tick--up {{ background: var(--alert-tip); }}
         .status-tick--down {{ background: var(--alert-caution); }}
         .status-tick--unknown {{ background: var(--border); }}
+        .status-tick--active-day {{ position: relative; z-index: 1; box-shadow: 0 0 0 2px var(--accent); }}
+        @media (prefers-reduced-motion: reduce) {{
+            .status-tick {{ transition: none; }}
+        }}
         .content.reading .status-filter {{
             display: flex;
             align-items: center;
@@ -1564,7 +1665,7 @@ public static partial class LayoutProvider
         .status-filter-clear {{
             color: var(--accent);
         }}
-        .status-maintenance, .status-incidents {{
+        .status-maintenance, .status-incidents, .status-ongoing-incidents {{
             margin-top: 2.5rem;
         }}
         .content .status-no-incidents {{

@@ -2,6 +2,8 @@ using System.Net;
 using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Warden.Configuration;
 
 namespace Warden.Tests;
 
@@ -238,5 +240,36 @@ public sealed class RateLimitIntegrationTests
         }
 
         Assert.Equal(HttpStatusCode.TooManyRequests, lastStatus);
+    }
+}
+
+public sealed class DatabasePathAliasTests
+{
+    private sealed class DatabasePathAliasFactory(string databasePath) : WardenWebApplicationFactory
+    {
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            base.ConfigureWebHost(builder);
+            // top-level `DatabasePath` is the docker-compose-friendly alias for `Monitoring__DatabasePath`
+            builder.UseSetting("DatabasePath", databasePath);
+        }
+    }
+
+    [Fact]
+    public void FlatDatabasePathSetting_OverridesNestedMonitoringDefault()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"warden-alias-{Guid.NewGuid():N}.db");
+        try
+        {
+            using var factory = new DatabasePathAliasFactory(dbPath);
+            using var forceStart = factory.CreateClient();
+            Assert.Equal(dbPath, factory.Services.GetRequiredService<MonitoringOptions>().DatabasePath);
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            foreach (var path in new[] { dbPath, dbPath + "-wal", dbPath + "-shm" })
+                if (File.Exists(path)) File.Delete(path);
+        }
     }
 }

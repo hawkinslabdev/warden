@@ -36,5 +36,10 @@
   "statusMaintenanceActive": "Active",
   "statusMaintenanceEnded": "Completed",
   "statusMaintenanceEnds": "Ends",
-  "statusMaintenanceWindow": "{0} – {1}"
+  "statusMaintenanceWindow": "{0} – {1}",
+  "statusOngoingIncidentsHeading": "Ongoing incidents",
+  "statusOverallUptime": "{0}% uptime over the last {1} days",
+  "statusResponseTimeChartLabel": "Response time, last {0} days",
+  "statusTimezoneAriaLabel": "Change displayed timezone",
+  "statusTimezoneSearchPlaceholder": "Search timezone…"
 }

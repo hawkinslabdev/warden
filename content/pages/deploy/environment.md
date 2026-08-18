@@ -34,7 +34,7 @@ Proxy__Trusted__1=172.18.0.5
 
 ## Monitoring
 
-Warden checks its own targets, there's no separate backend to point it at. What to check, how often, and for how long is editorial content, so it lives in `content/config.json` instead of here, see the [guide](/guide/#1-tell-warden-what-to-watch) for the `monitoring` block. Only where the database file lives is a deployment concern:
+Warden will check the targets defined. That configuration is defined in `content/config.json` instead of here, see the [guide](/guide/#1-tell-warden-what-to-watch) for the `monitoring` block. Only where the database file lives is a deployment concern:
 
 ```json [appsettings.json]
 {
@@ -47,6 +47,7 @@ Warden checks its own targets, there's no separate backend to point it at. What 
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `Monitoring__DatabasePath` | `data/warden.db` | Where the SQLite heartbeat history lives, relative to the app unless rooted. |
+| `DatabasePath` | - | A flat alias for the same setting, easier to spell in a `docker-compose.yml` `environment:` block. Wins over `Monitoring__DatabasePath` when both are set. |
 
 ## Content
 

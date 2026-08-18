@@ -6,7 +6,7 @@
   "culture": "en-GB",
   "theme": "default",
   "structure": "clean",
-  "author": "Melosso",
+  "organization": "Melosso",
   "favicon": "🧿",
   "brandImage": "",
   "scrollIndicator": true,
@@ -20,7 +20,7 @@
     ]
   },
   "noIndex": { "pages": true },
-  "footer": "© {year} {author}. Built with [Warden](https://github.com/melosso/warden){target=\"_blank\" rel=\"noopener\"}.",
+  "footer": "Built with [Warden](https://github.com/melosso/warden){target=\"_blank\" rel=\"noopener\"}.",
   "menu": [
     { "title": "Status", "path": "/" },
     {

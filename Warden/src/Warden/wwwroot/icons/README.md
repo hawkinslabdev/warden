@@ -1,0 +1,1 @@
+Curated subset of [Simple Icons](https://simpleicons.org/) (MIT licensed), vendored locally so code-group/title-bar icons work without a runtime CDN dependency. Filenames match Simple Icons slugs. `CodeGroupIconOptions.BaseUrl` can be pointed elsewhere (e.g. the full CDN set) if a slug isn't here.

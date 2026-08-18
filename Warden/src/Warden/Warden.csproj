@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Warden.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Jint" />
+    <PackageReference Include="Markdig" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="TextMateSharp" />
+    <PackageReference Include="TextMateSharp.Grammars" />
+    <PackageReference Include="YamlDotNet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="../../../content/**/*" LinkBase="content" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources/Themes/*.json" />
+    <EmbeddedResource Include="wwwroot/js/katex.min.js" />
+  </ItemGroup>
+
+  <Target Name="CopyWwwrootToOutput" AfterTargets="AfterBuild">
+    <ItemGroup>
+      <_WwwrootFiles Include="wwwroot/**/*" Exclude="wwwroot/js/katex.min.js" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_WwwrootFiles)" DestinationFolder="$(TargetDir)wwwroot\%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+
+
+</Project>

@@ -1,0 +1,99 @@
+name: Build and Push As Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name (e.g. v1.3.2)'
+        required: true
+        type: string
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '11.0.x'
+
+    - name: Publish Warden (Windows x64)
+      working-directory: Warden
+      run: dotnet publish src/Warden/Warden.csproj -c Release -r win-x64 --self-contained false -o ${{ github.workspace }}/publish_win
+
+    - name: Publish Warden (Linux x64)
+      working-directory: Warden
+      run: dotnet publish src/Warden/Warden.csproj -c Release -r linux-x64 --self-contained false -o ${{ github.workspace }}/publish_lin
+
+    - name: Remove Debug Files
+      run: |
+        echo "Removing debug files..."
+        for dir in publish_win publish_lin; do
+          find ${{ github.workspace }}/$dir -type f -name "*.pdb" -delete
+        done
+
+    - name: Remove Language Files
+      run: |
+        echo "Removing language resource files..."
+        for dir in publish_win publish_lin; do
+          rm -rf ${{ github.workspace }}/$dir/{cs,de,es,fr,it,ja,ko,pl,pt-BR,ru,tr,zh-Hans,zh-Hant}
+        done
+
+    - name: Remove Meta Files
+      run: |
+        echo "Removing .gitignore files..."
+        for dir in publish_win publish_lin; do
+          find ${{ github.workspace }}/$dir -type f -name ".gitignore" -delete
+        done
+
+    - name: Add web.config (Windows only)
+      run: |
+        cat > ${{ github.workspace }}/publish_win/web.config <<'XML'
+        <?xml version="1.0" encoding="utf-8"?>
+        <configuration>
+          <location path="." inheritInChildApplications="false">
+            <system.webServer>
+              <handlers>
+                <add name="aspNetCore" path="*" verb="*" modules="AspNetCoreModuleV2" resourceType="Unspecified" />
+              </handlers>
+              <aspNetCore processPath="dotnet" arguments=".\Warden.dll" stdoutLogEnabled="false" stdoutLogFile=".\logs\stdout" hostingModel="inprocess" />
+            </system.webServer>
+          </location>
+          <system.webServer>
+            <httpProtocol>
+              <customHeaders>
+                <!-- Stop IIS from adding these headers, since Warden already adds them. So removing them here prevents duplicates. -->
+                <remove name="X-Powered-By" />
+                <remove name="X-Content-Type-Options" />
+                <remove name="X-Frame-Options" />
+                <remove name="Strict-Transport-Security" />
+                <remove name="Referrer-Policy" />
+                <remove name="Permissions-Policy" />
+                <remove name="Content-Security-Policy" />
+              </customHeaders>
+            </httpProtocol>
+          </system.webServer>
+        </configuration>
+        XML
+
+    - name: Create Release Artifacts
+      run: |
+        TAG=${{ github.event.inputs.tag_name }}
+        echo "$TAG" > ${{ github.workspace }}/publish_win/.version.txt
+        echo "$TAG" > ${{ github.workspace }}/publish_lin/.version.txt
+        cd ${{ github.workspace }}/publish_win && zip -r ../$TAG-Windows_x64.zip .
+        cd ${{ github.workspace }}/publish_lin && zip -r ../$TAG-Linux_x64.zip .
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.event.inputs.tag_name }}
+        files: |
+          ${{ github.event.inputs.tag_name }}-Windows_x64.zip
+          ${{ github.event.inputs.tag_name }}-Linux_x64.zip
+        generate_release_notes: true

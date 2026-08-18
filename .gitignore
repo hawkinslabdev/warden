@@ -1,0 +1,22 @@
+.env
+.*/
+*.md
+!/.github/
+!README.md
+!CONTRIBUTING.md
+!CONTRIBUTORS.md
+!CHANGELOG.md
+!content/**/*.md
+*.db
+*.db*
+[Bb]in/
+[Oo]bj/
+
+# Serilog rolling file sink output
+logs/
+
+# Self-collected uptime history (SQLite)
+Warden/src/Warden/data/
+
+# Local .dev overrides; a valid *.json.dev wins over the committed *.json at runtime
+*.json.dev

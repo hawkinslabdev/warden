@@ -1,0 +1,42 @@
+{
+  "title": "Warden",
+  "titleTemplate": ":title · Warden",
+  "description": "Uptime, downtime and outage reporting, published with Warden.",
+  "lang": "en",
+  "culture": "en-GB",
+  "theme": "default",
+  "structure": "clean",
+  "author": "Melosso",
+  "favicon": "🧿",
+  "brandImage": "",
+  "scrollIndicator": true,
+  "monitoring": {
+    "intervalSeconds": 60,
+    "retentionDays": 90,
+    "targets": [
+      { "id": "forgejo", "name": "Forgejo", "url": "https://forgejo.org" },
+      { "id": "fedora-magazine", "name": "Fedora Magazine", "url": "https://fedoramagazine.org/" },
+      { "id": "codeberg", "name": "Codeberg", "url": "https://codeberg.org" }
+    ]
+  },
+  "noIndex": { "pages": true },
+  "footer": "© {year} {author}. Built with [Warden](https://github.com/melosso/warden){target=\"_blank\" rel=\"noopener\"}.",
+  "menu": [
+    { "title": "Status", "path": "/" },
+    {
+      "title": "More",
+      "items": [
+        { "title": "About", "path": "/about/" },
+        { "title": "Guide", "path": "/guide/" },
+        { "title": "Deploy", "path": "/deploy/" }
+      ]
+    }
+  ],
+  "footerMenu": [
+    { "title": "Status API", "path": "/api/status" },
+    { "title": "Privacy", "path": "/privacy/" }    
+  ],
+  "socialLinks": [
+    { "icon": "github", "url": "https://github.com/melosso/warden", "title": "GitHub" }
+  ]
+}

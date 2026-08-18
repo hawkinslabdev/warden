@@ -55,13 +55,11 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./content:/app/content
+      - ./content:/app/content:ro,Z
+      - ./data:/app/data
     environment:
       PublicBaseUrl: https://status.example.com
       AllowedHosts: status.example.com
-    volumes:
-      - ./content:/app/content
-      - ./data:/app/data
 ```
 
 Your own `content/` folder (`.md` pages and `config.json`) mounts from the host, and so does `data/`, where the SQLite heartbeat history lives; without that volume, history resets on every container recreate. `PublicBaseUrl` is the origin you serve from. What to check lives in `content/config.json`, see [Configuring your site](#configuring-your-site). With that in place, bring it up:

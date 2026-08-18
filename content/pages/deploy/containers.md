@@ -15,7 +15,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./content:/app/content
+      - ./content:/app/content:ro,Z
 ```
 
 Mount `content/` so your pages stay editable from the host, then bring it up:

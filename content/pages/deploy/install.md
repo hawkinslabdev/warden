@@ -20,11 +20,13 @@ services:
       - "8080:8080"
     volumes:
       - ./content:/app/content
+      - ./data:/app/data
 ```
 
-Mount your own `content/` folder (`.md` files and an optional `config.json`), then bring it up:
+Mount your own `content/` folder (`.md` files and an optional `config.json`), and `data/` so the SQLite heartbeat history survives container recreates. Then bring it up:
 
 ```bash
+mkdir -p data
 docker compose up -d
 ```
 

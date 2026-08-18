@@ -16,11 +16,13 @@ services:
       - "8080:8080"
     volumes:
       - ./content:/app/content:ro,Z
+      - ./data:/app/data
 ```
 
-Mount `content/` so your pages stay editable from the host, then bring it up:
+Mount `content/` so your pages stay editable from the host, and `data/` so the SQLite heartbeat history survives container recreates. Then bring it up:
 
 ```bash
+mkdir -p data
 docker compose up -d
 ```
 

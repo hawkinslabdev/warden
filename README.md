@@ -65,6 +65,7 @@ services:
 Your own `content/` folder (`.md` pages and `config.json`) mounts from the host, and so does `data/`, where the SQLite heartbeat history lives; without that volume, history resets on every container recreate. `PublicBaseUrl` is the origin you serve from. What to check lives in `content/config.json`, see [Configuring your site](#configuring-your-site). With that in place, bring it up:
 
 ```bash
+mkdir -p data
 docker compose up -d
 ```
 

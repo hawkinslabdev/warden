@@ -45,6 +45,12 @@ public sealed class HeartbeatStore
     {
         var connection = new SqliteConnection(_connectionString);
         connection.Open();
+        // monitor checks now run concurrently (Parallel.ForEachAsync in MonitorScheduler), so
+        // Record() can be called from several threads at once; let SQLite wait out a busy writer
+        // instead of throwing SQLITE_BUSY immediately
+        using var pragma = connection.CreateCommand();
+        pragma.CommandText = "PRAGMA busy_timeout=5000;";
+        pragma.ExecuteNonQuery();
         return connection;
     }
 

@@ -3,7 +3,21 @@ using System.Text.Json.Serialization;
 namespace Warden.Models;
 
 // id is a short, stable, human-chosen slug, never an autoincrement int
-public sealed record MonitorTarget(string Id, string Name, string Url);
+// Type defaults to "http" so existing configs (no "type" field) keep working unchanged
+public sealed record MonitorTarget(
+    string Id,
+    string Name,
+    string? Url = null,
+    string Type = "http",
+    string? Host = null,
+    int? Port = null,
+    bool? Secure = null,
+    string? DbType = null,
+    string? ExpectedIp = null,
+    int? WarnDaysBefore = null,
+    string? ExpectedJsonPath = null,
+    string? ExpectedValue = null,
+    int? ExpectedStatus = null);
 
 // the "monitoring" block in content/config.json; hot-reloaded with the rest of the file
 public sealed record MonitoringConfig(

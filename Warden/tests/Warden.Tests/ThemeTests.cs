@@ -71,9 +71,9 @@ public sealed class StructureRegistryTests
     [Fact]
     public void OnlyDashboardUsesTheGroupedStatusLayout()
     {
-        Assert.False(StructureRegistry.Resolve("clean").UseGroupedStatusLayout);
-        Assert.False(StructureRegistry.Resolve("default").UseGroupedStatusLayout);
-        Assert.True(StructureRegistry.Resolve("dashboard").UseGroupedStatusLayout);
+        Assert.False(StructureRegistry.Resolve("clean").UseCardStatusLayout);
+        Assert.False(StructureRegistry.Resolve("default").UseCardStatusLayout);
+        Assert.True(StructureRegistry.Resolve("dashboard").UseCardStatusLayout);
     }
 
     [Fact]

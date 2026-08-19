@@ -15,13 +15,14 @@ public interface IWardenStructure
     string ComponentCss { get; }
 
     /// <summary>
-    /// True renders the status page as monitors grouped by type into a card grid with response-time
-    /// charts and a pinned ongoing-incidents panel; false (the default for every other structure) renders
-    /// the plain flat monitor list. The one deliberate exception to "page shape only, never markup" above:
-    /// a card grid is different DOM, not a CSS reskin of the list, so it can't be expressed as ComponentCss alone.
+    /// True renders monitors as a card grid with response-time charts; false (the default for every other
+    /// structure) renders the plain flat monitor list. Grouping is orthogonal - it comes from
+    /// <c>monitoring.group</c> and applies to both layouts. The one deliberate exception to "page shape only,
+    /// never markup" above: a card grid is different DOM, not a CSS reskin of the list, so it can't be
+    /// expressed as ComponentCss alone.
     /// </summary>
-    bool UseGroupedStatusLayout => false;
+    bool UseCardStatusLayout => false;
 
-    /// <summary>True renders the overall-uptime line and the pinned ongoing-incidents panel above the monitor list/grid. Defaults to following <see cref="UseGroupedStatusLayout"/>, so dashboard gets it for free; "default" overrides this to true while staying with the flat list.</summary>
-    bool ShowStatusHeader => UseGroupedStatusLayout;
+    /// <summary>True renders the overall-uptime line and the pinned ongoing-incidents panel above the monitor list/grid. Defaults to following <see cref="UseCardStatusLayout"/>, so dashboard gets it for free; "default" overrides this to true while staying with the flat list.</summary>
+    bool ShowStatusHeader => UseCardStatusLayout;
 }

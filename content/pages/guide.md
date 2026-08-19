@@ -143,18 +143,20 @@ Every theme adapts to a full light and dark palette, so the toggle behaves the s
 | `clean` | The default. A plain monitor list, full 90-day history bars, centered narrow column: the same shape every other page on the site uses. |
 | `dashboard` | Monitors as a card grid (status dot, badge, uptime, response-time chart, history bar), a pinned "ongoing incidents" panel above the grid, and a wider column to fit it. Only the status page changes; every other page still renders like `clean`. |
 
-`dashboard` reads more like Upptime or Kener. Pick it for a grid instead of a scrolling list. Group its cards by monitor type with `monitoring.group`:
+`dashboard` reads more like Upptime or Kener. Pick it for a grid instead of a scrolling list.
+
+Grouping is separate from the structure: `monitoring.group` sections the monitors under headings in whichever layout the structure renders, and leaving it unset never groups anything.
 
 ```json [content/config.json]
 {
-  "structure": "dashboard",
+  "structure": "clean",
   "monitoring": {
-    "group": "type"
+    "group": "custom"
   }
 }
 ```
 
-Leaving `group` unset renders one flat grid, no section headings, useful when most of your targets share a type anyway. `"type"` is the only supported value today.
+Leaving `group` unset renders one ungrouped list or grid, no section headings, useful when most of your targets share a type anyway. `"type"` groups by monitor type, `"custom"` by each target's own `group` field.
 
 To pin one mode instead of following the reader's system, add `dark` or `light` to the same value:
 

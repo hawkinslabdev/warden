@@ -2,7 +2,7 @@ namespace Warden.Services.Theming.Structures;
 
 /// <summary>
 /// Card-grid status page: monitors as cards (status dot, badge, uptime, response-time chart, 90-day
-/// history bar), optionally grouped by type via <c>monitoring.group</c>, with an ongoing-incidents
+/// history bar), optionally sectioned via <c>monitoring.group</c>, with an ongoing-incidents
 /// panel pinned above the grid and a wider content column to fit it. Every other page (About, Guide,
 /// incident detail) renders exactly like "clean" - this only changes the status page.
 /// </summary>
@@ -12,7 +12,7 @@ public sealed class DashboardStructure : IWardenStructure
 
     public string Label => "Dashboard";
 
-    public bool UseGroupedStatusLayout => true;
+    public bool UseCardStatusLayout => true;
 
     public string ComponentCss => """
                 .content .status-overall-uptime {

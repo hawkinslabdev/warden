@@ -85,17 +85,7 @@ internal static class StatusEndpoints
             AppendOngoingIncidents(sb, l, recentIncidents, basePath);
         }
 
-        if (structure.UseGroupedStatusLayout)
-        {
-            AppendMonitorGrid(sb, l, store, targets, statuses, basePath, monitoring?.Group);
-        }
-        else
-        {
-            sb.Append("<section class=\"status-group\"><ul class=\"status-monitor-list\">");
-            foreach (var target in targets)
-                sb.Append(BuildFlatMonitorItem(l, store, target, statuses[target.Id], basePath));
-            sb.Append("</ul></section>");
-        }
+        AppendMonitors(sb, l, store, targets, statuses, basePath, monitoring?.Group, structure.UseCardStatusLayout);
 
         if (filterDay is { } day)
             sb.Append("<p class=\"status-filter\"><span>").Append(LayoutProvider.HtmlEncode(l.StatusFilterShowing(DateFormatter.Current.Medium(day.ToDateTime(TimeOnly.MinValue)))))
@@ -108,7 +98,7 @@ internal static class StatusEndpoints
         return sb.ToString();
     }
 
-    // === flat list ("clean", and every other structure) - unchanged from before the dashboard structure existed ===
+    // === flat list item ("clean", "default", and every structure that is not the card grid) ===
     private static string BuildFlatMonitorItem(Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, string basePath)
     {
         var uptime = store.GetUptime(target.Id, UptimeWindow);
@@ -122,7 +112,7 @@ internal static class StatusEndpoints
         return sb.ToString();
     }
 
-    // === "dashboard" structure: card grid, optionally grouped by monitoring.group ===
+    // === status header (overall uptime + pinned ongoing incidents), on for "default" and "dashboard" ===
     private static void AppendOverallUptime(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets)
     {
         var percentages = targets
@@ -152,8 +142,9 @@ internal static class StatusEndpoints
     private static string TypeLabel(MonitorTarget target) =>
         TypeGroupLabels.TryGetValue(target.Type, out var known) ? known : target.Type;
 
-    // "type" groups by each target's own type; "custom" groups by its "group" field, falling back to the type label when unset
-    private static void AppendMonitorGrid(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, string basePath, string? groupBy)
+    // grouping is opt-in via monitoring.group and independent of the structure: "type" groups by each target's own
+    // type, "custom" by its "group" field (falling back to the type label), unset renders one ungrouped section
+    internal static void AppendMonitors(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, string basePath, string? groupBy, bool cards)
     {
         Func<MonitorTarget, string>? groupLabel = groupBy switch
         {
@@ -164,22 +155,28 @@ internal static class StatusEndpoints
 
         if (groupLabel is null)
         {
-            sb.Append("<section class=\"status-group\"><ul class=\"status-monitor-grid\">");
-            foreach (var target in targets)
-                AppendMonitorCard(sb, l, store, target, statuses[target.Id], basePath);
-            sb.Append("</ul></section>");
+            AppendMonitorSection(sb, l, store, targets, statuses, basePath, cards, heading: null);
             return;
         }
 
         foreach (var group in targets.GroupBy(groupLabel, StringComparer.OrdinalIgnoreCase))
+            AppendMonitorSection(sb, l, store, group, statuses, basePath, cards, group.Key);
+    }
+
+    private static void AppendMonitorSection(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IEnumerable<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, string basePath, bool cards, string? heading)
+    {
+        sb.Append("<section class=\"status-group\">");
+        if (heading is not null)
+            sb.Append("<h2 class=\"status-group-heading select-none\">").Append(LayoutProvider.HtmlEncode(heading)).Append("</h2>");
+        sb.Append(cards ? "<ul class=\"status-monitor-grid\">" : "<ul class=\"status-monitor-list\">");
+        foreach (var target in targets)
         {
-            sb.Append("<section class=\"status-group\"><h2 class=\"status-group-heading select-none\">")
-              .Append(LayoutProvider.HtmlEncode(group.Key)).Append("</h2>")
-              .Append("<ul class=\"status-monitor-grid\">");
-            foreach (var target in group)
+            if (cards)
                 AppendMonitorCard(sb, l, store, target, statuses[target.Id], basePath);
-            sb.Append("</ul></section>");
+            else
+                sb.Append(BuildFlatMonitorItem(l, store, target, statuses[target.Id], basePath));
         }
+        sb.Append("</ul></section>");
     }
 
     private static void AppendMonitorCard(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, string basePath)

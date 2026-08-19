@@ -97,7 +97,7 @@ A config using most of them at once:
 | --- | --- |
 | `intervalSeconds` | How often every target is checked. Default `60`. |
 | `retentionDays` | How long heartbeat history is kept before it's pruned. Default `30`. |
-| `group` | `"type"` sections the dashboard grid by monitor type, `"custom"` sections it by each target's own `group` field (falling back to its type when unset). Unset renders one flat grid. Has no effect on the `clean` structure. |
+| `group` | `"type"` sections monitors by type, `"custom"` sections them by each target's own `group` field (falling back to its type when unset). Unset renders one ungrouped list or grid. Works with every structure. |
 | `incidentWindowDays`, `incidentMaxShown` | How far back and how many resolved incidents show on the status page. Defaults `7` and `10`. |
 | `incidentUrlPattern` | `"year"` gives every incident a `/incidents/{year}/{slug}/` URL, `"year-month"` gives `/incidents/{year}/{month}/{slug}/`, both taken from the incident's own `date`, regardless of which folder the file lives in. Unset (default) uses the file's own path under `content/incidents/` as-is. |
 | `maintenanceWindowDays`, `maintenanceMaxShown` | How far ahead and how many upcoming maintenance windows show. Defaults `14` and `10`. |

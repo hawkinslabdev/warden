@@ -54,6 +54,10 @@ public sealed class DashboardStructure : IWardenStructure
                     background: color-mix(in srgb, var(--alert-caution) 4%, var(--bg-color));
                 }
                 .status-monitor-card--maintenance {
+                    border-color: color-mix(in srgb, var(--alert-note) 40%, var(--border));
+                    background: color-mix(in srgb, var(--alert-note) 4%, var(--bg-color));
+                }
+                .status-monitor-card--degraded {
                     border-color: color-mix(in srgb, var(--alert-warning) 40%, var(--border));
                     background: color-mix(in srgb, var(--alert-warning) 4%, var(--bg-color));
                 }
@@ -71,7 +75,8 @@ public sealed class DashboardStructure : IWardenStructure
                 }
                 .status-monitor-card--up .status-monitor-dot { background: var(--alert-tip); }
                 .status-monitor-card--down .status-monitor-dot { background: var(--alert-caution); }
-                .status-monitor-card--maintenance .status-monitor-dot { background: var(--alert-warning); }
+                .status-monitor-card--maintenance .status-monitor-dot { background: var(--alert-note); }
+                .status-monitor-card--degraded .status-monitor-dot { background: var(--alert-warning); }
                 .status-monitor-card .status-monitor-name {
                     min-width: 0;
                     overflow: hidden;
@@ -94,6 +99,10 @@ public sealed class DashboardStructure : IWardenStructure
                     color: var(--text-muted);
                 }
                 .status-monitor-card--maintenance .status-monitor-badge {
+                    background: color-mix(in srgb, var(--alert-note) 18%, transparent);
+                    color: var(--alert-note);
+                }
+                .status-monitor-card--degraded .status-monitor-badge {
                     background: color-mix(in srgb, var(--alert-warning) 18%, transparent);
                     color: var(--alert-warning);
                 }

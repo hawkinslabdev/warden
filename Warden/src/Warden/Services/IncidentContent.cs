@@ -73,26 +73,36 @@ internal static class IncidentContent
     // same idea, for an unresolved incident's `monitors:` list; a declared incident is more authoritative than
     // the raw heartbeat (it covers what a simple up/down ping can't, like "API responses degraded"), so this
     // wins over both the heartbeat and an active maintenance window on the same monitor - see StatusOverride
-    public static HashSet<string> ActiveIncidentMonitorIds(IReadOnlyList<DocumentationPage> pages)
+    public static Dictionary<string, MonitorStatus> ActiveIncidentMonitorIds(IReadOnlyList<DocumentationPage> pages)
     {
-        var ids = new HashSet<string>(StringComparer.Ordinal);
+        var ids = new Dictionary<string, MonitorStatus>(StringComparer.Ordinal);
         foreach (var page in InFolder(pages, maintenance: false))
         {
             if (page.Monitors is not { Count: > 0 } monitors || page.End is not null)
                 continue;
+            var status = IncidentStatus(page);
             foreach (var id in monitors)
-                ids.Add(id);
+                // two open incidents on one monitor: the harsher one wins, so a degraded note can never soften a real outage
+                if (!ids.TryGetValue(id, out var existing) || existing != MonitorStatus.Down)
+                    ids[id] = status;
         }
         return ids;
     }
 
+    // only "degraded" is recognised; anything else (including unset) keeps the historical meaning, a full outage
+    public static MonitorStatus IncidentStatus(DocumentationPage page) =>
+        string.Equals(page.Status, "degraded", StringComparison.OrdinalIgnoreCase) ? MonitorStatus.Degraded : MonitorStatus.Down;
+
     // precedence: an active incident beats an active maintenance window beats the real heartbeat
-    public static MonitorStatus? StatusOverride(string monitorId, HashSet<string> incidentMonitorIds, HashSet<string> maintenanceMonitorIds) =>
-        incidentMonitorIds.Contains(monitorId) ? MonitorStatus.Down
+    public static MonitorStatus? StatusOverride(string monitorId, IReadOnlyDictionary<string, MonitorStatus> incidentMonitorIds, HashSet<string> maintenanceMonitorIds) =>
+        incidentMonitorIds.TryGetValue(monitorId, out var declared) ? declared
         : maintenanceMonitorIds.Contains(monitorId) ? MonitorStatus.Maintenance
         : null;
 
-    public static string IncidentBadgeClass(DocumentationPage page) => page.End is null ? "down" : "resolved";
+    public static string IncidentBadgeClass(DocumentationPage page) =>
+        page.End is not null ? "resolved"
+        : IncidentStatus(page) == MonitorStatus.Degraded ? "degraded"
+        : "down";
 
     public static string MaintenanceBadgeClass(DocumentationPage page, DateTimeOffset now)
     {

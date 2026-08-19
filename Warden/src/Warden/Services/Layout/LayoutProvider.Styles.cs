@@ -1628,6 +1628,10 @@ public static partial class LayoutProvider
             color: var(--text-muted);
         }}
         .status-monitor--maintenance .status-monitor-badge {{
+            background: color-mix(in srgb, var(--alert-note) 18%, transparent);
+            color: var(--alert-note);
+        }}
+        .status-monitor--degraded .status-monitor-badge {{
             background: color-mix(in srgb, var(--alert-warning) 18%, transparent);
             color: var(--alert-warning);
         }}
@@ -1663,6 +1667,7 @@ public static partial class LayoutProvider
         .status-tick--up {{ background: var(--alert-tip); }}
         .status-tick--down {{ background: var(--alert-caution); }}
         .status-tick--unknown {{ background: var(--border); }}
+        .status-tick--degraded {{ background: var(--alert-warning); }}
         .status-tick--active-day {{ position: relative; z-index: 1; box-shadow: 0 0 0 2px var(--accent); }}
         @media (prefers-reduced-motion: reduce) {{
             .status-tick {{ transition: none; }}
@@ -1722,8 +1727,12 @@ public static partial class LayoutProvider
             color: var(--alert-caution);
             font-weight: 600;
         }}
-        .status-maintenance-badge--active {{
+        .status-incident-badge--degraded {{
             color: var(--alert-warning);
+            font-weight: 600;
+        }}
+        .status-maintenance-badge--active {{
+            color: var(--alert-note);
             font-weight: 600;
         }}
         .status-incident-badge--resolved, .status-maintenance-badge--planned, .status-maintenance-badge--ended {{

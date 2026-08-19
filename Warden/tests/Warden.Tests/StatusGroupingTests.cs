@@ -67,6 +67,37 @@ public sealed class StatusGroupingTests : IDisposable
         Assert.Equal(1, html.Split("<section class=\"status-group\">").Length - 1);
     }
 
+    // a fresh deployment holds minutes of history; neither label may dress that up as 90 days
+    [Fact]
+    public void UptimeLabelsReportTheHistoryThatActuallyExists()
+    {
+        _store.Record("blog", DateTimeOffset.UtcNow, up: true, responseMs: 12);
+
+        var flat = Render(null, cards: false);
+        Assert.Contains("100% uptime (1 min)", flat);
+        Assert.DoesNotContain("uptime (1m)", flat);
+
+        var sb = new System.Text.StringBuilder();
+        StatusEndpoints.AppendOverallUptime(sb, Localization.Current, _store, Targets);
+        Assert.Contains("100% uptime over the last 1 min", sb.ToString());
+        Assert.DoesNotContain("90 days", sb.ToString());
+    }
+
+    // a degraded monitor must not borrow the Down badge, in either layout
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DegradedRendersItsOwnBadge(bool cards)
+    {
+        var sb = new System.Text.StringBuilder();
+        var statuses = Targets.ToDictionary(t => t.Id, t => t.Id == "s3" ? MonitorStatus.Degraded : MonitorStatus.Up);
+        StatusEndpoints.AppendMonitors(sb, Localization.Current, _store, Targets, statuses, "", null, cards);
+
+        var html = sb.ToString();
+        Assert.Contains("--degraded", html);
+        Assert.Contains(">Degraded<", html);
+    }
+
     [Fact]
     public void LayoutFollowsStructureIndependentlyOfGrouping()
     {

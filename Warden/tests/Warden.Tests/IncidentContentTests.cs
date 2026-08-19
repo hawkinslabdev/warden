@@ -5,8 +5,8 @@ namespace Warden.Tests;
 
 public sealed class IncidentContentTests
 {
-    private static DocumentationPage Page(string relativePath, DateTime start, bool maintenance = false, DateTime? end = null, IReadOnlyList<string>? monitors = null) =>
-        new("incidents/x", "Title", "<p>body</p>", OriginalRelativePath: relativePath, Date: start, Maintenance: maintenance, End: end, Monitors: monitors);
+    private static DocumentationPage Page(string relativePath, DateTime start, bool maintenance = false, DateTime? end = null, IReadOnlyList<string>? monitors = null, string? status = null) =>
+        new("incidents/x", "Title", "<p>body</p>", OriginalRelativePath: relativePath, Date: start, Maintenance: maintenance, End: end, Monitors: monitors, Status: status);
 
     [Fact]
     public void RecentIncidents_IncludesOngoingRegardlessOfWindowButAgesOutResolved()
@@ -143,16 +143,37 @@ public sealed class IncidentContentTests
 
         var ids = IncidentContent.ActiveIncidentMonitorIds(pages);
 
-        Assert.Equal(new HashSet<string> { "forgejo" }, ids);
+        Assert.Equal(new Dictionary<string, MonitorStatus> { ["forgejo"] = MonitorStatus.Down }, ids);
+    }
+
+    // "API responses degraded" is not an outage: the probe keeps passing, so the badge must say so instead of claiming Down
+    [Fact]
+    public void ActiveIncidentMonitorIds_HonoursDegradedStatusAndKeepsTheHarsherOneOnOverlap()
+    {
+        var now = DateTime.UtcNow;
+        var pages = new[]
+        {
+            Page("incidents/slow.md", now.AddHours(-1), monitors: ["forgejo"], status: "Degraded"),
+            Page("incidents/typo.md", now.AddHours(-1), monitors: ["codeberg"], status: "not-a-status"),
+            Page("incidents/both-a.md", now.AddHours(-2), monitors: ["blog"], status: "degraded"),
+            Page("incidents/both-b.md", now.AddHours(-1), monitors: ["blog"]),
+        };
+
+        var ids = IncidentContent.ActiveIncidentMonitorIds(pages);
+
+        Assert.Equal(MonitorStatus.Degraded, ids["forgejo"]);
+        Assert.Equal(MonitorStatus.Down, ids["codeberg"]);
+        Assert.Equal(MonitorStatus.Down, ids["blog"]);
     }
 
     [Fact]
     public void StatusOverride_IncidentBeatsMaintenanceBeatsNull()
     {
-        var incidentIds = new HashSet<string> { "forgejo" };
-        var maintenanceIds = new HashSet<string> { "forgejo", "codeberg" };
+        var incidentIds = new Dictionary<string, MonitorStatus> { ["forgejo"] = MonitorStatus.Down, ["blog"] = MonitorStatus.Degraded };
+        var maintenanceIds = new HashSet<string> { "forgejo", "blog", "codeberg" };
 
         Assert.Equal(MonitorStatus.Down, IncidentContent.StatusOverride("forgejo", incidentIds, maintenanceIds));
+        Assert.Equal(MonitorStatus.Degraded, IncidentContent.StatusOverride("blog", incidentIds, maintenanceIds));
         Assert.Equal(MonitorStatus.Maintenance, IncidentContent.StatusOverride("codeberg", incidentIds, maintenanceIds));
         Assert.Null(IncidentContent.StatusOverride("fedora-magazine", incidentIds, maintenanceIds));
     }

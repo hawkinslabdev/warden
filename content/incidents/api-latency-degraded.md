@@ -2,6 +2,7 @@
 title: API responses degraded
 date: 2026-08-18T07:20:00Z
 monitors: [forgejo]
+status: degraded
 description: Some API requests are timing out. We're investigating.
 ---
 

@@ -63,6 +63,10 @@ public sealed record FrontMatter
     /// <summary>Alias for Date: "start" reads more naturally than "date" on an incident/maintenance file.</summary>
     public DateTime? Start { get; init; }
 
+    /// <summary>content/incidents/ incidents only: <c>degraded</c> marks the monitors in <see cref="Monitors"/>
+    /// impaired rather than down while this incident is open. Anything else (including unset) means down.</summary>
+    public string? Status { get; init; }
+
     /// <summary>content/incidents/ maintenance: true only: monitor ids this window covers; while active, those monitors show a Maintenance badge instead of Up/Down.</summary>
     public List<string>? Monitors { get; init; }
 }

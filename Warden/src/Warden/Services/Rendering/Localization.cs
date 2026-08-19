@@ -38,10 +38,12 @@ public sealed class Localization
         ["statusDown"] = "Down",
         ["statusUnknown"] = "Unknown",
         ["statusMonitorMaintenance"] = "Maintenance",
+        ["statusDegraded"] = "Degraded",
         ["statusUptimeLabel"] = "{0}% uptime ({1})",
         ["statusIncidentsHeading"] = "Incidents",
         ["statusNoIncidents"] = "No incidents.",
         ["statusDownSince"] = "Down since {0}",
+        ["statusDegradedSince"] = "Degraded since {0}",
         ["statusOutagePeriod"] = "Down {0} – {1}",
         ["statusResolved"] = "Resolved",
         ["statusIncidentEnded"] = "Ended",
@@ -58,7 +60,7 @@ public sealed class Localization
         ["statusMaintenanceEnds"] = "Ends",
         ["statusMaintenanceWindow"] = "{0} – {1}",
         ["statusOngoingIncidentsHeading"] = "Ongoing incidents",
-        ["statusOverallUptime"] = "{0}% uptime over the last {1} days",
+        ["statusOverallUptime"] = "{0}% uptime over the last {1}",
         ["statusResponseTimeChartLabel"] = "Response time, last {0} days",
         ["statusTimezoneAriaLabel"] = "Change displayed timezone",
         ["statusTimezoneSearchPlaceholder"] = "Search timezone…",
@@ -116,10 +118,12 @@ public sealed class Localization
     public string StatusDown => this["statusDown"];
     public string StatusUnknown => this["statusUnknown"];
     public string StatusMonitorMaintenance => this["statusMonitorMaintenance"];
+    public string StatusDegraded => this["statusDegraded"];
     public string StatusUptimeLabel(double uptimePercent, string windowLabel) => Format("statusUptimeLabel", uptimePercent.ToString("0.##", CultureInfo.InvariantCulture), windowLabel);
     public string StatusIncidentsHeading => this["statusIncidentsHeading"];
     public string StatusNoIncidents => this["statusNoIncidents"];
     public string StatusDownSince(string when) => Format("statusDownSince", when);
+    public string StatusDegradedSince(string when) => Format("statusDegradedSince", when);
     public string StatusOutagePeriod(string start, string end) => Format("statusOutagePeriod", start, end);
     public string StatusResolved => this["statusResolved"];
     public string StatusIncidentEnded => this["statusIncidentEnded"];
@@ -136,7 +140,7 @@ public sealed class Localization
     public string StatusMaintenanceEnds => this["statusMaintenanceEnds"];
     public string StatusMaintenanceWindow(string start, string end) => Format("statusMaintenanceWindow", start, end);
     public string StatusOngoingIncidentsHeading => this["statusOngoingIncidentsHeading"];
-    public string StatusOverallUptime(double uptimePercent, int days) => Format("statusOverallUptime", uptimePercent.ToString("0.##", CultureInfo.InvariantCulture), days);
+    public string StatusOverallUptime(double uptimePercent, string windowLabel) => Format("statusOverallUptime", uptimePercent.ToString("0.##", CultureInfo.InvariantCulture), windowLabel);
     public string StatusResponseTimeChartLabel(int days) => Format("statusResponseTimeChartLabel", days);
     public string StatusTimezoneAriaLabel => this["statusTimezoneAriaLabel"];
     public string StatusTimezoneSearchPlaceholder => this["statusTimezoneSearchPlaceholder"];

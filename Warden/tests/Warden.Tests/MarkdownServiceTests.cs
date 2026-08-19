@@ -413,4 +413,15 @@ $$
         Assert.Equal("hello world", MarkdownService.ToPlainText("**hello** world"));
     }
 
+    // the whole degraded feature hangs off this one YAML key reaching the parse result
+    [Theory]
+    [InlineData("status: degraded", "degraded")]
+    [InlineData("", null)]
+    public void Parse_ReadsIncidentStatusFromFrontMatter(string line, string? expected)
+    {
+        var md = $"---\ntitle: API slow\nmonitors: [forgejo]\n{line}\n---\n\nBody.\n";
+
+        Assert.Equal(expected, _service.Parse(md).Status);
+    }
+
 }

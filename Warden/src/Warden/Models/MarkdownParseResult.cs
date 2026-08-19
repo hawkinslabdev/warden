@@ -20,7 +20,8 @@ public sealed record MarkdownParseResult(
     bool NoIndex = false,
     bool Maintenance = false,
     DateTime? End = null,
-    IReadOnlyList<string>? Monitors = null)
+    IReadOnlyList<string>? Monitors = null,
+    string? Status = null)
 {
     public void Deconstruct(out string html, out string? title, out string? description, out List<HeadingInfo> headings)
     {

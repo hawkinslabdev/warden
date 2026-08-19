@@ -47,6 +47,7 @@ internal static class ApiEndpoints
             {
                 MonitorStatus.Down => "down",
                 MonitorStatus.Maintenance => "maintenance",
+                MonitorStatus.Degraded => "degraded",
                 _ => latest is null ? "unknown" : latest.Data.Up ? "up" : "down",
             };
             var uptime = store.GetUptime(t.Id, UptimeWindow);

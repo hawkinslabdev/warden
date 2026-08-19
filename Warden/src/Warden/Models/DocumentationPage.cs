@@ -22,7 +22,8 @@ public sealed record DocumentationPage(
     bool NoIndex = false,
     bool Maintenance = false,
     DateTime? End = null,
-    IReadOnlyList<string>? Monitors = null
+    IReadOnlyList<string>? Monitors = null,
+    string? Status = null
 )
 {
     public DocumentationPage(

@@ -59,6 +59,16 @@ Your writing begins here.
 
 **Incidents and maintenance**
 
-Files under `content/incidents/*.md` use a few extra fields of their own: `maintenance`, `end`, `start` (an alias for `date`), and `monitors`. See the guide's [Incidents and maintenance](/guide/#incidents-and-maintenance) section for how they link to a monitor.
+Files under `content/incidents/*.md` use a few extra fields of their own:
+
+| Field | Description |
+| --- | --- |
+| `start` | When the incident or window began. An alias for `date`; either key works. |
+| `end` | When it ended. On an incident, its presence is what marks it resolved; a maintenance window needs it to render at all. |
+| `maintenance` | Set to `true` to make the file a planned maintenance window instead of an incident. |
+| `monitors` | The monitor ids this covers, e.g. `monitors: [forgejo]`. A single id on its own also works. |
+| `status` | Incidents only. Set to `degraded` to badge the linked monitors Degraded rather than Down, for a service that answers but poorly. Anything else, including unset, means down. |
+
+See the guide's [Incidents and maintenance](/guide/#incidents-and-maintenance) section for how they link to a monitor.
 
 Changes here hot-reload, so a field is easy to try and adjust while you write.

@@ -69,11 +69,20 @@ description: Forgejo may be briefly unreachable during the upgrade.
 We're upgrading the database behind Forgejo. Expect brief interruptions.
 ```
 
-`start` is the start (`date` also works, same field). `maintenance: true` marks it a maintenance window instead of an incident; omit it (or set `false`) for an incident. A maintenance window needs both `start` and `end`, shows as **Planned** before `start` and **Active** between `start` and `end`, and drops off the status page once `end` passes. An incident only needs `start`, stays badged **Down** while unresolved, and switches to **Resolved** the moment you add `end`. Either way, it keeps showing under **Incidents** for a while, then ages out, and always stays published at its own URL.
+Property `start` is the start (`date` also works, same field). `maintenance: true` marks it a maintenance window instead of an incident; omit it (or set `false`) for an incident. A maintenance window needs both `start` and `end`, shows as **Planned** before `start` and **Active** between `start` and `end`, and drops off the status page once `end` passes. An incident only needs `start`, stays badged **Down** while unresolved, and switches to **Resolved** the moment you add `end`. Add `status: degraded` for an incident that impairs a service without taking it offline. Either way, it keeps showing under **Incidents** for a while, then ages out, and always stays published at its own URL.
 
 The URL comes straight from the file path, so `content/incidents/database-upgrade.md` is `/incidents/database-upgrade/`. Nest incidents under a year or a year and month by putting the file deeper, e.g. `content/incidents/2026/database-upgrade.md` for `/incidents/2026/database-upgrade/`; no setting to turn on, they're still found and listed the same way.
 
-`monitors: [forgejo]` (a single id also works, e.g. `monitors: forgejo`) links a window to one or more monitor ids from `content/config.json`, on either an incident or a maintenance window. A linked maintenance window shows that monitor with a **Maintenance** badge instead of Up/Down, and leaves it out of the "some systems are experiencing issues" banner. A linked, unresolved incident shows that monitor as **Down** regardless of what the automated check says. That's useful for a real problem the heartbeat's simple up/down ping can't see, like slow or partially-failing responses. When both are active on the same monitor, the incident takes priority.
+The property `monitors: [forgejo]` (a single id also works, e.g. `monitors: forgejo`) links a window to one or more monitor ids from `content/config.json`, on either an incident or a maintenance window. A linked maintenance window shows that monitor with a **Maintenance** badge instead of Up/Down, and leaves it out of the "some systems are experiencing issues" banner. A linked, unresolved incident shows that monitor as **Down** regardless of what the automated check says — or **Degraded** when the incident sets `status: degraded`. That's useful for a real problem the heartbeat's simple up/down ping can't see, like slow or partially-failing responses: the probe keeps succeeding, so uptime stays a measured number while the badge tells the real story. `degraded` is the only recognised value; anything else means down. When both an incident and a maintenance window are active on the same monitor, the incident takes priority, and two open incidents on one monitor settle on the harsher of the two.
+
+```md [content/incidents/api-latency.md]
+---
+title: API responses degraded
+start: 2026-08-18T07:20:00Z
+monitors: [forgejo]
+status: degraded
+---
+```
 
 By default the status page shows unresolved incidents plus anything resolved in the last 7 days, and maintenance windows starting within the next 14 days, capped at 10 items each. Older items are still reachable by clicking their day on a monitor's history bar. Tune all of this in `content/config.json`:
 

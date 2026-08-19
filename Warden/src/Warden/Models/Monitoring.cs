@@ -50,6 +50,8 @@ public enum MonitorStatus
     Down = 2,
     // linked via `monitors:` on an active content/incidents/*.md maintenance window; overrides Up/Down and is excluded from the "some systems down" banner
     Maintenance = 3,
+    // an active incident declaring `status: degraded`: reachable but impaired, so the probe keeps passing and uptime stays honest while the badge says otherwise
+    Degraded = 4,
 }
 
 // the json payload stored in a heartbeat row's "data" column

@@ -66,7 +66,7 @@ internal static class StatusEndpoints
         var incidentMonitorIds = IncidentContent.ActiveIncidentMonitorIds(pages);
         var maintainedIds = IncidentContent.ActiveMaintenanceMonitorIds(pages, DateTimeOffset.UtcNow);
         var statuses = targets.ToDictionary(t => t.Id, t => IncidentContent.StatusOverride(t.Id, incidentMonitorIds, maintainedIds) ?? LatestStatus(store, t.Id));
-        var anyDown = statuses.Values.Any(s => s == MonitorStatus.Down);
+        var anyDown = statuses.Values.Any(s => s is MonitorStatus.Down or MonitorStatus.Degraded);
 
         var recentIncidents = filterDay is null
             ? IncidentContent.RecentIncidents(pages, DateTimeOffset.UtcNow, monitoring?.IncidentWindowDays ?? IncidentContent.DefaultIncidentWindowDays, monitoring?.IncidentMaxShown ?? IncidentContent.DefaultIncidentMaxShown)
@@ -98,7 +98,7 @@ internal static class StatusEndpoints
         return sb.ToString();
     }
 
-    // === flat list item ("clean", "default", and every structure that is not the card grid) ===
+    // fflat list item ("clean", "default", and every structure that is not the card grid)
     private static string BuildFlatMonitorItem(Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, string basePath)
     {
         var uptime = store.GetUptime(target.Id, UptimeWindow);
@@ -112,18 +112,21 @@ internal static class StatusEndpoints
         return sb.ToString();
     }
 
-    // === status header (overall uptime + pinned ongoing incidents), on for "default" and "dashboard" ===
-    private static void AppendOverallUptime(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets)
+    // status header (overall uptime + pinned ongoing incidents), on for "default" and "dashboard"
+    internal static void AppendOverallUptime(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets)
     {
-        var percentages = targets
-            .Select(t => store.GetUptime(t.Id, TimeSpan.FromDays(HistoryDays))?.Percent)
-            .Where(p => p is not null)
-            .Select(p => p!.Value)
+        var measured = targets
+            .Select(t => store.GetUptime(t.Id, TimeSpan.FromDays(HistoryDays)))
+            .Where(u => u is not null)
+            .Select(u => u!.Value)
             .ToList();
-        if (percentages.Count == 0) return;
+        if (measured.Count == 0) return;
 
+        // the window is however much history actually exists, not the 90 days we asked for - a fresh
+        // deployment with a minute of heartbeats must not advertise "100% over the last 90 days"
+        var span = measured.Max(u => u.Span);
         sb.Append("<p class=\"status-overall-uptime select-none\">")
-          .Append(LayoutProvider.HtmlEncode(l.StatusOverallUptime(percentages.Average(), HistoryDays)))
+          .Append(LayoutProvider.HtmlEncode(l.StatusOverallUptime(measured.Average(u => u.Percent), FormatDuration(span))))
           .Append("</p>");
     }
 
@@ -239,14 +242,17 @@ internal static class StatusEndpoints
     {
         var resolved = page.End is not null;
         var badgeClass = IncidentContent.IncidentBadgeClass(page);
+        var degraded = IncidentContent.IncidentStatus(page) == MonitorStatus.Degraded;
         var content = resolved
             ? l.StatusOutagePeriod(IncidentContent.TimeHtml(IncidentContent.StartOf(page)), IncidentContent.TimeHtml(IncidentContent.EndOf(page)!.Value))
-            : l.StatusDownSince(IncidentContent.TimeHtml(IncidentContent.StartOf(page)));
+            : degraded
+                ? l.StatusDegradedSince(IncidentContent.TimeHtml(IncidentContent.StartOf(page)))
+                : l.StatusDownSince(IncidentContent.TimeHtml(IncidentContent.StartOf(page)));
         sb.Append("<article class=\"status-incident\"><div class=\"status-incident-head\"><h3 class=\"status-incident-title\"><a href=\"")
           .Append(UrlPaths.Href(basePath, page.Path)).Append("\">")
           .Append(LayoutProvider.HtmlEncode(page.Title)).Append("</a></h3>")
           .Append("<span class=\"status-incident-badge status-incident-badge--").Append(badgeClass).Append("\">")
-          .Append(LayoutProvider.HtmlEncode(resolved ? l.StatusResolved : l.StatusDown)).Append("</span>")
+          .Append(LayoutProvider.HtmlEncode(resolved ? l.StatusResolved : degraded ? l.StatusDegraded : l.StatusDown)).Append("</span>")
           .Append("</div><div class=\"status-incident-content\">")
           .Append(content)
           .Append("</div></article>");
@@ -289,7 +295,8 @@ internal static class StatusEndpoints
     {
         { TotalDays: >= 1 } => $"{(int)span.TotalDays}d",
         { TotalHours: >= 1 } => $"{(int)span.TotalHours}h",
-        _ => $"{Math.Max(1, (int)span.TotalMinutes)}m",
+        // "min", never "m": a bare "m" next to "d"/"h" reads as months to half the people who see it
+        _ => $"{Math.Max(1, (int)span.TotalMinutes)} min",
     };
 
     // one tick per calendar day, links to ?on=<day>; the dashboard card grid passes a shorter window than the flat list's HistoryDays, since 90 ticks reads as noise at card width
@@ -321,6 +328,7 @@ internal static class StatusEndpoints
         MonitorStatus.Up => "up",
         MonitorStatus.Down => "down",
         MonitorStatus.Maintenance => "maintenance",
+        MonitorStatus.Degraded => "degraded",
         _ => "unknown",
     };
 
@@ -329,6 +337,7 @@ internal static class StatusEndpoints
         MonitorStatus.Up => l.StatusOperational,
         MonitorStatus.Down => l.StatusDown,
         MonitorStatus.Maintenance => l.StatusMonitorMaintenance,
+        MonitorStatus.Degraded => l.StatusDegraded,
         _ => l.StatusUnknown,
     };
 }

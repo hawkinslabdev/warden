@@ -139,7 +139,8 @@ public sealed partial class MarkdownService
             frontMatter?.NoIndex ?? false,
             frontMatter?.Maintenance ?? false,
             frontMatter?.End,
-            frontMatter?.Monitors is { Count: > 0 } mons ? mons.AsReadOnly() : null);
+            frontMatter?.Monitors is { Count: > 0 } mons ? mons.AsReadOnly() : null,
+            frontMatter?.Status);
     }
 
     private static string AddHeadingAnchors(string html) =>

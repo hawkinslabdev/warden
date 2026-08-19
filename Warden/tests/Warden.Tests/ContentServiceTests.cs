@@ -260,4 +260,16 @@ public sealed class ContentServiceTests : IDisposable
         Assert.NotNull(await _service.GetPageAsync("incidents/outage"));
     }
 
+    [Fact]
+    public async Task StartAsync_KeepsConfigWhenNumbersAreQuoted()
+    {
+        await CreateTestFiles();
+        await File.WriteAllTextAsync(Path.Combine(_tempDir, "config.json"),
+            """{"title":"Warden","monitoring":{"targets":[{"id":"s3","name":"S3","url":"https://s3.example","type":"service_backend","expectedStatus":"403"}]}}""");
+        await _service.StartAsync(CancellationToken.None);
+
+        var target = Assert.Single(_service.SiteConfig!.Monitoring!.Targets!);
+        Assert.Equal(403, target.ExpectedStatus);
+    }
+
 }

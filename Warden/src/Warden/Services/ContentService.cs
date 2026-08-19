@@ -243,7 +243,7 @@ public sealed partial class ContentService : IHostedService, IDisposable
             return;
         }
 
-        var config = LoadConfig(docsPath);
+        var config = LoadConfig(docsPath, _logger);
 
         DateFormatter.Current = DateFormatter.From(Config.ResolveLocale(config));
         Localization.Current = Localization.From(docsPath, config, _logger);
@@ -350,13 +350,13 @@ public sealed partial class ContentService : IHostedService, IDisposable
         // Prevent unnecessary client reloads from spurious file events by verifying content changes!
         if (contentHash == _lastContentHash)
         {
-            _logger.LogDebug("Rebuilt pages but content is unchanged, skipping version bump");
+            _logger.LogDebug("Rebuilt site but content is unchanged, skipping version bump");
             return;
         }
 
         _lastContentHash = contentHash;
         BuildVersion++;
-        _logger.LogInformation("Built pages with {PageCount} pages", pages.Count);
+        _logger.LogInformation("Built site with {PageCount} pages", pages.Count);
 
         LogDeadLinks(pages, pageMap);
     }
@@ -515,7 +515,7 @@ public sealed partial class ContentService : IHostedService, IDisposable
         }
     }
 
-    private static Config? LoadConfig(string docsPath)
+    private static Config? LoadConfig(string docsPath, ILogger logger)
     {
         var configPath = ResolveJsonFile(docsPath, "config.json");
         if (!File.Exists(configPath))
@@ -526,11 +526,14 @@ public sealed partial class ContentService : IHostedService, IDisposable
             var json = File.ReadAllText(configPath);
             return JsonSerializer.Deserialize<Config>(json, new JsonSerializerOptions
             {
-                PropertyNameCaseInsensitive = true
+                PropertyNameCaseInsensitive = true,
+                NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
             });
         }
-        catch
+        catch (Exception ex)
         {
+            // without this the whole site silently falls back to "status data unavailable" with nothing in the logs
+            logger.LogError(ex, "Failed to parse {ConfigPath}; site config ignored", configPath);
             return null;
         }
     }

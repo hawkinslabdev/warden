@@ -34,7 +34,7 @@ public sealed partial class MarkdownService
     {
         _basePath = basePath;
         _logger = logger;
-        _pipeline = new MarkdownPipelineBuilder()
+        var builder = new MarkdownPipelineBuilder()
             .UseAbbreviations()
             .UseAlertBlocks()
             .UseAutoIdentifiers()
@@ -55,8 +55,12 @@ public sealed partial class MarkdownService
             .UseMarkdownExtensions(syntaxHighlighter, codeGroupIcons, basePath, mathRenderer)
 
             // UseGenericAttributes() should be the last extension added to the pipeline, as it modifies other parsers to recognize attribute syntax (see https://xoofx.github.io/markdig/docs/extensions/generic-attributes)
-            .UseGenericAttributes()
-            .Build();
+            .UseGenericAttributes();
+
+        // Generic attributes allow `{onclick="..."}` on any element, which DisableHtml does not cover.
+        builder.DocumentProcessed += SanitizeGenericAttributes;
+
+        _pipeline = builder.Build();
 
         _yamlDeserializer = new DeserializerBuilder()
             .IgnoreUnmatchedProperties()
@@ -141,6 +145,22 @@ public sealed partial class MarkdownService
             frontMatter?.End,
             frontMatter?.Monitors is { Count: > 0 } mons ? mons.AsReadOnly() : null,
             frontMatter?.Status);
+    }
+
+    // Attributes `{...}` may set. Anything added here is contributor-writable: no handlers, no href/src.
+    private static readonly HashSet<string> AllowedAttributes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "id", "class", "title", "target", "rel", "width", "height", "align", "lang", "dir", "role",
+    };
+
+    private static void SanitizeGenericAttributes(MarkdownObject document)
+    {
+        foreach (var node in document.Descendants())
+        {
+            if (node.TryGetAttributes() is not { Properties: { Count: > 0 } properties })
+                continue;
+            properties.RemoveAll(p => !AllowedAttributes.Contains(p.Key));
+        }
     }
 
     private static string AddHeadingAnchors(string html) =>

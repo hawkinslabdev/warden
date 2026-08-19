@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Warden.Configuration;
 using Warden.Services;
+using Warden.Services.MarkdownExtensions;
 
 namespace Warden.Tests;
 
@@ -65,11 +66,65 @@ public sealed class SecurityRegressionTests : IDisposable
     [Fact]
     public void MarkdownService_RawHtmlInContent_PassesThroughUnsanitized()
     {
-        // Markdig does not sanitize raw HTML by design; docs are authored content, but this must not change silently.
+        // Accepted risk: downstream sites author raw HTML, so the pipeline does not DisableHtml().
+        // Script execution is blocked by the nonce CSP when served and the meta CSP when exported;
+        // what stays open is non-script markup injection from whoever can commit content.
+        // Flipping this assertion means reopening that decision, not fixing a bug.
         var markdown = new MarkdownService();
         var result = markdown.Parse("<script>alert('xss')</script>\n\n# Heading");
 
         Assert.Contains("<script>alert('xss')</script>", result.Html);
+    }
+
+    [Fact]
+    public void MarkdownService_GenericAttributes_DropHandlersAndKeepPresentation()
+    {
+        // DisableHtml does not cover `{...}` attributes, which reach any element.
+        var markdown = new MarkdownService();
+
+        var handler = markdown.Parse("Some text{onclick=\"alert(1)\"}");
+        Assert.DoesNotContain("onclick", handler.Html);
+
+        var hrefOverride = markdown.Parse("[x](/safe){href=\"javascript:alert(1)\"}");
+        Assert.DoesNotContain("javascript:", hrefOverride.Html);
+
+        var allowed = markdown.Parse("[x](https://example.com){target=\"_blank\" rel=\"noopener\" .lead}");
+        Assert.Contains("target=\"_blank\"", allowed.Html);
+        Assert.Contains("lead", allowed.Html);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(64)]
+    public void MathRenderer_AcceptsRealisticNesting(int depth) =>
+        Assert.Null(MathRenderer.Reject(Nested(depth)));
+
+    [Theory]
+    [InlineData(65)]
+    [InlineData(5000)]
+    public void MathRenderer_RejectsNestingThatWouldOverflowTheStack(int depth) =>
+        Assert.NotNull(MathRenderer.Reject(Nested(depth)));
+
+    [Fact]
+    public void MathRenderer_DeepNestingRendersAnErrorInsteadOfKillingTheProcess()
+    {
+        // A stack overflow is uncatchable: before the cap this aborted the process and re-fired on every restart.
+        var html = new MathRenderer().RenderToHtml(Nested(5000), displayMode: true);
+
+        Assert.Contains("math-error", html);
+        Assert.Contains("katex", new MathRenderer().RenderToHtml("E = mc^2", displayMode: false));
+    }
+
+    private static string Nested(int depth) =>
+        string.Concat(Enumerable.Repeat("\\frac{", depth)) + "x" + string.Concat(Enumerable.Repeat("}{y}", depth));
+
+    [Fact]
+    public void AssetContentTypes_ExcludeExecutableAndMarkupExtensions()
+    {
+        Assert.False(AssetContentTypes.IsAllowed("/content/assets/probe.html"));
+        Assert.False(AssetContentTypes.IsAllowed("/content/assets/payload.js"));
+        Assert.False(AssetContentTypes.IsAllowed("/content/assets/bundle.zip"));
+        Assert.True(AssetContentTypes.IsAllowed("/content/assets/cover.webp"));
     }
 
     [Fact]

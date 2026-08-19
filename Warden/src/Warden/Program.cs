@@ -47,6 +47,7 @@ try
     void ConfigureMonitorClient(HttpClient client)
     {
         client.Timeout = TimeSpan.FromSeconds(10);
+        client.MaxResponseContentBufferSize = 8 * 1024 * 1024;
         // some origins (Forgejo instances, api.github.com, ...) 403 a bare User-Agent regardless of reachability - identify as a real client
         client.DefaultRequestHeaders.UserAgent.ParseAdd("Warden-Uptime-Monitor/1.0 (+https://github.com/melosso/warden)");
     }
@@ -204,25 +205,7 @@ try
     AssetVersioning.Current = new AssetVersioning(assetsDir);
     if (Directory.Exists(assetsDir))
     {
-        var assetContentTypes = new FileExtensionContentTypeProvider(
-            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                [".webp"] = "image/webp",
-                [".png"] = "image/png",
-                [".jpg"] = "image/jpeg",
-                [".jpeg"] = "image/jpeg",
-                [".gif"] = "image/gif",
-                [".svg"] = "image/svg+xml",
-                [".avif"] = "image/avif",
-                [".ico"] = "image/x-icon",
-                [".pdf"] = "application/pdf",
-                [".txt"] = "text/plain",
-                [".woff2"] = "font/woff2",
-                [".woff"] = "font/woff",
-                [".mp4"] = "video/mp4",
-                [".webm"] = "video/webm",
-                [".mp3"] = "audio/mpeg",
-            });
+        var assetContentTypes = AssetContentTypes.Provider();
         app.UseStaticFiles(new StaticFileOptions
         {
             FileProvider = new PhysicalFileProvider(assetsDir),

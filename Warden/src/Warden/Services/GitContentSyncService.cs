@@ -25,7 +25,7 @@ public sealed class GitContentSyncService(GitSyncOptions options, string content
                 return;
             }
 
-            if (!await RunGitAsync(["clone", options.Url, contentRoot], Path.GetTempPath(), stoppingToken))
+            if (!await CloneIntoAsync(stoppingToken))
             {
                 logger.LogWarning("git clone of {Url} into {ContentRoot} failed; git sync is disabled", options.Url, contentRoot);
                 return;
@@ -45,6 +45,28 @@ public sealed class GitContentSyncService(GitSyncOptions options, string content
 
             await RunGitAsync(["pull", "--ff-only"], contentRoot, stoppingToken);
         }
+    }
+
+    private async Task<bool> CloneIntoAsync(CancellationToken ct)
+    {
+        Directory.CreateDirectory(contentRoot);
+        var scratch = Path.Combine(contentRoot, ".git-sync-tmp");
+        try { Directory.Delete(scratch, recursive: true); } catch (DirectoryNotFoundException) { }
+
+        if (!await RunGitAsync(["clone", options.Url!, scratch], Path.GetTempPath(), ct))
+            return false;
+
+        foreach (var entry in Directory.GetFileSystemEntries(scratch))
+        {
+            var dest = Path.Combine(contentRoot, Path.GetFileName(entry));
+            if (Directory.Exists(dest)) Directory.Delete(dest, recursive: true);
+            else if (File.Exists(dest)) File.Delete(dest);
+
+            if (Directory.Exists(entry)) Directory.Move(entry, dest);
+            else File.Move(entry, dest);
+        }
+        Directory.Delete(scratch, recursive: true);
+        return true;
     }
 
     private async Task<bool> RunGitAsync(string[] args, string workingDirectory, CancellationToken ct)

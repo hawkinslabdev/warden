@@ -27,7 +27,9 @@ public sealed record MonitorTarget(
     // dns type only: "ipv4" or "ipv6" to query only that record type; unset queries both
     string? Family = null,
     // dashboard structure, monitoring.group: "custom" only: this target's own group heading; falls back to its type's label when unset
-    string? Group = null);
+    string? Group = null,
+    // still scheduled and checked normally; just excluded from the status page and /api/status, for a backend you track but don't publish
+    bool? Hidden = null);
 
 // the "monitoring" block in content/config.json; hot-reloaded with the rest of the file
 public sealed record MonitoringConfig(
@@ -41,7 +43,15 @@ public sealed record MonitoringConfig(
     // opt-in only; unset renders one flat grid. "type" groups by each target's type, "custom" groups by each target's own "group" field (falling back to its type)
     string? Group = null,
     // opt-in only; unset keeps a content/incidents/*.md file's own folder placement as its URL. "year" -> /incidents/{year}/{slug}/, "year-month" -> /incidents/{year}/{month}/{slug}/, derived from the incident's date front matter regardless of which folder the file actually lives in
-    string? IncidentUrlPattern = null);
+    string? IncidentUrlPattern = null,
+    // POST with JSON once per down/recovery transition, not on every check while a monitor stays down
+    List<WebhookTarget>? Webhooks = null);
+
+// one entry in MonitoringConfig.Webhooks; Headers is opt-in, e.g. { "Authorization": "Bearer ..." } for receivers that need auth
+public sealed record WebhookTarget(string Url, Dictionary<string, string>? Headers = null);
+
+// the JSON body POSTed to each of MonitoringConfig.Webhooks
+public sealed record WebhookPayload(string MonitorId, string Name, string Status, string? Message, DateTimeOffset Timestamp);
 
 public enum MonitorStatus
 {
@@ -63,10 +73,12 @@ public sealed record HeartbeatPayload(
 public sealed record HeartbeatRecord(string Id, string MonitorId, DateTimeOffset Timestamp, HeartbeatPayload Data);
 
 // /api/status response shapes - "up"/"down"/"unknown"/"active"/"planned" are a stable machine contract, not localized UI text
-public sealed record ApiMonitorStatus(string Id, string Name, string Status, double? UptimePercent24h, DateTimeOffset? LastCheckedAt);
+// no monitor Id: it's a server-side slug (e.g. an internal hostname), not for public consumption
+public sealed record ApiMonitorStatus(string Name, string Status, double? UptimePercent24h, DateTimeOffset? LastCheckedAt);
 public sealed record ApiIncident(string Slug, string Title, string? Description, DateTimeOffset Start, DateTimeOffset? End, string Status);
 public sealed record ApiMaintenanceWindow(string Slug, string Title, DateTimeOffset Start, DateTimeOffset End, string? Description, string Status);
-public sealed record StatusApiResponse(List<ApiMonitorStatus> Monitors, List<ApiIncident> Incidents, List<ApiMaintenanceWindow> Maintenance);
+// Tz is always "UTC": every timestamp in this payload is UTC, named explicitly so API consumers don't have to assume it
+public sealed record StatusApiResponse(List<ApiMonitorStatus> Monitors, List<ApiIncident> Incidents, List<ApiMaintenanceWindow> Maintenance, string Tz = "UTC");
 
 // one calendar day's aggregate for the history bar
 public sealed record DailyStatus(DateOnly Day, MonitorStatus Status);

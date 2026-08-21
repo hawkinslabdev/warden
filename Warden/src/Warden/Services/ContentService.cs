@@ -365,7 +365,7 @@ public sealed partial class ContentService : IHostedService, IDisposable
     // Routes the app serves that no content file backs; dead-link checking treats these as live.
     private static readonly HashSet<string> KnownRoutes = new(StringComparer.Ordinal)
     {
-        "", "sitemap.xml", "robots.txt", "llms.txt",
+        "", "sitemap.xml", "robots.txt",
     };
 
     private void LogDeadLinks(List<DocumentationPage> pages, Dictionary<string, DocumentationPage> pageMap)

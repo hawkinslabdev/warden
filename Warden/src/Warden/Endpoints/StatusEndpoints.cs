@@ -37,7 +37,7 @@ internal static class StatusEndpoints
     {
         var l = Localization.Current;
         var monitoring = content.SiteConfig?.Monitoring;
-        var targets = monitoring?.Targets ?? [];
+        var targets = (monitoring?.Targets ?? []).Where(t => t.Hidden != true).ToList();
         var filterDay = ParseFilterDay(ctx.Request.Query["on"]);
         var structure = responder.ResolveStructure();
         var html = targets.Count == 0
@@ -49,12 +49,13 @@ internal static class StatusEndpoints
             ? $"<a href=\"{responder.BasePath}/#status-incidents\" class=\"status-filter-clear status-filter-clear--header\">{LayoutProvider.HtmlEncode(l.StatusFilterClear)}</a>"
             : "";
 
+        var noIndexStatus = content.SiteConfig?.NoIndex?.Status ?? false;
         await responder.WriteAsync(ctx, new PageView(
             Title: l.StatusPageTitle,
             ContentHtml: $"<header class=\"page-header\"><h1 class=\"page-title\">{LayoutProvider.HtmlEncode(l.StatusPageTitle)}</h1>{headerFilterClear}</header>" + html,
             CanonicalPath: "",
             Prose: true,
-            NoIndex: filterDay is not null));
+            NoIndex: filterDay is not null || noIndexStatus));
     }
 
     private static DateOnly? ParseFilterDay(string? raw) =>

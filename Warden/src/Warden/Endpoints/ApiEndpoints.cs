@@ -33,7 +33,7 @@ internal static class ApiEndpoints
     internal static async Task<Ok<StatusApiResponse>> GetStatus(HeartbeatStore store, ContentService content, CancellationToken cancellationToken)
     {
         var monitoring = content.SiteConfig?.Monitoring;
-        var targets = monitoring?.Targets ?? [];
+        var targets = (monitoring?.Targets ?? []).Where(t => t.Hidden != true).ToList();
         var pages = await content.GetAllPagesAsync(cancellationToken);
         var now = DateTimeOffset.UtcNow;
 
@@ -51,7 +51,8 @@ internal static class ApiEndpoints
                 _ => latest is null ? "unknown" : latest.Data.Up ? "up" : "down",
             };
             var uptime = store.GetUptime(t.Id, UptimeWindow);
-            return new ApiMonitorStatus(t.Id, t.Name, status, uptime?.Percent, latest?.Timestamp);
+            var pct = uptime?.Percent is { } p ? Math.Round(p, 2) : (double?)null;
+            return new ApiMonitorStatus(t.Name.ToLowerInvariant(), status, pct, latest?.Timestamp);
         }).ToList();
 
         var incidents = IncidentContent

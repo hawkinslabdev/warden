@@ -1,0 +1,13 @@
+services:
+  warden:
+    image: ghcr.io/melosso/warden:latest
+    container_name: warden
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./content:/app/content:ro,Z
+      - ./data:/app/data
+    environment:
+      PublicBaseUrl: https://status.example.com
+      AllowedHosts: status.example.com
+    restart: unless-stopped

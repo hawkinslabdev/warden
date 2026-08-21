@@ -2,6 +2,7 @@
 title: config.json Reference
 description: Every field content/config.json accepts, in one place.
 page-prev: /examples/frontmatter/
+page-next: /examples/git/
 ---
 
 `content/config.json` is entirely optional and hot-reloads with the rest of `content/`. Every field below is optional too, with a sensible default filling in whatever's missing.
@@ -87,6 +88,7 @@ A config using most of them at once:
 | Field | Description |
 | --- | --- |
 | `noIndex.pages` | Set `true` to noindex every standalone page under `content/pages/` at once, without touching each page's own front matter. A page's own `noindex: true` still applies regardless. |
+| `noIndex.status` | Set `true` to noindex the status page itself ("/") and drop it from `sitemap.xml`. |
 | `redirectHosts` | Off-site hosts a page's `redirect` front matter is allowed to send readers to. Same-host redirects always work without listing anything here. |
 
 ## Monitoring
@@ -101,6 +103,7 @@ A config using most of them at once:
 | `incidentWindowDays`, `incidentMaxShown` | How far back and how many resolved incidents show on the status page. Defaults `7` and `10`. |
 | `incidentUrlPattern` | `"year"` gives every incident a `/incidents/{year}/{slug}/` URL, `"year-month"` gives `/incidents/{year}/{month}/{slug}/`, both taken from the incident's own `date`, regardless of which folder the file lives in. Unset (default) uses the file's own path under `content/incidents/` as-is. |
 | `maintenanceWindowDays`, `maintenanceMaxShown` | How far ahead and how many upcoming maintenance windows show. Defaults `14` and `10`. |
+| `webhooks` | `[{ "url": "...", "headers": { "Authorization": "Bearer ..." } }]`; sent as POST with JSON body (`monitorId`, `name`, `status`, `message`, `timestamp`) once per down/recovery transition, not on every check while a target stays down. `headers` is optional, for receivers that need auth. |
 | `targets` | The list of monitors, covered below. |
 
 ### Target fields
@@ -123,6 +126,7 @@ Every target needs `id` (a stable slug, it's the database key) and `name` (the d
 | `insecure` | `http`, `service_backend` | Set `true` to skip TLS certificate validation, for a self-signed internal service. |
 | `retries` | all | Consecutive failures allowed before the target is recorded down. Default `0`, down on the first failed check. |
 | `group` | all | This target's own group heading, used when `monitoring.group` is `"custom"`. |
+| `hidden` | all | Set `true` to keep checking and recording this target while excluding it from the status page and `/api/status` - for a backend you track but don't publish. |
 
 A few examples across types:
 

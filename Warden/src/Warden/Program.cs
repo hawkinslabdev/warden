@@ -97,6 +97,21 @@ try
     // after ContentService: hosted services start in registration order, and the first tick needs SiteConfig built
     builder.Services.AddHostedService<MonitorScheduler>();
 
+    // plain GIT_URL/GIT_USERNAME/GIT_PASSWORD/GIT_CRON/GIT_ENABLED aliases, so a docker-compose .env file
+    // doesn't need the Git__ double-underscore convention; Git__* still wins when both are set
+    var gitSyncOptions = builder.Configuration.GetSection("Git").Get<GitSyncOptions>() ?? new GitSyncOptions();
+    gitSyncOptions = gitSyncOptions with
+    {
+        Enabled = gitSyncOptions.Enabled || Environment.GetEnvironmentVariable("GIT_ENABLED") is "true" or "1",
+        Url = gitSyncOptions.Url ?? Environment.GetEnvironmentVariable("GIT_URL"),
+        Username = gitSyncOptions.Username ?? Environment.GetEnvironmentVariable("GIT_USERNAME"),
+        Password = gitSyncOptions.Password ?? Environment.GetEnvironmentVariable("GIT_PASSWORD"),
+        Cron = Environment.GetEnvironmentVariable("Git__Cron") ?? Environment.GetEnvironmentVariable("GIT_CRON") ?? gitSyncOptions.Cron,
+    };
+    if (exportDir is null) // no background pulls during a one-shot static export
+        builder.Services.AddHostedService(sp => new GitContentSyncService(
+            gitSyncOptions, docsRootAbsolute, sp.GetRequiredService<ILogger<GitContentSyncService>>()));
+
     var customCspRaw = builder.Configuration["Docs:ContentSecurityPolicy"];
     var customCsp = string.IsNullOrWhiteSpace(customCspRaw) ? null : customCspRaw;
 

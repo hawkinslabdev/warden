@@ -51,7 +51,7 @@ public static class StaticSiteExporter
             await File.WriteAllTextAsync(targetFile, html, cancellationToken);
         }
 
-        foreach (var extra in new[] { "robots.txt", "llms.txt", "sitemap.xml" })
+        foreach (var extra in new[] { "robots.txt", "sitemap.xml" })
         {
             var content = await client.GetStringAsync($"/{extra}", cancellationToken);
             if (publicPrefix is not null)

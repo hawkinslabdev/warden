@@ -144,6 +144,7 @@ public sealed class TextMateSyntaxHighlighter : ISyntaxHighlighter
         ["ndjson"] = "json",
         ["jsonl"] = "json",
         ["shell"] = "shellscript",
+        ["pwsh"] = "powershell",
         ["console"] = "shellscript",
         ["fish"] = "shellscript",
         ["tsql"] = "sql",

@@ -45,29 +45,16 @@ The quickest way to run Warden is the published container image, which has every
 
 ### Docker
 
-Create a `docker-compose.yml` next to your content:
-
-```yaml
-services:
-  warden:
-    image: ghcr.io/melosso/warden:latest
-    container_name: warden
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./content:/app/content:ro,Z
-      - ./data:/app/data
-    environment:
-      PublicBaseUrl: https://status.example.com
-      AllowedHosts: status.example.com
-```
-
-Your own `content/` folder (`.md` pages and `config.json`) mounts from the host, and so does `data/`, where the SQLite heartbeat history lives; without that volume, history resets on every container recreate. `PublicBaseUrl` is the origin you serve from. What to check lives in `content/config.json`, see [Configuring your site](#configuring-your-site). With that in place, bring it up:
-
 ```bash
-mkdir -p data
+mkdir -p warden/content/incidents warden/content/pages warden/content/locale warden/data
+cd warden
+curl -O https://raw.githubusercontent.com/melosso/warden/main/docker-compose.yml
+curl -o content/config.json https://raw.githubusercontent.com/melosso/warden/main/content/config.example.json
+
 docker compose up -d
 ```
+
+Your own `content/` folder (`.md` pages and `config.json`) mounts from the host, and so does `data/`, where the SQLite heartbeat history lives; without that volume, history resets on every container recreate. `docker-compose.yml`'s `PublicBaseUrl` is the origin you serve from; `AllowedHosts` should match it. What to check lives in `content/config.json`, see [Configuring your site](#configuring-your-site).
 
 Your status page is then waiting at `http://localhost:8080`.
 
@@ -91,7 +78,7 @@ The zip already includes a `web.config` wired for in process hosting, so no manu
 
 - A live status page at the root: per-monitor up/down badges, a 90-day history bar, 24h uptime, and incidents/maintenance from `content/incidents/`, each reported as a Markdown file with its own page
 - Standalone pages under `content/pages/` (About, Guide, a status policy) for anything that isn't a monitor or an incident, each rendered with the site's theme
-- `/sitemap.xml`, `/robots.txt` and `/llms.txt` covering your authored pages and the status page
+- `/sitemap.xml` and `/robots.txt` covering your authored pages and the status page
 - A JSON status endpoint at `/api/status` for your own tooling
 - Light and dark themes
 
@@ -135,6 +122,10 @@ Only where the SQLite file lives is a deployment concern: set the path in `appse
 Both your pages and your config are hot reloaded, so they can be adjusted while the server keeps running. 
 
 Change languages by updating the `lang` setting in `config.json` (e.g., `"lang": "en"`). This points frontend translations to `content/locale/en.json`, letting you override default text key-by-key without altering any source code.
+
+Keeping `content/` in sync with a Git remote — including private-repo auth — is covered in the [Git sync reference](content/pages/examples/git.md).
+
+Either way, `content/` stays your own checkout on the host — Warden only ever runs `git pull` in it.
 
 ## License
 

@@ -13,7 +13,6 @@ internal static class SeoEndpoints
     public static IEndpointRouteBuilder MapSeoEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapMethods("/robots.txt", HttpVerbs.GetAndHead, GetRobots);
-        app.MapMethods("/llms.txt", HttpVerbs.GetAndHead, GetLlms);
         app.MapMethods("/sitemap.xml", HttpVerbs.GetAndHead, GetSitemap);
         return app;
     }
@@ -25,28 +24,6 @@ internal static class SeoEndpoints
         return TypedResults.Text(body, "text/plain", Encoding.UTF8);
     }
 
-    internal static async Task<ContentHttpResult> GetLlms(ContentService content, PageRequestSettings settings, HttpContext context)
-    {
-        var basePath = settings.BasePath;
-        var baseUrl = settings.Origin(context);
-        var config = content.SiteConfig;
-        var pages = await content.GetAllPagesAsync(context.RequestAborted);
-
-        var sb = new StringBuilder();
-        sb.AppendLine($"# {config?.Brand ?? config?.Title ?? "Warden"}");
-        sb.AppendLine();
-        foreach (var page in pages.Where(p => p.Path.StartsWith("pages/", StringComparison.Ordinal)))
-        {
-            var slug = page.Path["pages/".Length..];
-            if (slug.Length == 0) continue;
-            var line = $"- [{page.Title}]({baseUrl}{basePath}/{slug}/)";
-            if (page.Description is { Length: > 0 } d) line += $": {d}";
-            sb.AppendLine(line);
-        }
-
-        return TypedResults.Text(sb.ToString(), "text/plain", Encoding.UTF8);
-    }
-
     internal static async Task<ContentHttpResult> GetSitemap(ContentService content, PageRequestSettings settings, HttpContext context)
     {
         var basePath = settings.BasePath;
@@ -56,9 +33,11 @@ internal static class SeoEndpoints
         var sb = new StringBuilder();
         sb.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
         sb.AppendLine("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">");
-        sb.AppendLine($"  <url><loc>{UrlPaths.Href(basePath, "")}</loc><priority>1.0</priority></url>");
 
         var noIndex = config?.NoIndex;
+        if (!(noIndex?.Status ?? false))
+            sb.AppendLine($"  <url><loc>{UrlPaths.Href(basePath, "")}</loc><priority>1.0</priority></url>");
+
         foreach (var page in pages.Where(p => p.InSitemap && !p.NoIndex && !(noIndex?.Pages ?? false) && p.Path.StartsWith("pages/", StringComparison.Ordinal)))
         {
             var slug = page.Path["pages/".Length..];

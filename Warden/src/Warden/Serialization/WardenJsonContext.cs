@@ -10,4 +10,5 @@ namespace Warden.Serialization;
 [JsonSerializable(typeof(HealthResponse))]
 [JsonSerializable(typeof(HeartbeatPayload))]
 [JsonSerializable(typeof(StatusApiResponse))]
+[JsonSerializable(typeof(WebhookPayload))]
 internal sealed partial class WardenJsonContext : JsonSerializerContext;

@@ -35,6 +35,8 @@ public sealed class SyntaxHighlightingTests
     [InlineData("console")]
     [InlineData("tsql")]
     [InlineData("dotenv")]
+    [InlineData("powershell")]
+    [InlineData("pwsh")]
     public void Fence_KnownLanguage_ProducesColoredTokens(string lang)
     {
         var html = Service.ToHtml($"```{lang}\nvar x = \"hello\";\n```\n");

@@ -1,0 +1,11 @@
+{
+  "title": "Warden",
+  "description": "Uptime, downtime and outage reporting.",
+  "monitoring": {
+    "intervalSeconds": 60,
+    "retentionDays": 90,
+    "targets": [
+      { "id": "forgejo", "name": "Forgejo", "url": "https://forgejo.org" }
+    ]
+  }
+}

@@ -81,4 +81,8 @@ public sealed class NoIndexOptions
 {
     /// <summary>Noindex every standalone page under <c>content/pages/</c> (and drop them from <c>sitemap.xml</c>).</summary>
     public bool? Pages { get; set; }
+
+    /// <summary>Noindex the status page itself ("/"), same opt-out shape as <see cref="Pages"/>: unset/<c>false</c> keeps
+    /// it indexed, <c>true</c> keeps search engines and AI crawlers off it.</summary>
+    public bool? Status { get; set; }
 }

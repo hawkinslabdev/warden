@@ -14,6 +14,11 @@ RUN cd Warden && dotnet publish src/Warden/Warden.csproj -c Release -o /app --no
 
 FROM mcr.microsoft.com/dotnet/aspnet:11.0-preview AS runtime
 WORKDIR /app
+
+# only needed for the opt-in Git:Enabled content sync (see GitContentSyncService)
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /app ./
 
 ENV ASPNETCORE_URLS=http://+:8080

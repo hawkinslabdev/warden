@@ -174,7 +174,7 @@ public sealed class IntegrationTests : IClassFixture<WardenWebApplicationFactory
     }
 
     [Fact]
-    public async Task Seo_RobotsSitemapLlms_AllRespond()
+    public async Task Seo_RobotsAndSitemap_Respond()
     {
         var client = _factory.CreateClient();
 
@@ -184,9 +184,6 @@ public sealed class IntegrationTests : IClassFixture<WardenWebApplicationFactory
         var sitemap = await client.GetStringAsync("/sitemap.xml");
         Assert.Contains("<urlset", sitemap);
         Assert.Contains("priority>1.0", sitemap);
-
-        var llms = await client.GetStringAsync("/llms.txt");
-        Assert.Contains("[About]", llms);
     }
 }
 

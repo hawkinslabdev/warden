@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net.Http.Json;
 using System.Net.NetworkInformation;
 using System.Net.Security;
 using System.Net.Sockets;
@@ -8,6 +9,7 @@ using Json.Path;
 using Renci.SshNet;
 using Renci.SshNet.Common;
 using Warden.Models;
+using Warden.Serialization;
 
 namespace Warden.Services;
 
@@ -24,6 +26,7 @@ public sealed class MonitorScheduler(
     private const int DefaultRetentionDays = 30;
     private const int CheckTimeoutSeconds = 10;
     private const int MaxConcurrentChecks = 8;
+    private const int WebhookTimeoutSeconds = 10;
 
     // in-memory only (resets on restart); a failure short of target.Retries is pending, not recorded, so one blip doesn't flip the public status
     private readonly ConcurrentDictionary<string, int> _consecutiveFailures = new();
@@ -41,7 +44,7 @@ public sealed class MonitorScheduler(
             {
                 try
                 {
-                    await CheckAllAsync(targets, stoppingToken);
+                    await CheckAllAsync(targets, monitoring?.Webhooks, stoppingToken);
                     store.PruneOlderThan(TimeSpan.FromDays(Math.Max(1, monitoring?.RetentionDays ?? DefaultRetentionDays)));
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
@@ -63,7 +66,7 @@ public sealed class MonitorScheduler(
     }
 
     // targets are independent I/O-bound probes with a per-check timeout, so they run with bounded concurrency instead of one-at-a-time
-    private async Task CheckAllAsync(IReadOnlyList<MonitorTarget> targets, CancellationToken cancellationToken)
+    private async Task CheckAllAsync(IReadOnlyList<MonitorTarget> targets, IReadOnlyList<WebhookTarget>? webhooks, CancellationToken cancellationToken)
     {
         var client = httpClientFactory.CreateClient(HttpClientName);
         var insecureClient = httpClientFactory.CreateClient(InsecureHttpClientName);
@@ -82,33 +85,36 @@ public sealed class MonitorScheduler(
                     var (up, error) = await CheckOneAsync(target, target.Insecure == true ? insecureClient : client, timeoutCts.Token);
                     var elapsedMs = (int)System.Diagnostics.Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
                     if (up)
-                        RecordUp(target, timestamp, elapsedMs);
+                        await RecordUpAsync(target, timestamp, elapsedMs, webhooks, ct);
                     else
-                        RecordDown(target, timestamp, elapsedMs, error);
+                        await RecordDownAsync(target, timestamp, elapsedMs, error, webhooks, ct);
                 }
                 catch (Exception ex) when (ex is HttpRequestException or SocketException or IOException or PingException
                     || (ex is OperationCanceledException && !ct.IsCancellationRequested))
                 {
                     var elapsedMs = (int)System.Diagnostics.Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
                     var message = ex is OperationCanceledException ? "timed out" : ex.Message;
-                    RecordDown(target, timestamp, elapsedMs, message);
+                    await RecordDownAsync(target, timestamp, elapsedMs, message, webhooks, ct);
                 }
             });
     }
 
     // routine "up" stays at Debug (too noisy for `docker compose logs` by default); anything worth watching - a retry, a real down, a recovery - logs at Information
-    private void RecordUp(MonitorTarget target, DateTimeOffset timestamp, int elapsedMs)
+    private async Task RecordUpAsync(MonitorTarget target, DateTimeOffset timestamp, int elapsedMs, IReadOnlyList<WebhookTarget>? webhooks, CancellationToken ct)
     {
         var wasDown = _consecutiveFailures.TryRemove(target.Id, out var failures) && failures > (target.Retries ?? 0);
         store.Record(target.Id, timestamp, up: true, elapsedMs);
         if (wasDown)
+        {
             logger.LogInformation("[{MonitorId}] recovered ({Type}, {ElapsedMs}ms)", target.Id, target.Type, elapsedMs);
+            await FireWebhooksAsync(webhooks, new WebhookPayload(target.Id, target.Name, "up", null, timestamp), ct);
+        }
         else
             logger.LogDebug("[{MonitorId}] up ({Type}, {ElapsedMs}ms)", target.Id, target.Type, elapsedMs);
     }
 
     // a failure within target.Retries is "pending": logged but not recorded; Retries unset/0 keeps the original behavior - down on the very first failed check
-    private void RecordDown(MonitorTarget target, DateTimeOffset timestamp, int elapsedMs, string? message)
+    private async Task RecordDownAsync(MonitorTarget target, DateTimeOffset timestamp, int elapsedMs, string? message, IReadOnlyList<WebhookTarget>? webhooks, CancellationToken ct)
     {
         var threshold = target.Retries ?? 0;
         var failures = _consecutiveFailures.AddOrUpdate(target.Id, 1, (_, n) => n + 1);
@@ -119,7 +125,51 @@ public sealed class MonitorScheduler(
         }
         store.Record(target.Id, timestamp, up: false, elapsedMs, message);
         logger.LogWarning("[{MonitorId}] down ({Type}): {Message}", target.Id, target.Type, message);
+        if (ShouldFireDownWebhook(failures, threshold))
+            await FireWebhooksAsync(webhooks, new WebhookPayload(target.Id, target.Name, "down", message, timestamp), ct);
     }
+
+    // true only on the check that just crossed the threshold, not on every subsequent check while a monitor stays down
+    internal static bool ShouldFireDownWebhook(int consecutiveFailures, int retryThreshold) => consecutiveFailures == retryThreshold + 1;
+
+    // best-effort notification: a webhook receiver being slow or down must never affect heartbeat recording
+    private async Task FireWebhooksAsync(IReadOnlyList<WebhookTarget>? webhooks, WebhookPayload payload, CancellationToken ct)
+    {
+        if (webhooks is not { Count: > 0 })
+            return;
+
+        var client = httpClientFactory.CreateClient(HttpClientName);
+        foreach (var webhook in webhooks)
+        {
+            try
+            {
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeoutCts.CancelAfter(TimeSpan.FromSeconds(WebhookTimeoutSeconds));
+                using var request = new HttpRequestMessage(HttpMethod.Post, webhook.Url)
+                {
+                    Content = JsonContent.Create(payload, WardenJsonContext.Default.WebhookPayload),
+                };
+                if (webhook.Headers is { Count: > 0 })
+                    foreach (var (name, value) in webhook.Headers)
+                        request.Headers.TryAddWithoutValidation(name, value);
+
+                using var response = await client.SendAsync(request, timeoutCts.Token);
+                if (!response.IsSuccessStatusCode)
+                    logger.LogWarning("[{MonitorId}] webhook to {Host} responded {StatusCode}", payload.MonitorId, SafeHost(webhook.Url), (int)response.StatusCode);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or IOException or OperationCanceledException)
+            {
+                // never log webhook.Headers here: that's where an Authorization/signing value would live
+                logger.LogWarning(ex, "[{MonitorId}] webhook to {Host} failed", payload.MonitorId, SafeHost(webhook.Url));
+            }
+        }
+    }
+
+    // many webhook URLs (Slack, Discord, Teams) carry their auth secret in the path/query; only the host is ever safe to log
+    internal static string SafeHost(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            ? uri.IsDefaultPort ? $"{uri.Scheme}://{uri.Host}" : $"{uri.Scheme}://{uri.Host}:{uri.Port}"
+            : "(invalid url)";
 
     private static Task<(bool Up, string? Error)> CheckOneAsync(MonitorTarget target, HttpClient client, CancellationToken ct) =>
         target.Type switch

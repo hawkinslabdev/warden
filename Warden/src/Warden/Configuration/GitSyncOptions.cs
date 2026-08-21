@@ -9,6 +9,8 @@ public sealed record GitSyncOptions
 
     public string? Url { get; init; }
 
+    public string? Root { get; init; }
+
     public string? Username { get; init; }
 
     public string? Password { get; init; }

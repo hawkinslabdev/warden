@@ -7,10 +7,10 @@ public static class ThemeJsonLoader
 {
     private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true };
 
-    /// <summary>Loads wwwroot/theme/theme.json; null if missing or malformd, caller falls back to defaults</summary>
-    public static ThemeOptions? Load(string webRootPath)
+    /// <summary>Loads theme.json from the given theme directory; null if missing or malformd, caller falls back to defaults</summary>
+    public static ThemeOptions? Load(string themeDir)
     {
-        var path = Path.Combine(webRootPath, "theme", "theme.json");
+        var path = Path.Combine(themeDir, "theme.json");
         if (!File.Exists(path))
             return null;
 

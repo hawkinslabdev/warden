@@ -28,4 +28,20 @@ Off by default. If `content/` isn't already a checkout, Warden clones `GIT_URL` 
 
 `GIT_USERNAME`/`GIT_PASSWORD` are sent as an HTTP Basic auth header per git invocation, never written into the remote URL or `.git/config`. For a token-only host (e.g. GitHub PAT), set `GIT_PASSWORD` to the token and leave `GIT_USERNAME` as any non-empty value.
 
-The ASP.NET Core convention `Git__Enabled`/`Git__Url`/`Git__Username`/`Git__Password`/`Git__Cron` also works and takes precedence if both are set.
+Only needed when `content/` isn't the repo root:
+
+```
+your-repo/
+  content/
+  theme/    # picked up automatically, no separate mount
+```
+
+```bash [.env]
+GIT_ROOT=repo
+DOCS_ROOT_PATH=repo/content
+```
+
+```yaml [docker-compose.yml]
+volumes:
+  - ./repo:/app/repo:Z
+```

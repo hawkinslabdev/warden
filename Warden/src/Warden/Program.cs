@@ -82,10 +82,10 @@ try
         ? docsRootAbsolute
         : Path.GetFullPath(gitSyncOptions.Root).Replace(Path.DirectorySeparatorChar, '/');
 
-    // theme/ inside the git-synced repo wins over wwwroot/theme when the repo actually has one
-    var gitThemeDir = Path.Combine(gitRoot, "theme");
-    var usingGitTheme = !string.IsNullOrWhiteSpace(gitSyncOptions.Root) && Directory.Exists(gitThemeDir);
-    var themeDir = usingGitTheme ? gitThemeDir : Path.Combine(webRootPath, "theme");
+    // theme/ inside the git-synced repo wins over wwwroot/theme when Git:Root is set, even before the first
+    // clone lands (the clone is async and may still be running when this runs)
+    var usingGitTheme = !string.IsNullOrWhiteSpace(gitSyncOptions.Root);
+    var themeDir = usingGitTheme ? Path.Combine(gitRoot, "theme") : Path.Combine(webRootPath, "theme");
     try { Directory.CreateDirectory(themeDir); } catch (IOException) { }
 
     // appsettings.json's Docs:Themes wins if present; theme.json is the file-only alternative.
@@ -128,15 +128,10 @@ try
     var customCspRaw = builder.Configuration["Docs:ContentSecurityPolicy"];
     var customCsp = string.IsNullOrWhiteSpace(customCspRaw) ? null : customCspRaw;
 
-    // Drop files at theme/custom.{css,js} and they're picked up at startup, no config edit needed. Does NOT support hot reloading!
-    var autoCustomCssUrl = File.Exists(Path.Combine(themeDir, "custom.css")) ? $"{basePath}/theme/custom.css" : null;
-    var autoCustomJsUrl = File.Exists(Path.Combine(themeDir, "custom.js")) ? $"{basePath}/theme/custom.js" : null;
-
     builder.Services.AddSingleton(new PageRequestSettings(
         BasePath: basePath,
         CustomCsp: customCsp,
-        AutoCustomCssUrl: autoCustomCssUrl,
-        AutoCustomJsUrl: autoCustomJsUrl,
+        ThemeDir: themeDir,
         WebRootPath: webRootPath,
         DocsRootAbsolute: docsRootAbsolute,
         PublicBaseUrl: PageRequestSettings.ResolvePublicBaseUrl(

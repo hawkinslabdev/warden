@@ -3,13 +3,18 @@ using Warden.Services;
 
 namespace Warden.Tests;
 
-public sealed class ThemeProviderTests
+public sealed class ThemeProviderTests : IDisposable
 {
+    private readonly string _themeDir = Path.Combine(Path.GetTempPath(), $"warden-theme-test-{Guid.NewGuid():N}");
+
+    public ThemeProviderTests() => Directory.CreateDirectory(_themeDir);
+    public void Dispose() => Directory.Delete(_themeDir, recursive: true);
+
     [Fact]
     public void BuildCustomCssLink_ConfiguredRootRelative_ResolvesBasePath()
     {
         var theme = new ThemeOptions { CustomCssUrl = "/theme/custom.css" };
-        var result = ThemeProvider.BuildCustomCssLink(theme, basePath: "/docs");
+        var result = ThemeProvider.BuildCustomCssLink(theme, _themeDir, basePath: "/docs");
         Assert.Contains("href=\"/docs/theme/custom.css\"", result);
     }
 
@@ -17,22 +22,22 @@ public sealed class ThemeProviderTests
     public void BuildCustomCssLink_ConfiguredAbsoluteUrl_Unchanged()
     {
         var theme = new ThemeOptions { CustomCssUrl = "https://cdn.example.com/styles.css" };
-        var result = ThemeProvider.BuildCustomCssLink(theme, basePath: "/docs");
+        var result = ThemeProvider.BuildCustomCssLink(theme, _themeDir, basePath: "/docs");
         Assert.Contains("href=\"https://cdn.example.com/styles.css\"", result);
     }
 
     [Fact]
     public void BuildCustomCssLink_NoConfiguredUrl_FallsBackToAutoDetected()
     {
-        var theme = new ThemeOptions();
-        var result = ThemeProvider.BuildCustomCssLink(theme, autoDetectedCssUrl: "/base/theme/custom.css", basePath: "/docs");
-        Assert.Contains("href=\"/base/theme/custom.css\"", result);
+        File.WriteAllText(Path.Combine(_themeDir, "custom.css"), "");
+        var result = ThemeProvider.BuildCustomCssLink(new ThemeOptions(), _themeDir, basePath: "/docs");
+        Assert.Contains("href=\"/docs/theme/custom.css\"", result);
     }
 
     [Fact]
-    public void BuildCustomCssLink_NullThemeAndNullAuto_ReturnsEmpty()
+    public void BuildCustomCssLink_NullThemeAndNoFile_ReturnsEmpty()
     {
-        var result = ThemeProvider.BuildCustomCssLink(null, autoDetectedCssUrl: null, basePath: "/docs");
+        var result = ThemeProvider.BuildCustomCssLink(null, _themeDir, basePath: "/docs");
         Assert.Equal("", result);
     }
 
@@ -40,7 +45,7 @@ public sealed class ThemeProviderTests
     public void BuildCustomJsScript_ConfiguredRootRelative_ResolvesBasePath()
     {
         var theme = new ThemeOptions { CustomJsUrl = "/theme/custom.js" };
-        var result = ThemeProvider.BuildCustomJsScript(theme, basePath: "/docs");
+        var result = ThemeProvider.BuildCustomJsScript(theme, _themeDir, basePath: "/docs");
         Assert.Contains("src=\"/docs/theme/custom.js\"", result);
     }
 
@@ -48,22 +53,22 @@ public sealed class ThemeProviderTests
     public void BuildCustomJsScript_ConfiguredAbsoluteUrl_Unchanged()
     {
         var theme = new ThemeOptions { CustomJsUrl = "https://cdn.example.com/script.js" };
-        var result = ThemeProvider.BuildCustomJsScript(theme, basePath: "/docs");
+        var result = ThemeProvider.BuildCustomJsScript(theme, _themeDir, basePath: "/docs");
         Assert.Contains("src=\"https://cdn.example.com/script.js\"", result);
     }
 
     [Fact]
     public void BuildCustomJsScript_NoConfiguredUrl_FallsBackToAutoDetected()
     {
-        var theme = new ThemeOptions();
-        var result = ThemeProvider.BuildCustomJsScript(theme, autoDetectedJsUrl: "/base/theme/custom.js", basePath: "/docs");
-        Assert.Contains("src=\"/base/theme/custom.js\"", result);
+        File.WriteAllText(Path.Combine(_themeDir, "custom.js"), "");
+        var result = ThemeProvider.BuildCustomJsScript(new ThemeOptions(), _themeDir, basePath: "/docs");
+        Assert.Contains("src=\"/docs/theme/custom.js\"", result);
     }
 
     [Fact]
-    public void BuildCustomJsScript_NullThemeAndNullAuto_ReturnsEmpty()
+    public void BuildCustomJsScript_NullThemeAndNoFile_ReturnsEmpty()
     {
-        var result = ThemeProvider.BuildCustomJsScript(null, autoDetectedJsUrl: null, basePath: "/docs");
+        var result = ThemeProvider.BuildCustomJsScript(null, _themeDir, basePath: "/docs");
         Assert.Equal("", result);
     }
 }

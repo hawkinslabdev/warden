@@ -30,21 +30,21 @@ public static class ThemeProvider
         return $"<style{nonceAttr}>\n:root {{\n" + string.Join("\n", vars) + "\n}\n</style>";
     }
 
-    public static string BuildCustomCssLink(ThemeOptions? theme, string? autoDetectedCssUrl = null, string basePath = "")
+    public static string BuildCustomCssLink(ThemeOptions? theme, string themeDir, string basePath = "")
     {
         var url = theme?.CustomCssUrl is { Length: > 0 } configured
             ? LayoutProvider.ResolveAssetUrl(configured, basePath)
-            : autoDetectedCssUrl;
+            : (File.Exists(Path.Combine(themeDir, "custom.css")) ? $"{basePath}/theme/custom.css" : null);
         return url is { Length: > 0 }
             ? $"<link rel=\"stylesheet\" href=\"{url}\">"
             : string.Empty;
     }
 
-    public static string BuildCustomJsScript(ThemeOptions? theme, string? autoDetectedJsUrl = null, string basePath = "")
+    public static string BuildCustomJsScript(ThemeOptions? theme, string themeDir, string basePath = "")
     {
         var url = theme?.CustomJsUrl is { Length: > 0 } configured
             ? LayoutProvider.ResolveAssetUrl(configured, basePath)
-            : autoDetectedJsUrl;
+            : (File.Exists(Path.Combine(themeDir, "custom.js")) ? $"{basePath}/theme/custom.js" : null);
         return url is { Length: > 0 }
             ? $"<script defer src=\"{url}\"></script>"
             : string.Empty;

@@ -5,8 +5,7 @@ namespace Warden.Services;
 public sealed record PageRequestSettings(
     string BasePath,
     string? CustomCsp,
-    string? AutoCustomCssUrl,
-    string? AutoCustomJsUrl,
+    string ThemeDir,
     string WebRootPath,
     string DocsRootAbsolute,
     string? PublicBaseUrl,

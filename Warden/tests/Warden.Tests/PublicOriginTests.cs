@@ -6,7 +6,7 @@ namespace Warden.Tests;
 public sealed class PublicOriginTests
 {
     private static PageRequestSettings Settings(string? publicBaseUrl) =>
-        new("", null, null, null, "wwwroot", "/content", publicBaseUrl);
+        new("", null, "wwwroot/theme", "wwwroot", "/content", publicBaseUrl);
 
     private static HttpContext Request(string host, string scheme = "https")
     {

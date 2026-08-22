@@ -104,8 +104,8 @@ public sealed class PageResponder
         var activeTheme = themeSelection.Theme;
         var activeStructure = StructureRegistry.Resolve(_settings.CliStructure ?? config?.Structure);
         var themeCss = ThemeProvider.BuildThemeCss(_theme, nonce);
-        var customCssLink = ThemeProvider.BuildCustomCssLink(_theme, _settings.AutoCustomCssUrl, basePath);
-        var customJsScript = ThemeProvider.BuildCustomJsScript(_theme, _settings.AutoCustomJsUrl, basePath);
+        var customCssLink = ThemeProvider.BuildCustomCssLink(_theme, _settings.ThemeDir, basePath);
+        var customJsScript = ThemeProvider.BuildCustomJsScript(_theme, _settings.ThemeDir, basePath);
         var brandText = config?.Brand ?? config?.Title ?? ThemeProvider.GetBrandText(_theme);
         var socialLinksHtml = await SocialLinksHtmlRenderer.BuildSocialLinksHtmlAsync(config?.SocialLinks, _iconsDir, _fallbackIconsDir);
 

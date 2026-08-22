@@ -36,6 +36,8 @@ public sealed class GitContentSyncService(GitSyncOptions options, string content
             return;
         }
 
+        logger.LogInformation("Git sync enabled; next pull in {In}", FormatIn(cron.NextOccurrence(DateTime.Now) - DateTime.Now));
+
         while (!stoppingToken.IsCancellationRequested)
         {
             var delay = cron.NextOccurrence(DateTime.Now) - DateTime.Now;
@@ -44,6 +46,13 @@ public sealed class GitContentSyncService(GitSyncOptions options, string content
             await RunGitAsync(["pull", "--ff-only"], contentRoot, stoppingToken);
         }
     }
+
+    private static string FormatIn(TimeSpan span) => span switch
+    {
+        { TotalDays: >= 1 } => $"{(int)Math.Round(span.TotalDays)}d",
+        { TotalHours: >= 1 } => $"{(int)Math.Round(span.TotalHours)}h",
+        _ => $"{Math.Max(1, (int)Math.Round(span.TotalMinutes))}m",
+    };
 
     private async Task<bool> CloneIntoAsync(CancellationToken ct)
     {

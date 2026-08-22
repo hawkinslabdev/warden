@@ -94,11 +94,6 @@ internal static class StatusEndpoints
 
         AppendMonitors(sb, l, store, targets, statuses, basePath, monitoring?.Group, structure.UseCardStatusLayout, monitoring?.HistoryDays ?? HistoryDays);
 
-        if (filterDay is { } day)
-            sb.Append("<p class=\"status-filter\"><span>").Append(LayoutProvider.HtmlEncode(l.StatusFilterShowing(DateFormatter.Current.Medium(day.ToDateTime(TimeOnly.MinValue)))))
-              .Append("</span><a href=\"").Append(basePath).Append("/#status-incidents\" class=\"status-filter-clear\">")
-              .Append(LayoutProvider.HtmlEncode(l.StatusFilterClear)).Append("</a></p>");
-
         BuildIncidentsSection(sb, l, recentIncidents, basePath, filterDay);
         BuildMaintenanceSection(sb, l, pages, monitoring, filterDay, basePath);
 

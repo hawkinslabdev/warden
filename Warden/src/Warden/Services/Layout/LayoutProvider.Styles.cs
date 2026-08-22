@@ -1681,14 +1681,6 @@ public static partial class LayoutProvider
         @media (prefers-reduced-motion: reduce) {{
             .status-tick {{ transition: none; }}
         }}
-        .content.reading .status-filter {{
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            margin: 1.25rem 0 0;
-            font-size: 0.9rem;
-            color: var(--text-muted);
-        }}
         .status-filter-clear {{
             color: var(--accent);
         }}

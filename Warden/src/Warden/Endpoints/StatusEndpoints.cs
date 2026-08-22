@@ -45,8 +45,8 @@ internal static class StatusEndpoints
             : BuildStatusHtml(store, targets, await content.GetAllPagesAsync(ctx.RequestAborted), monitoring, filterDay, responder.BasePath, structure);
 
         // repeated small next to the title too, so clearing a day filter doesn't need a scroll first
-        var headerFilterClear = filterDay is not null
-            ? $"<a href=\"{responder.BasePath}/#status-incidents\" class=\"status-filter-clear status-filter-clear--header\">{LayoutProvider.HtmlEncode(l.StatusFilterClear)}</a>"
+        var headerFilterClear = filterDay is { } headerDay
+            ? BuildHeaderFilterIndicator(l, headerDay, responder.BasePath)
             : "";
 
         var noIndexStatus = content.SiteConfig?.NoIndex?.Status ?? false;
@@ -60,6 +60,12 @@ internal static class StatusEndpoints
 
     private static DateOnly? ParseFilterDay(string? raw) =>
         DateOnly.TryParseExact(raw, "yyyy-MM-dd", out var day) ? day : null;
+
+    private static string BuildHeaderFilterIndicator(Localization l, DateOnly day, string basePath) =>
+        "<span class=\"status-filter-clear--header\"><span>"
+        + LayoutProvider.HtmlEncode(l.StatusFilterShowing(DateFormatter.Current.Medium(day.ToDateTime(TimeOnly.MinValue))))
+        + "</span><a href=\"" + basePath + "/#status-incidents\" class=\"status-filter-clear\">"
+        + LayoutProvider.HtmlEncode(l.StatusFilterClear) + "</a></span>";
 
     private static string BuildStatusHtml(HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, IReadOnlyList<DocumentationPage> pages, MonitoringConfig? monitoring, DateOnly? filterDay, string basePath, IWardenStructure structure)
     {
@@ -93,7 +99,7 @@ internal static class StatusEndpoints
               .Append("</span><a href=\"").Append(basePath).Append("/#status-incidents\" class=\"status-filter-clear\">")
               .Append(LayoutProvider.HtmlEncode(l.StatusFilterClear)).Append("</a></p>");
 
-        BuildIncidentsSection(sb, l, recentIncidents, basePath);
+        BuildIncidentsSection(sb, l, recentIncidents, basePath, filterDay);
         BuildMaintenanceSection(sb, l, pages, monitoring, filterDay, basePath);
 
         return sb.ToString();
@@ -222,10 +228,13 @@ internal static class StatusEndpoints
     }
 
     // hand-authored content/incidents/*.md; ongoing and recently-resolved both show, newest first
-    private static void BuildIncidentsSection(System.Text.StringBuilder sb, Localization l, List<DocumentationPage> incidents, string basePath)
+    private static void BuildIncidentsSection(System.Text.StringBuilder sb, Localization l, List<DocumentationPage> incidents, string basePath, DateOnly? filterDay)
     {
         sb.Append("<section class=\"status-incidents\" id=\"status-incidents\"><h2 class=\"status-group-heading select-none\">")
-          .Append(LayoutProvider.HtmlEncode(l.StatusIncidentsHeading)).Append("</h2>");
+          .Append(LayoutProvider.HtmlEncode(l.StatusIncidentsHeading));
+        if (filterDay is { } day)
+            sb.Append(BuildHeaderFilterIndicator(l, day, basePath));
+        sb.Append("</h2>");
         if (incidents.Count == 0)
         {
             sb.Append("<p class=\"status-no-incidents\">").Append(LayoutProvider.HtmlEncode(l.StatusNoIncidents)).Append("</p>");
@@ -292,12 +301,12 @@ internal static class StatusEndpoints
         sb.Append("</section>");
     }
 
-    private static string FormatDuration(TimeSpan span) => span switch
+    internal static string FormatDuration(TimeSpan span) => span switch
     {
-        { TotalDays: >= 1 } => $"{(int)span.TotalDays}d",
-        { TotalHours: >= 1 } => $"{(int)span.TotalHours}h",
+        { TotalDays: >= 1 } => $"{(int)Math.Round(span.TotalDays)}d",
+        { TotalHours: >= 1 } => $"{(int)Math.Round(span.TotalHours)}h",
         // "min", never "m": a bare "m" next to "d"/"h" reads as months to half the people who see it
-        _ => $"{Math.Max(1, (int)span.TotalMinutes)} min",
+        _ => $"{Math.Max(1, (int)Math.Round(span.TotalMinutes))} min",
     };
 
     // one tick per calendar day, links to ?on=<day>; the dashboard card grid passes a shorter window than the flat list's HistoryDays, since 90 ticks reads as noise at card width

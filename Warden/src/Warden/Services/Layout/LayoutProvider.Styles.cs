@@ -1543,7 +1543,16 @@ public static partial class LayoutProvider
             justify-content: space-between;
             gap: 1rem;
         }}
+        .status-group-heading:has(.status-filter-clear--header) {{
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 1rem;
+        }}
         .status-filter-clear--header {{
+            display: inline-flex;
+            align-items: baseline;
+            gap: 0.4rem;
             font-size: 0.85rem;
             font-weight: 500;
             white-space: nowrap;

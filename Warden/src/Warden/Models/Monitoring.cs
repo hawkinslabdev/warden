@@ -40,6 +40,8 @@ public sealed record MonitoringConfig(
     int? IncidentMaxShown,
     int? MaintenanceWindowDays,
     int? MaintenanceMaxShown,
+    // days of ticks shown in each monitor's history bar (status-tick); default 90. The card grid layout keeps its own shorter, width-constrained window regardless
+    int? HistoryDays,
     // opt-in only; unset renders one flat grid. "type" groups by each target's type, "custom" groups by each target's own "group" field (falling back to its type)
     string? Group = null,
     // opt-in only; unset keeps a content/incidents/*.md file's own folder placement as its URL. "year" -> /incidents/{year}/{slug}/, "year-month" -> /incidents/{year}/{month}/{slug}/, derived from the incident's date front matter regardless of which folder the file actually lives in

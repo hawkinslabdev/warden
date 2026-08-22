@@ -101,6 +101,7 @@ A config using most of them at once:
 | `retentionDays` | How long heartbeat history is kept before it's pruned. Default `30`. |
 | `group` | `"type"` sections monitors by type, `"custom"` sections them by each target's own `group` field (falling back to its type when unset). Unset renders one ungrouped list or grid. Works with every structure. |
 | `incidentWindowDays`, `incidentMaxShown` | How far back and how many resolved incidents show on the status page. Defaults `7` and `10`. |
+| `historyDays` | Days of ticks in each monitor's history bar. Default `90`. |
 | `incidentUrlPattern` | `"year"` gives every incident a `/incidents/{year}/{slug}/` URL, `"year-month"` gives `/incidents/{year}/{month}/{slug}/`, both taken from the incident's own `date`, regardless of which folder the file lives in. Unset (default) uses the file's own path under `content/incidents/` as-is. |
 | `maintenanceWindowDays`, `maintenanceMaxShown` | How far ahead and how many upcoming maintenance windows show. Defaults `14` and `10`. |
 | `webhooks` | `[{ "url": "...", "headers": { "Authorization": "Bearer ..." } }]`; sent as POST with JSON body (`monitorId`, `name`, `status`, `message`, `timestamp`) once per down/recovery transition, not on every check while a target stays down. `headers` is optional, for receivers that need auth. |

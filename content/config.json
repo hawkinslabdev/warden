@@ -14,6 +14,7 @@
     "intervalSeconds": 60,
     "retentionDays": 90,
     "incidentWindowDays": 30,
+    "historyDays": 30,
     "targets": [
       { "id": "forgejo", "name": "Forgejo", "url": "https://forgejo.org" },
       { "id": "fedora-magazine", "name": "Fedora Magazine", "url": "https://fedoramagazine.org/" },

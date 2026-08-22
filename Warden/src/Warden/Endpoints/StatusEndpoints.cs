@@ -92,7 +92,7 @@ internal static class StatusEndpoints
             AppendOngoingIncidents(sb, l, recentIncidents, basePath);
         }
 
-        AppendMonitors(sb, l, store, targets, statuses, basePath, monitoring?.Group, structure.UseCardStatusLayout);
+        AppendMonitors(sb, l, store, targets, statuses, basePath, monitoring?.Group, structure.UseCardStatusLayout, monitoring?.HistoryDays ?? HistoryDays);
 
         if (filterDay is { } day)
             sb.Append("<p class=\"status-filter\"><span>").Append(LayoutProvider.HtmlEncode(l.StatusFilterShowing(DateFormatter.Current.Medium(day.ToDateTime(TimeOnly.MinValue)))))
@@ -106,7 +106,7 @@ internal static class StatusEndpoints
     }
 
     // fflat list item ("clean", "default", and every structure that is not the card grid)
-    private static string BuildFlatMonitorItem(Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, string basePath)
+    private static string BuildFlatMonitorItem(Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, string basePath, int historyDays)
     {
         var uptime = store.GetUptime(target.Id, UptimeWindow);
         var sb = new System.Text.StringBuilder("<li class=\"status-monitor status-monitor--").Append(StatusClass(status)).Append("\">")
@@ -114,7 +114,7 @@ internal static class StatusEndpoints
           .Append("<span class=\"status-monitor-badge select-none\">").Append(LayoutProvider.HtmlEncode(StatusLabel(l, status))).Append("</span>");
         if (uptime is { } u)
             sb.Append("<span class=\"status-monitor-uptime select-none\">").Append(LayoutProvider.HtmlEncode(l.StatusUptimeLabel(u.Percent, FormatDuration(u.Span)))).Append("</span>");
-        sb.Append(BuildHistoryBar(store, target.Id, basePath));
+        sb.Append(BuildHistoryBar(store, target.Id, basePath, historyDays));
         sb.Append("</li>");
         return sb.ToString();
     }
@@ -154,7 +154,7 @@ internal static class StatusEndpoints
 
     // grouping is opt-in via monitoring.group and independent of the structure: "type" groups by each target's own
     // type, "custom" by its "group" field (falling back to the type label), unset renders one ungrouped section
-    internal static void AppendMonitors(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, string basePath, string? groupBy, bool cards)
+    internal static void AppendMonitors(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, string basePath, string? groupBy, bool cards, int historyDays = HistoryDays)
     {
         Func<MonitorTarget, string>? groupLabel = groupBy switch
         {
@@ -165,15 +165,15 @@ internal static class StatusEndpoints
 
         if (groupLabel is null)
         {
-            AppendMonitorSection(sb, l, store, targets, statuses, basePath, cards, heading: null);
+            AppendMonitorSection(sb, l, store, targets, statuses, basePath, cards, heading: null, historyDays);
             return;
         }
 
         foreach (var group in targets.GroupBy(groupLabel, StringComparer.OrdinalIgnoreCase))
-            AppendMonitorSection(sb, l, store, group, statuses, basePath, cards, group.Key);
+            AppendMonitorSection(sb, l, store, group, statuses, basePath, cards, group.Key, historyDays);
     }
 
-    private static void AppendMonitorSection(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IEnumerable<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, string basePath, bool cards, string? heading)
+    private static void AppendMonitorSection(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IEnumerable<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, string basePath, bool cards, string? heading, int historyDays)
     {
         sb.Append("<section class=\"status-group\">");
         if (heading is not null)
@@ -184,7 +184,7 @@ internal static class StatusEndpoints
             if (cards)
                 AppendMonitorCard(sb, l, store, target, statuses[target.Id], basePath);
             else
-                sb.Append(BuildFlatMonitorItem(l, store, target, statuses[target.Id], basePath));
+                sb.Append(BuildFlatMonitorItem(l, store, target, statuses[target.Id], basePath, historyDays));
         }
         sb.Append("</ul></section>");
     }

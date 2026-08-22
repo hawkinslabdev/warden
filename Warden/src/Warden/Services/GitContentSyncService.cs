@@ -4,9 +4,7 @@ using Warden.Configuration;
 
 namespace Warden.Services;
 
-// opt-in (Git:Enabled): clones content/ from Git:Url on startup if it isn't a checkout yet, then
-// `git pull --ff-only` on the Git:Cron schedule. Credentials (Git:Username/Password) are passed to git
-// via an env-provided http.extraheader, never embedded in the remote URL or a process argument.
+// Clones repo on startup and fast-forward pulls on schedule; securely injects credentials.
 public sealed class GitContentSyncService(GitSyncOptions options, string contentRoot, ILogger<GitContentSyncService> logger) : BackgroundService
 {
     private const int PullTimeoutSeconds = 60;
@@ -136,13 +134,13 @@ public sealed class GitContentSyncService(GitSyncOptions options, string content
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            // a bad network blip or merge conflict must never take the site down
+            // Prevents site downtime from network blips or merge conflicts.
             logger.LogWarning(ex, "git {Command} failed unexpectedly in {ContentRoot}", string.Join(' ', args), workingDirectory);
             return false;
         }
         finally
         {
-            // a timed-out run leaves the process running past our wait; make sure it doesn't linger
+            // Ensures timed-out processes are fully terminated.
             if (process is { HasExited: false })
                 try { process.Kill(entireProcessTree: true); } catch { /* best-effort */ }
             process?.Dispose();
@@ -150,8 +148,7 @@ public sealed class GitContentSyncService(GitSyncOptions options, string content
     }
 }
 
-// minimal 5-field (minute hour day-of-month month day-of-week) cron expression: parses "*", "*/n",
-// "a-b", "a-b/n" and comma lists per field, then finds the next match by scanning minute-by-minute.
+// Minimal 5-field cron expression parser evaluating next occurrences minute-by-minute.
 internal sealed class CronSchedule(
     HashSet<int> minutes, HashSet<int> hours, HashSet<int> days, HashSet<int> months, HashSet<int> weekDays,
     bool dayIsWildcard, bool weekDayIsWildcard)
@@ -213,8 +210,7 @@ internal sealed class CronSchedule(
         var deadline = after + MaxLookahead;
         while (candidate < deadline)
         {
-            // POSIX cron rule: when both day-of-month and day-of-week are restricted, either may match (OR);
-            // when only one is restricted, that one alone decides.
+            // POSIX rule: restricted day-of-month and day-of-week match via OR.
             var dayMatches = (DayIsWildcard, WeekDayIsWildcard) switch
             {
                 (true, true) => true,

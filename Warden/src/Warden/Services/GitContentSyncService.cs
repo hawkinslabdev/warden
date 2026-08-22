@@ -60,11 +60,19 @@ public sealed class GitContentSyncService(GitSyncOptions options, string content
         return true;
     }
 
-    private static void MergeMove(string source, string dest)
+    private void MergeMove(string source, string dest)
     {
         Directory.CreateDirectory(dest);
         foreach (var entry in Directory.GetFileSystemEntries(source))
         {
+            if (File.ResolveLinkTarget(entry, returnFinalTarget: false) is not null)
+            {
+                logger.LogWarning("Symlink {Entry} in the git repo was not synced; symlinks are never followed into served content", entry);
+                if (Directory.Exists(entry)) Directory.Delete(entry);
+                else File.Delete(entry);
+                continue;
+            }
+
             var target = Path.Combine(dest, Path.GetFileName(entry));
             if (Directory.Exists(entry))
             {

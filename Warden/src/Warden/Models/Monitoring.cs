@@ -40,7 +40,7 @@ public sealed record MonitoringConfig(
     int? IncidentMaxShown,
     int? MaintenanceWindowDays,
     int? MaintenanceMaxShown,
-    // days of ticks shown in each monitor's history bar (status-tick); default 90. The card grid layout keeps its own shorter, width-constrained window regardless
+    // days of ticks shown in each monitor's history bar (status-tick); default 90, clamped to 1-365. The card grid layout keeps its own shorter, width-constrained window regardless
     int? HistoryDays,
     // opt-in only; unset renders one flat grid. "type" groups by each target's type, "custom" groups by each target's own "group" field (falling back to its type)
     string? Group = null,

@@ -11,6 +11,8 @@ internal static class StatusEndpoints
     private static readonly TimeSpan UptimeWindow = TimeSpan.FromHours(24);
     private const int HistoryDays = 90;
     private const int ResponseChartDays = 30;
+    // config.json is hot-reloaded and operator-edited free-form; an unbounded historyDays (typo'd as days-of-the-decade, or just "give me everything") would render one flex tick per day in an unwrapped row and degrade the page instead of the config
+    private const int MaxHistoryDays = 365;
 
     // a type this dictionary doesn't know about (a custom deployment's own check) still gets a readable group heading
     private static readonly Dictionary<string, string> TypeGroupLabels = new(StringComparer.OrdinalIgnoreCase)
@@ -87,7 +89,8 @@ internal static class StatusEndpoints
             AppendOngoingIncidents(sb, l, recentIncidents, basePath);
         }
 
-        AppendMonitors(sb, l, store, targets, statuses, basePath, monitoring?.Group, structure.UseCardStatusLayout, monitoring?.HistoryDays ?? HistoryDays, filterDay);
+        var historyDays = Math.Clamp(monitoring?.HistoryDays ?? HistoryDays, 1, MaxHistoryDays);
+        AppendMonitors(sb, l, store, targets, statuses, basePath, monitoring?.Group, structure.UseCardStatusLayout, historyDays, filterDay);
 
         BuildIncidentsSection(sb, l, recentIncidents, basePath, filterDay);
         BuildMaintenanceSection(sb, l, pages, monitoring, filterDay, basePath);
@@ -149,7 +152,7 @@ internal static class StatusEndpoints
         Func<MonitorTarget, string>? groupLabel = groupBy switch
         {
             "type" => TypeLabel,
-            "custom" => t => t.Group ?? TypeLabel(t),
+            "custom" => t => string.IsNullOrWhiteSpace(t.Group) ? TypeLabel(t) : t.Group,
             _ => null,
         };
 

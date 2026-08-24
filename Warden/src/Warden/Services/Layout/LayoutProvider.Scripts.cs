@@ -41,7 +41,7 @@ public static partial class LayoutProvider
         prefersDark.addEventListener('change', syncThemeToggle);"
             : "";
 
-        return $@"    <script{GetNonceAttr(nonce)}>
+        return MinifyJs($@"    <script{GetNonceAttr(nonce)}>
         {themeSyncScript}
         document.addEventListener('DOMContentLoaded', function() {{
             var scrollIndicator = document.getElementById('scroll-indicator');
@@ -942,6 +942,22 @@ public static partial class LayoutProvider
             }}
         }});
     </script>
-";
+");
+    }
+
+    // Line-preserving: drops full-line comments and blank/indentation whitespace but never joins two lines,
+    // so `//` comments still end where the source newline says and ASI never sees a token move to a new line.
+    private static string MinifyJs(string js)
+    {
+        var lines = js.Split('\n');
+        var kept = new List<string>(lines.Length);
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            if (trimmed.Length == 0 || trimmed.StartsWith("//", StringComparison.Ordinal))
+                continue;
+            kept.Add(trimmed);
+        }
+        return string.Join('\n', kept);
     }
 }

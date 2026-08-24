@@ -251,7 +251,7 @@ try
         });
     }
 
-    if (altchaOptions.Enabled)
+    if (altchaOptions.Enabled && exportDir is null) // export crawl is first-party, not public traffic to gate
         app.UseAltchaGate();
 
     app.UseRouting();

@@ -283,11 +283,11 @@ public sealed partial class ThemeCssIntegrityTests
 
     [Theory]
     [MemberData(nameof(ThemeNames))]
-    public void ThemeCssStaysInsideTheSingleNoncedStyleElement(string name)
+    public void ThemeCssIsLinkedAsASingleExternalStylesheet(string name)
     {
-        var html = Render(ThemeRegistry.Resolve(name), nonce: "test-nonce");
-        Assert.Equal(1, StylePattern().Count(html));
-        Assert.Contains("<style nonce=\"test-nonce\">", html, StringComparison.Ordinal);
+        var html = Render(ThemeRegistry.Resolve(name));
+        Assert.Equal(1, StylesheetLinkPattern().Count(html));
+        Assert.Contains("<link rel=\"stylesheet\" href=\"/warden.css?v=", html, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -306,8 +306,11 @@ public sealed partial class ThemeCssIntegrityTests
         if (theme.ComponentCss.Length == 0)
             return;
 
+        var firstSelector = ComponentCssFirstSelectorPattern().Match(theme.ComponentCss);
+        Assert.True(firstSelector.Success, $"{name} component CSS has no recognizable selector to anchor on");
+
         var css = RenderStyleBlock(theme);
-        var at = css.IndexOf(theme.ComponentCss, StringComparison.Ordinal);
+        var at = css.LastIndexOf(firstSelector.Groups[1].Value, StringComparison.Ordinal);
         Assert.True(at >= 0, $"{name} component CSS is missing from the style block");
         Assert.True(at > css.IndexOf(".post-card {", StringComparison.Ordinal),
             $"{name} component CSS must come after the base rules it overrides");
@@ -365,10 +368,8 @@ public sealed partial class ThemeCssIntegrityTests
 
     private static string RenderStyleBlock(IWardenTheme theme)
     {
-        var html = Render(theme);
-        var match = StyleBlockPattern().Match(html);
-        Assert.True(match.Success, "layout emitted no <style> block");
-        return match.Groups[1].Value;
+        var themeTokenCss = ThemeCssBuilder.BuildTokenCss(theme, ThemeMode.Auto);
+        return LayoutProvider.GetStylesAsset(themeTokenCss, theme.ComponentCss, "").Body;
     }
 
     [GeneratedRegex(@"(--[a-z0-9-]+)\s*:")]
@@ -377,11 +378,11 @@ public sealed partial class ThemeCssIntegrityTests
     [GeneratedRegex(@"var\((--[a-z0-9-]+)")]
     private static partial Regex ReferencePattern();
 
-    [GeneratedRegex(@"<style[^>]*>")]
-    private static partial Regex StylePattern();
+    [GeneratedRegex(@"<link rel=""stylesheet"" href=""[^""]*""")]
+    private static partial Regex StylesheetLinkPattern();
 
-    [GeneratedRegex(@"<style[^>]*>(.*?)</style>", RegexOptions.Singleline)]
-    private static partial Regex StyleBlockPattern();
+    [GeneratedRegex(@"([.\#][a-zA-Z0-9_-]+)\s*\{")]
+    private static partial Regex ComponentCssFirstSelectorPattern();
 }
 
 /// <summary>Boots the real app so the whole chain runs: config.json to ThemeRegistry to the served HTML.</summary>
@@ -406,10 +407,12 @@ public sealed class ThemeResolutionTests
     public async Task ConfigJsonTheme_ReachesTheServedPage()
     {
         using var factory = new ThemedSiteFactory { ConfigTheme = "ocean" };
-        var html = await factory.CreateClient().GetStringAsync("/");
+        var client = factory.CreateClient();
+        var html = await client.GetStringAsync("/");
+        var css = await client.GetStringAsync("/warden.css");
 
         Assert.Contains("class=\"theme-ocean\"", html, StringComparison.Ordinal);
-        Assert.Contains("--bg-color: #f6fafc;", html, StringComparison.Ordinal);
+        Assert.Contains("--bg-color: #f6fafc;", css, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -434,9 +437,11 @@ public sealed class ThemeResolutionTests
     public async Task NoThemeConfigured_RendersTheDefaultDesign()
     {
         using var factory = new ThemedSiteFactory();
-        var html = await factory.CreateClient().GetStringAsync("/");
+        var client = factory.CreateClient();
+        var html = await client.GetStringAsync("/");
+        var css = await client.GetStringAsync("/warden.css");
 
         Assert.Contains("class=\"theme-default\"", html, StringComparison.Ordinal);
-        Assert.Contains("--accent: #2E4A36;", html, StringComparison.Ordinal);
+        Assert.Contains("--accent: #2E4A36;", css, StringComparison.Ordinal);
     }
 }

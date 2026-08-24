@@ -137,6 +137,7 @@ A few examples across types:
     "targets": [
       { "id": "site", "name": "Main site", "url": "https://acme.example" },
       { "id": "api", "name": "API health", "type": "service_backend", "url": "https://api.acme.example/healthz", "expectedJsonPath": "$.status", "expectedValue": "ok" },
+      { "id": "ci", "name": "CI", "type": "service_backend", "url": "https://api.github.com/repos/OWNER/REPO/actions/workflows/WORKFLOW_FILE/runs?per_page=1&status=completed", "expectedJsonPath": "$.workflow_runs[0].conclusion", "expectedValue": "success" },
       { "id": "db", "name": "Postgres", "type": "tcp", "host": "db.internal", "port": 5432, "retries": 2 },
       { "id": "cert", "name": "Certificate", "type": "ssl", "host": "acme.example", "warnDaysBefore": 21 },
       { "id": "resolver", "name": "DNS", "type": "dns", "host": "acme.example", "expectedIp": "203.0.113.10" }

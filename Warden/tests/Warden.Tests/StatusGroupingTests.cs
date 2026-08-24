@@ -33,7 +33,7 @@ public sealed class StatusGroupingTests : IDisposable
     {
         var sb = new System.Text.StringBuilder();
         var statuses = Targets.ToDictionary(t => t.Id, _ => MonitorStatus.Unknown);
-        StatusEndpoints.AppendMonitors(sb, Localization.Current, _store, Targets, statuses, "", groupBy, cards);
+        StatusEndpoints.AppendMonitors(sb, Localization.Current, _store, Targets, statuses, [], "", groupBy, cards);
         return sb.ToString();
     }
 
@@ -91,7 +91,7 @@ public sealed class StatusGroupingTests : IDisposable
     {
         var sb = new System.Text.StringBuilder();
         var statuses = Targets.ToDictionary(t => t.Id, t => t.Id == "s3" ? MonitorStatus.Degraded : MonitorStatus.Up);
-        StatusEndpoints.AppendMonitors(sb, Localization.Current, _store, Targets, statuses, "", null, cards);
+        StatusEndpoints.AppendMonitors(sb, Localization.Current, _store, Targets, statuses, [], "", null, cards);
 
         var html = sb.ToString();
         Assert.Contains("--degraded", html);

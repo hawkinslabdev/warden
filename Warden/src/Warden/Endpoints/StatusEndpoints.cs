@@ -71,6 +71,8 @@ internal static class StatusEndpoints
         var maintainedIds = IncidentContent.ActiveMaintenanceMonitorIds(pages, DateTimeOffset.UtcNow);
         var statuses = targets.ToDictionary(t => t.Id, t => IncidentContent.StatusOverride(t.Id, incidentMonitorIds, maintainedIds) ?? LatestStatus(store, t.Id));
         var anyDown = statuses.Values.Any(s => s is MonitorStatus.Down or MonitorStatus.Degraded);
+        var linkedMonitorIds = new HashSet<string>(incidentMonitorIds.Keys, StringComparer.Ordinal);
+        linkedMonitorIds.UnionWith(maintainedIds);
 
         var recentIncidents = filterDay is null
             ? IncidentContent.RecentIncidents(pages, DateTimeOffset.UtcNow, monitoring?.IncidentWindowDays ?? IncidentContent.DefaultIncidentWindowDays, monitoring?.IncidentMaxShown ?? IncidentContent.DefaultIncidentMaxShown)
@@ -90,7 +92,7 @@ internal static class StatusEndpoints
         }
 
         var historyDays = Math.Clamp(monitoring?.HistoryDays ?? HistoryDays, 1, MaxHistoryDays);
-        AppendMonitors(sb, l, store, targets, statuses, basePath, monitoring?.Group, structure.UseCardStatusLayout, historyDays, filterDay);
+        AppendMonitors(sb, l, store, targets, statuses, linkedMonitorIds, basePath, monitoring?.Group, structure.UseCardStatusLayout, historyDays, filterDay);
 
         BuildIncidentsSection(sb, l, recentIncidents, basePath, filterDay);
         BuildMaintenanceSection(sb, l, pages, monitoring, filterDay, basePath);
@@ -99,12 +101,12 @@ internal static class StatusEndpoints
     }
 
     // fflat list item ("clean", "default", and every structure that is not the card grid)
-    private static string BuildFlatMonitorItem(Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, string basePath, int historyDays)
+    private static string BuildFlatMonitorItem(Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, bool linked, string basePath, int historyDays)
     {
         var uptime = store.GetUptime(target.Id, UptimeWindow);
         var sb = new System.Text.StringBuilder("<li class=\"status-monitor status-monitor--").Append(StatusClass(status)).Append("\">")
           .Append("<span class=\"status-monitor-name\">").Append(LayoutProvider.HtmlEncode(target.Name)).Append("</span>")
-          .Append("<span class=\"status-monitor-badge select-none\">").Append(LayoutProvider.HtmlEncode(StatusLabel(l, status))).Append("</span>");
+          .Append(BuildStatusBadge(l, status, linked, basePath));
         if (uptime is { } u)
             sb.Append("<span class=\"status-monitor-uptime select-none\">").Append(LayoutProvider.HtmlEncode(l.StatusUptimeLabel(u.Percent, FormatDuration(u.Span)))).Append("</span>");
         sb.Append(BuildHistoryBar(store, target.Id, basePath, historyDays));
@@ -147,7 +149,7 @@ internal static class StatusEndpoints
 
     // grouping is opt-in via monitoring.group and independent of the structure: "type" groups by each target's own
     // type, "custom" by its "group" field (falling back to the type label), unset renders one ungrouped section
-    internal static void AppendMonitors(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, string basePath, string? groupBy, bool cards, int historyDays = HistoryDays, DateOnly? filterDay = null)
+    internal static void AppendMonitors(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, HashSet<string> linkedMonitorIds, string basePath, string? groupBy, bool cards, int historyDays = HistoryDays, DateOnly? filterDay = null)
     {
         Func<MonitorTarget, string>? groupLabel = groupBy switch
         {
@@ -158,7 +160,7 @@ internal static class StatusEndpoints
 
         if (groupLabel is null)
         {
-            AppendMonitorSection(sb, l, store, targets, statuses, basePath, cards, heading: null, historyDays, filterDay);
+            AppendMonitorSection(sb, l, store, targets, statuses, linkedMonitorIds, basePath, cards, heading: null, historyDays, filterDay);
             return;
         }
 
@@ -167,12 +169,12 @@ internal static class StatusEndpoints
         var first = true;
         foreach (var group in targets.GroupBy(groupLabel, StringComparer.OrdinalIgnoreCase))
         {
-            AppendMonitorSection(sb, l, store, group, statuses, basePath, cards, group.Key, historyDays, first ? filterDay : null);
+            AppendMonitorSection(sb, l, store, group, statuses, linkedMonitorIds, basePath, cards, group.Key, historyDays, first ? filterDay : null);
             first = false;
         }
     }
 
-    private static void AppendMonitorSection(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IEnumerable<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, string basePath, bool cards, string? heading, int historyDays, DateOnly? filterDay = null)
+    private static void AppendMonitorSection(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IEnumerable<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, HashSet<string> linkedMonitorIds, string basePath, bool cards, string? heading, int historyDays, DateOnly? filterDay = null)
     {
         sb.Append("<section class=\"status-group\">");
         if (heading is not null)
@@ -185,22 +187,23 @@ internal static class StatusEndpoints
         sb.Append(cards ? "<ul class=\"status-monitor-grid\">" : "<ul class=\"status-monitor-list\">");
         foreach (var target in targets)
         {
+            var linked = linkedMonitorIds.Contains(target.Id);
             if (cards)
-                AppendMonitorCard(sb, l, store, target, statuses[target.Id], basePath);
+                AppendMonitorCard(sb, l, store, target, statuses[target.Id], linked, basePath);
             else
-                sb.Append(BuildFlatMonitorItem(l, store, target, statuses[target.Id], basePath, historyDays));
+                sb.Append(BuildFlatMonitorItem(l, store, target, statuses[target.Id], linked, basePath, historyDays));
         }
         sb.Append("</ul></section>");
     }
 
-    private static void AppendMonitorCard(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, string basePath)
+    private static void AppendMonitorCard(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, bool linked, string basePath)
     {
         var uptime = store.GetUptime(target.Id, UptimeWindow);
         sb.Append("<li class=\"status-monitor-card status-monitor-card--").Append(StatusClass(status)).Append("\">")
           .Append("<div class=\"status-monitor-card-head\">")
           .Append("<span class=\"status-monitor-dot select-none\" aria-hidden=\"true\"></span>")
           .Append("<span class=\"status-monitor-name\">").Append(LayoutProvider.HtmlEncode(target.Name)).Append("</span>")
-          .Append("<span class=\"status-monitor-badge select-none\">").Append(LayoutProvider.HtmlEncode(StatusLabel(l, status))).Append("</span>")
+          .Append(BuildStatusBadge(l, status, linked, basePath))
           .Append("</div>");
         if (uptime is { } u)
             sb.Append("<span class=\"status-monitor-uptime select-none\">").Append(LayoutProvider.HtmlEncode(l.StatusUptimeLabel(u.Percent, FormatDuration(u.Span)))).Append("</span>");
@@ -354,4 +357,14 @@ internal static class StatusEndpoints
         MonitorStatus.Degraded => l.StatusDegraded,
         _ => l.StatusUnknown,
     };
+
+    // links straight to today's filtered incidents/maintenance view, reusing the same ?on= day filter the ticks use
+    private static string BuildStatusBadge(Localization l, MonitorStatus status, bool linked, string basePath)
+    {
+        var label = LayoutProvider.HtmlEncode(StatusLabel(l, status));
+        if (!linked)
+            return $"<span class=\"status-monitor-badge select-none\">{label}</span>";
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime).ToString("yyyy-MM-dd");
+        return $"<a href=\"{basePath}/?on={today}#status-incidents\" class=\"status-monitor-badge select-none\">{label}</a>";
+    }
 }

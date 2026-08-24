@@ -65,6 +65,11 @@ public sealed class Localization
         ["statusResponseTimeChartLabel"] = "Response time, last {0} days",
         ["statusTimezoneAriaLabel"] = "Change displayed timezone",
         ["statusTimezoneSearchPlaceholder"] = "Search timezone…",
+        ["altchaGateTitle"] = "Verifying you're human…",
+        ["altchaGateDetail"] = "Solving a quick challenge before showing this page.",
+        ["altchaGateErrorTitle"] = "Couldn't verify",
+        ["altchaGateErrorDetail"] = "Reload the page to try again.",
+        ["altchaGateNoScript"] = "JavaScript is required to continue.",
     };
 
     private readonly IReadOnlyDictionary<string, string> _map;
@@ -146,6 +151,11 @@ public sealed class Localization
     public string StatusResponseTimeChartLabel(int days) => Format("statusResponseTimeChartLabel", days);
     public string StatusTimezoneAriaLabel => this["statusTimezoneAriaLabel"];
     public string StatusTimezoneSearchPlaceholder => this["statusTimezoneSearchPlaceholder"];
+    public string AltchaGateTitle => this["altchaGateTitle"];
+    public string AltchaGateDetail => this["altchaGateDetail"];
+    public string AltchaGateErrorTitle => this["altchaGateErrorTitle"];
+    public string AltchaGateErrorDetail => this["altchaGateErrorDetail"];
+    public string AltchaGateNoScript => this["altchaGateNoScript"];
 
     // Overlays content/locale/{code}.json on the defaults. Missing file: silent. Corrupt/unknown keys: warn.
     public static Localization From(string docsPath, Config? config, ILogger logger)

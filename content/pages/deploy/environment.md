@@ -74,6 +74,22 @@ What to check, and how often, lives in `content/config.json`, not here; see the 
 
 It answers `503` with `"status": "empty"` when no content has been built. That's the signal an external uptime monitor watching this deployment should watch for. The route carries no rate limit, so polling it every few seconds is fine.
 
+## Bot protection
+
+Gates every page behind a self-hosted [ALTCHA](https://altcha.org) proof-of-work challenge - an alternative to fronting Warden with something like Cloudflare's JS-fingerprinting "Just a moment..." screen. Off by default; `/health` and `/api` stay reachable either way.
+
+```json [appsettings.json]
+{
+  "Altcha": {
+    "Enabled": true
+  }
+}
+```
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `Altcha__Enabled` | `false` | Requires solving a challenge before any page loads. |
+
 ## Logs
 
 Warnings and errors go to `logs/warden-<date>.log` beside the binary, rolling daily and keeping a fortnight. Everything at `Information` stays on the console only, so the file itself stays small.

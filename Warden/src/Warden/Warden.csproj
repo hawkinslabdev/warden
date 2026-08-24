@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="DnsClient" />
+    <PackageReference Include="Ixnas.AltchaNet" />
     <PackageReference Include="Jint" />
     <PackageReference Include="JsonPath.Net" />
     <PackageReference Include="Markdig" />

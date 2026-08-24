@@ -121,7 +121,7 @@ public sealed class HeartbeatStoreTests : IDisposable
         Assert.Null(_store.GetUptime("nothing-recorded", TimeSpan.FromHours(24)));
 
     [Fact]
-    public void GetDailyStatus_MarksTodayDown_WhenAnyHeartbeatWasDown()
+    public void GetDailyStatus_MarksTodayDegraded_WhenSomeButNotAllHeartbeatsWereDown()
     {
         var now = DateTimeOffset.UtcNow;
         _store.Record("site", now.AddHours(-2), up: true, responseMs: 10);
@@ -130,8 +130,20 @@ public sealed class HeartbeatStoreTests : IDisposable
         var days = _store.GetDailyStatus("site", 3);
 
         Assert.Equal(3, days.Count);
-        Assert.Equal(MonitorStatus.Down, days[^1].Status);
+        Assert.Equal(MonitorStatus.Degraded, days[^1].Status);
         Assert.Equal(DateOnly.FromDateTime(now.UtcDateTime), days[^1].Day);
+    }
+
+    [Fact]
+    public void GetDailyStatus_MarksTodayDown_WhenEveryHeartbeatWasDown()
+    {
+        var now = DateTimeOffset.UtcNow;
+        _store.Record("site", now.AddHours(-2), up: false, responseMs: null);
+        _store.Record("site", now.AddHours(-1), up: false, responseMs: null);
+
+        var days = _store.GetDailyStatus("site", 3);
+
+        Assert.Equal(MonitorStatus.Down, days[^1].Status);
     }
 
     [Fact]

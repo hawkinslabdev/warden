@@ -97,7 +97,10 @@ public sealed class HeartbeatStore
         return reader.Read() ? ReadRecord(reader, monitorId) : null;
     }
 
-    // one bucket per UTC calendar day, oldest first, for a left-to-right history bar; a day with any down heartbeat is "down", any data at all with no downtime is "up", no rows that day is "unknown"
+    // one bucket per UTC calendar day, oldest first, for a left-to-right history bar; a day where every heartbeat
+    // failed is "down", a day with some failures mixed with successes is "degraded" (a single blip must not paint
+    // the whole day solid red - that erases the difference between one bad minute and a full outage), a day with
+    // no failures at all is "up", no rows that day is "unknown"
     public List<DailyStatus> GetDailyStatus(string monitorId, int days)
     {
         var sinceDay = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-(days - 1));
@@ -108,24 +111,23 @@ public sealed class HeartbeatStore
         select.Parameters.AddWithValue("$monitorId", monitorId);
         select.Parameters.AddWithValue("$since", sinceDay.ToDateTime(TimeOnly.MinValue).ToString("O"));
 
-        var daysWithData = new HashSet<DateOnly>();
-        var daysWithDowntime = new HashSet<DateOnly>();
+        var counts = new Dictionary<DateOnly, (int Total, int Down)>();
         using var reader = select.ExecuteReader();
         while (reader.Read())
         {
             var day = DateOnly.FromDateTime(DateTimeOffset.Parse(reader.GetString(0)).UtcDateTime);
-            daysWithData.Add(day);
-            if (!Deserialize(reader.GetString(1)).Up)
-                daysWithDowntime.Add(day);
+            var (total, down) = counts.GetValueOrDefault(day);
+            counts[day] = (total + 1, down + (Deserialize(reader.GetString(1)).Up ? 0 : 1));
         }
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var result = new List<DailyStatus>();
         for (var day = sinceDay; day <= today; day = day.AddDays(1))
         {
-            var status = !daysWithData.Contains(day) ? MonitorStatus.Unknown
-                : daysWithDowntime.Contains(day) ? MonitorStatus.Down
-                : MonitorStatus.Up;
+            var status = !counts.TryGetValue(day, out var c) ? MonitorStatus.Unknown
+                : c.Down == 0 ? MonitorStatus.Up
+                : c.Down == c.Total ? MonitorStatus.Down
+                : MonitorStatus.Degraded;
             result.Add(new DailyStatus(day, status));
         }
         return result;

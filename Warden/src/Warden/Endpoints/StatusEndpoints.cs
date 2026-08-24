@@ -80,12 +80,12 @@ internal static class StatusEndpoints
         var maintainedIds = filterDay.HasValue
             ? IncidentContent.MaintenanceMonitorIdsOnDay(pages, filterDay.Value)
             : liveMaintainedIds;
-        // per-monitor badge always agrees with that monitor's own tick/uptime for the same day - a check that
-        // failed earlier today and recovered just before render must not read "Operational" while today's tick is red
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        // live badge (no filterDay) always reflects the latest heartbeat, not a day rollup - a monitor that
+        // failed earlier today and has since recovered must read "Operational" now, even though today's
+        // history tick stays red; browsing a past day still shows that day's aggregate status
         var statuses = targets.ToDictionary(t => t.Id, t =>
             IncidentContent.StatusOverride(t.Id, incidentMonitorIds, maintainedIds)
-            ?? DayStatus(store, t.Id, filterDay ?? today));
+            ?? (filterDay.HasValue ? DayStatus(store, t.Id, filterDay.Value) : LatestStatus(store, t.Id)));
         var linkedMonitorIds = new HashSet<string>(incidentMonitorIds.Keys, StringComparer.Ordinal);
         linkedMonitorIds.UnionWith(maintainedIds);
 
@@ -340,8 +340,8 @@ internal static class StatusEndpoints
 
         foreach (var day in days)
         {
-            var cls = day.Status switch { MonitorStatus.Up => "up", MonitorStatus.Down => "down", _ => "unknown" };
-            var label = day.Status switch { MonitorStatus.Up => l.StatusOperational, MonitorStatus.Down => l.StatusDown, _ => l.StatusNoData };
+            var cls = day.Status switch { MonitorStatus.Up => "up", MonitorStatus.Down => "down", MonitorStatus.Degraded => "degraded", _ => "unknown" };
+            var label = day.Status switch { MonitorStatus.Up => l.StatusOperational, MonitorStatus.Down => l.StatusDown, MonitorStatus.Degraded => l.StatusDegraded, _ => l.StatusNoData };
             var tip = $"{label} · {DateFormatter.Current.Medium(day.Day.ToDateTime(TimeOnly.MinValue))}";
             sb.Append("<a href=\"").Append(basePath).Append("/?on=").Append(day.Day.ToString("yyyy-MM-dd"))
               .Append("#status-incidents\" class=\"status-tick status-tick--").Append(cls).Append("\" data-tip=\"")

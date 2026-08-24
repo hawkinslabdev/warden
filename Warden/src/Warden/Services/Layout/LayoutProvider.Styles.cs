@@ -1537,12 +1537,6 @@ public static partial class LayoutProvider
             margin: 0 0 2.75rem;
             padding-top: 0.5rem;
         }}
-        .page-header:has(.status-filter-clear--header) {{
-            display: flex;
-            align-items: baseline;
-            justify-content: space-between;
-            gap: 1rem;
-        }}
         .status-group-heading:has(.status-filter-clear--header) {{
             display: flex;
             align-items: baseline;
@@ -1677,7 +1671,12 @@ public static partial class LayoutProvider
         .status-tick--down {{ background: var(--alert-caution); }}
         .status-tick--unknown {{ background: var(--border); }}
         .status-tick--degraded {{ background: var(--alert-warning); }}
-        .status-tick--active-day {{ position: relative; z-index: 1; box-shadow: 0 0 0 2px var(--accent); }}
+        /* stripes carry the something-happened signal on their own, so it survives red/green colorblindness and doesn't depend on the accent ring below */
+        .status-tick--down, .status-tick--degraded {{
+            background-image: repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.22) 0 3px, transparent 3px 7px);
+        }}
+        /* bg-color gap between the tick's own fill and the accent ring, so a selected down/degraded tick never reads as an accent-colored tick lost against its own red - box-shadow layers paint outer-first, so the gap comes second */
+        .status-tick--active-day {{ position: relative; z-index: 1; box-shadow: 0 0 0 2px var(--bg-color), 0 0 0 4px var(--accent); }}
         @media (prefers-reduced-motion: reduce) {{
             .status-tick {{ transition: none; }}
         }}

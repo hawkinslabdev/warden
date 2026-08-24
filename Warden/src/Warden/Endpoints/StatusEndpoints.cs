@@ -44,15 +44,10 @@ internal static class StatusEndpoints
             ? $"<p class=\"status-unavailable\">{LayoutProvider.HtmlEncode(l.StatusUnavailable)}</p>"
             : BuildStatusHtml(store, targets, await content.GetAllPagesAsync(ctx.RequestAborted), monitoring, filterDay, responder.BasePath, structure);
 
-        // repeated small next to the title too, so clearing a day filter doesn't need a scroll first
-        var headerFilterClear = filterDay is { } headerDay
-            ? BuildHeaderFilterIndicator(l, headerDay, responder.BasePath)
-            : "";
-
         var noIndexStatus = content.SiteConfig?.NoIndex?.Status ?? false;
         await responder.WriteAsync(ctx, new PageView(
             Title: l.StatusPageTitle,
-            ContentHtml: $"<header class=\"page-header\"><h1 class=\"page-title\">{LayoutProvider.HtmlEncode(l.StatusPageTitle)}</h1>{headerFilterClear}</header>" + html,
+            ContentHtml: $"<header class=\"page-header\"><h1 class=\"page-title\">{LayoutProvider.HtmlEncode(l.StatusPageTitle)}</h1></header>" + html,
             CanonicalPath: "",
             Prose: true,
             NoIndex: filterDay is not null || noIndexStatus));
@@ -92,7 +87,7 @@ internal static class StatusEndpoints
             AppendOngoingIncidents(sb, l, recentIncidents, basePath);
         }
 
-        AppendMonitors(sb, l, store, targets, statuses, basePath, monitoring?.Group, structure.UseCardStatusLayout, monitoring?.HistoryDays ?? HistoryDays);
+        AppendMonitors(sb, l, store, targets, statuses, basePath, monitoring?.Group, structure.UseCardStatusLayout, monitoring?.HistoryDays ?? HistoryDays, filterDay);
 
         BuildIncidentsSection(sb, l, recentIncidents, basePath, filterDay);
         BuildMaintenanceSection(sb, l, pages, monitoring, filterDay, basePath);
@@ -149,7 +144,7 @@ internal static class StatusEndpoints
 
     // grouping is opt-in via monitoring.group and independent of the structure: "type" groups by each target's own
     // type, "custom" by its "group" field (falling back to the type label), unset renders one ungrouped section
-    internal static void AppendMonitors(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, string basePath, string? groupBy, bool cards, int historyDays = HistoryDays)
+    internal static void AppendMonitors(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, string basePath, string? groupBy, bool cards, int historyDays = HistoryDays, DateOnly? filterDay = null)
     {
         Func<MonitorTarget, string>? groupLabel = groupBy switch
         {
@@ -160,19 +155,30 @@ internal static class StatusEndpoints
 
         if (groupLabel is null)
         {
-            AppendMonitorSection(sb, l, store, targets, statuses, basePath, cards, heading: null, historyDays);
+            AppendMonitorSection(sb, l, store, targets, statuses, basePath, cards, heading: null, historyDays, filterDay);
             return;
         }
 
+        // the filter-clear indicator rides along on whichever heading renders first, so it sits next to
+        // the content it actually filtered instead of duplicating up in the page header
+        var first = true;
         foreach (var group in targets.GroupBy(groupLabel, StringComparer.OrdinalIgnoreCase))
-            AppendMonitorSection(sb, l, store, group, statuses, basePath, cards, group.Key, historyDays);
+        {
+            AppendMonitorSection(sb, l, store, group, statuses, basePath, cards, group.Key, historyDays, first ? filterDay : null);
+            first = false;
+        }
     }
 
-    private static void AppendMonitorSection(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IEnumerable<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, string basePath, bool cards, string? heading, int historyDays)
+    private static void AppendMonitorSection(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IEnumerable<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, string basePath, bool cards, string? heading, int historyDays, DateOnly? filterDay = null)
     {
         sb.Append("<section class=\"status-group\">");
         if (heading is not null)
-            sb.Append("<h2 class=\"status-group-heading select-none\">").Append(LayoutProvider.HtmlEncode(heading)).Append("</h2>");
+        {
+            sb.Append("<h2 class=\"status-group-heading select-none\">").Append(LayoutProvider.HtmlEncode(heading));
+            if (filterDay is { } day)
+                sb.Append(BuildHeaderFilterIndicator(l, day, basePath));
+            sb.Append("</h2>");
+        }
         sb.Append(cards ? "<ul class=\"status-monitor-grid\">" : "<ul class=\"status-monitor-list\">");
         foreach (var target in targets)
         {

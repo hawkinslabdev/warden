@@ -795,10 +795,10 @@ public static partial class LayoutProvider
                 var url = new URL(link.getAttribute('href'), window.location.href);
                 if (url.origin !== window.location.origin) return;
                 e.preventDefault();
-                loadDayFilter(url, link.classList.contains('status-tick'));
+                loadDayFilter(url);
             }});
 
-            async function loadDayFilter(url, shouldScroll) {{
+            async function loadDayFilter(url) {{
                 var article = document.querySelector('article.content');
                 if (!article) {{ window.location.href = url.href; return; }}
                 try {{
@@ -823,15 +823,6 @@ public static partial class LayoutProvider
                         t.classList.add('status-tick--active-day');
                     }});
                 }}
-
-                if (!shouldScroll) return;
-                var incidents = document.getElementById('status-incidents');
-                if (!incidents) return;
-                var rect = incidents.getBoundingClientRect();
-                var alreadyVisible = rect.top >= 0 && rect.top <= window.innerHeight * 0.5;
-                if (alreadyVisible) return;
-                var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-                incidents.scrollIntoView({{ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' }});
             }}
 
             var tzToggle = document.getElementById('timezone-toggle');

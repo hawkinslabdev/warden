@@ -49,6 +49,7 @@ public sealed class Localization
         ["statusIncidentEnded"] = "Ended",
         ["statusIncidentStarted"] = "Started",
         ["statusIncidentBack"] = "￩ Back to status",
+        ["statusIncidentAffected"] = "Affected",
         ["statusFilterShowing"] = "Showing {0}",
         ["statusFilterClear"] = "Clear filter",
         ["statusUnavailable"] = "Status data is temporarily unavailable.",
@@ -129,6 +130,7 @@ public sealed class Localization
     public string StatusIncidentEnded => this["statusIncidentEnded"];
     public string StatusIncidentStarted => this["statusIncidentStarted"];
     public string StatusIncidentBack => this["statusIncidentBack"];
+    public string StatusIncidentAffected => this["statusIncidentAffected"];
     public string StatusFilterShowing(string when) => Format("statusFilterShowing", when);
     public string StatusFilterClear => this["statusFilterClear"];
     public string StatusUnavailable => this["statusUnavailable"];

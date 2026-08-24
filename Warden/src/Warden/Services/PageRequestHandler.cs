@@ -62,7 +62,7 @@ public sealed class PageRequestHandler
             return;
         }
 
-        var (incidentBack, incidentChrome) = BuildIncidentChrome(page, _responder.BasePath);
+        var (incidentBack, incidentChrome) = BuildIncidentChrome(page, _responder.BasePath, _content.SiteConfig?.Monitoring?.Targets);
         var header = $"<header class=\"page-header\"><h1 class=\"page-title\">{Layout.LayoutProvider.HtmlEncode(page.Title)}</h1></header>";
         var cover = PageChromeRenderer.BuildCover(page.Cover, _responder.BasePath);
         var updated = BuildUpdatedStamp(page);
@@ -81,7 +81,7 @@ public sealed class PageRequestHandler
     }
 
     // content/incidents/*.md pages get a status badge and a Started/Resolved (or Started/Ends) row, matching the meta a status page reader expects up front.
-    private static (string Back, string Chrome) BuildIncidentChrome(Models.DocumentationPage page, string basePath)
+    private static (string Back, string Chrome) BuildIncidentChrome(Models.DocumentationPage page, string basePath, IReadOnlyList<Models.MonitorTarget>? targets)
     {
         if (page.OriginalRelativePath?.StartsWith("incidents/", StringComparison.Ordinal) != true)
             return (string.Empty, string.Empty);
@@ -115,6 +115,12 @@ public sealed class PageRequestHandler
             AppendMeta(meta, l.StatusIncidentStarted, IncidentContent.TimeHtml(start));
             if (resolvedAt is { } end)
                 AppendMeta(meta, l.StatusIncidentEnded, IncidentContent.TimeHtml(end));
+        }
+
+        if (page.Monitors is { Count: > 0 } monitors)
+        {
+            var names = monitors.Select(id => targets?.FirstOrDefault(t => t.Id == id)?.Name ?? id);
+            AppendMeta(meta, l.StatusIncidentAffected, Layout.LayoutProvider.HtmlEncode(string.Join(", ", names)));
         }
 
         var badgeGroup = page.Maintenance ? "status-maintenance-badge" : "status-incident-badge";

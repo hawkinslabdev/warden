@@ -804,7 +804,9 @@ public static partial class LayoutProvider
             document.addEventListener('click', function(e) {{
                 var link = e.target.closest && e.target.closest('.status-tick[href], .status-filter-clear[href], .status-monitor-badge[href]');
                 if (!link) return;
-                var url = new URL(link.getAttribute('href'), window.location.href);
+                var url = link.classList.contains('status-tick--active-day')
+                    ? new URL('{basePath}/#status-incidents', window.location.href)
+                    : new URL(link.getAttribute('href'), window.location.href);
                 if (url.origin !== window.location.origin) return;
                 e.preventDefault();
                 loadDayFilter(url);

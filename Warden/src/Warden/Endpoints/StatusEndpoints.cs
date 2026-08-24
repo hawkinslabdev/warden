@@ -67,10 +67,25 @@ internal static class StatusEndpoints
     private static string BuildStatusHtml(HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, IReadOnlyList<DocumentationPage> pages, MonitoringConfig? monitoring, DateOnly? filterDay, string basePath, IWardenStructure structure)
     {
         var l = Localization.Current;
-        var incidentMonitorIds = IncidentContent.ActiveIncidentMonitorIds(pages);
-        var maintainedIds = IncidentContent.ActiveMaintenanceMonitorIds(pages, DateTimeOffset.UtcNow);
-        var statuses = targets.ToDictionary(t => t.Id, t => IncidentContent.StatusOverride(t.Id, incidentMonitorIds, maintainedIds) ?? LatestStatus(store, t.Id));
-        var anyDown = statuses.Values.Any(s => s is MonitorStatus.Down or MonitorStatus.Degraded);
+        // the banner always reads live health, even while a past day is filtered - only the monitor badges below travel back in time
+        var liveIncidentMonitorIds = IncidentContent.ActiveIncidentMonitorIds(pages);
+        var liveMaintainedIds = IncidentContent.ActiveMaintenanceMonitorIds(pages, DateTimeOffset.UtcNow);
+        var anyDown = targets.Any(t =>
+            (IncidentContent.StatusOverride(t.Id, liveIncidentMonitorIds, liveMaintainedIds) ?? LatestStatus(store, t.Id))
+            is MonitorStatus.Down or MonitorStatus.Degraded);
+
+        var incidentMonitorIds = filterDay.HasValue
+            ? IncidentContent.IncidentMonitorIdsOnDay(pages, filterDay.Value)
+            : liveIncidentMonitorIds;
+        var maintainedIds = filterDay.HasValue
+            ? IncidentContent.MaintenanceMonitorIdsOnDay(pages, filterDay.Value)
+            : liveMaintainedIds;
+        // per-monitor badge always agrees with that monitor's own tick/uptime for the same day - a check that
+        // failed earlier today and recovered just before render must not read "Operational" while today's tick is red
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        var statuses = targets.ToDictionary(t => t.Id, t =>
+            IncidentContent.StatusOverride(t.Id, incidentMonitorIds, maintainedIds)
+            ?? DayStatus(store, t.Id, filterDay ?? today));
         var linkedMonitorIds = new HashSet<string>(incidentMonitorIds.Keys, StringComparer.Ordinal);
         linkedMonitorIds.UnionWith(maintainedIds);
 
@@ -339,6 +354,13 @@ internal static class StatusEndpoints
 
     private static MonitorStatus LatestStatus(HeartbeatStore store, string monitorId) =>
         store.GetLatest(monitorId) is { } beat ? (beat.Data.Up ? MonitorStatus.Up : MonitorStatus.Down) : MonitorStatus.Unknown;
+
+    private static MonitorStatus DayStatus(HeartbeatStore store, string monitorId, DateOnly day)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var windowDays = Math.Clamp(today.DayNumber - day.DayNumber + 1, 1, MaxHistoryDays);
+        return store.GetDailyStatus(monitorId, windowDays).FirstOrDefault(d => d.Day == day)?.Status ?? MonitorStatus.Unknown;
+    }
 
     private static string StatusClass(MonitorStatus status) => status switch
     {

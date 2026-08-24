@@ -93,6 +93,36 @@ internal static class IncidentContent
     public static MonitorStatus IncidentStatus(DocumentationPage page) =>
         string.Equals(page.Status, "degraded", StringComparison.OrdinalIgnoreCase) ? MonitorStatus.Degraded : MonitorStatus.Down;
 
+    // day-filtered counterpart of ActiveIncidentMonitorIds: "active" becomes "overlapped that calendar day"
+    public static Dictionary<string, MonitorStatus> IncidentMonitorIdsOnDay(IReadOnlyList<DocumentationPage> pages, DateOnly day)
+    {
+        var ids = new Dictionary<string, MonitorStatus>(StringComparer.Ordinal);
+        foreach (var page in InFolder(pages, maintenance: false))
+        {
+            if (page.Monitors is not { Count: > 0 } monitors || !OverlapsDay(StartOf(page), EndOf(page) ?? DateTimeOffset.UtcNow, day))
+                continue;
+            var status = IncidentStatus(page);
+            foreach (var id in monitors)
+                if (!ids.TryGetValue(id, out var existing) || existing != MonitorStatus.Down)
+                    ids[id] = status;
+        }
+        return ids;
+    }
+
+    // day-filtered counterpart of ActiveMaintenanceMonitorIds
+    public static HashSet<string> MaintenanceMonitorIdsOnDay(IReadOnlyList<DocumentationPage> pages, DateOnly day)
+    {
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var page in InFolder(pages, maintenance: true))
+        {
+            if (page.Monitors is not { Count: > 0 } monitors || EndOf(page) is not { } end || !OverlapsDay(StartOf(page), end, day))
+                continue;
+            foreach (var id in monitors)
+                ids.Add(id);
+        }
+        return ids;
+    }
+
     // precedence: an active incident beats an active maintenance window beats the real heartbeat
     public static MonitorStatus? StatusOverride(string monitorId, IReadOnlyDictionary<string, MonitorStatus> incidentMonitorIds, HashSet<string> maintenanceMonitorIds) =>
         incidentMonitorIds.TryGetValue(monitorId, out var declared) ? declared

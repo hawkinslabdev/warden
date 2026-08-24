@@ -30,6 +30,7 @@
   "statusIncidentEnded": "Ended",
   "statusIncidentStarted": "Started",
   "statusIncidentBack": "￩ Back to status",
+  "statusIncidentAffected": "Affected",
   "statusFilterShowing": "Showing {0}",
   "statusFilterClear": "Clear filter",
   "statusUnavailable": "Status data is temporarily unavailable.",

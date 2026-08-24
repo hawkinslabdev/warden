@@ -2,7 +2,19 @@ namespace Warden.Services.Layout;
 
 public static partial class LayoutProvider
 {
-    private static string GetScripts(bool enableLiveReload, bool enableDarkMode, long buildVersion, string basePath, string? nonce = null)
+    private static GeneratedAsset? _jsAsset;
+
+    private static string GetScriptsTag(bool enableLiveReload, bool enableDarkMode, long buildVersion, string basePath)
+    {
+        var asset = GetScriptsAsset(enableLiveReload, enableDarkMode, buildVersion, basePath);
+        return $"<script defer src=\"{basePath}/warden.js?v={asset.Version}\"></script>";
+    }
+
+    internal static GeneratedAsset GetScriptsAsset(bool enableLiveReload, bool enableDarkMode, long buildVersion, string basePath) =>
+        GetOrBuildAsset(ref _jsAsset, $"{enableLiveReload} {enableDarkMode} {buildVersion} {basePath}",
+            () => BuildScriptsBody(enableLiveReload, enableDarkMode, buildVersion, basePath));
+
+    private static string BuildScriptsBody(bool enableLiveReload, bool enableDarkMode, long buildVersion, string basePath)
     {
         // Non-toggle theme swaps (bfcache/other tab/OS flip) hit an already-painted page: suppress transitions or every element cross-fades.
         var themeSyncScript = enableDarkMode
@@ -41,7 +53,7 @@ public static partial class LayoutProvider
         prefersDark.addEventListener('change', syncThemeToggle);"
             : "";
 
-        return MinifyJs($@"    <script{GetNonceAttr(nonce)}>
+        return MinifyJs($@"
         {themeSyncScript}
         document.addEventListener('DOMContentLoaded', function() {{
             var scrollIndicator = document.getElementById('scroll-indicator');
@@ -790,7 +802,7 @@ public static partial class LayoutProvider
 
             // swaps a clicked day tick's or Clear filter's link in place instead of a full reload; falls back to a real navigation if fetch fails or JS is off
             document.addEventListener('click', function(e) {{
-                var link = e.target.closest && e.target.closest('.status-tick[href], .status-filter-clear[href]');
+                var link = e.target.closest && e.target.closest('.status-tick[href], .status-filter-clear[href], .status-monitor-badge[href]');
                 if (!link) return;
                 var url = new URL(link.getAttribute('href'), window.location.href);
                 if (url.origin !== window.location.origin) return;
@@ -941,12 +953,10 @@ public static partial class LayoutProvider
                 tzToggle.style.display = 'none';
             }}
         }});
-    </script>
 ");
     }
 
-    // Line-preserving: drops full-line comments and blank/indentation whitespace but never joins two lines,
-    // so `//` comments still end where the source newline says and ASI never sees a token move to a new line.
+    // never joins lines, so a `//` comment still ends where the source newline says
     private static string MinifyJs(string js)
     {
         var lines = js.Split('\n');

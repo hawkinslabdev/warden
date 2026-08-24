@@ -108,7 +108,7 @@ public static partial class LayoutProvider
             ? $"<link rel=\"canonical\" href=\"{HtmlEncode(canonicalUrl)}\">"
             : string.Empty;
 
-        return $@"
+        return CollapseBlankLines($@"
 <!DOCTYPE html>
 <html lang=""{HtmlEncode(lang)}"" class=""theme-{HtmlEncode(activeTheme.Name)}""{forcedThemeAttr}>
 <head>
@@ -125,7 +125,7 @@ public static partial class LayoutProvider
     {structuredDataHtml}
     {faviconHtml}
     {headTagsHtml}
-    {GetStyles(themeTokenCss, componentCss, basePath, nonce)}
+    {GetStylesLink(themeTokenCss, componentCss, basePath)}
     {themeCss}
     {customAssetsHtml}
     {(hasMath ? $"<link rel=\"stylesheet\" href=\"{basePath}/css/katex.min.css\">" : "")}
@@ -152,9 +152,9 @@ public static partial class LayoutProvider
         </article>
     </main>
     {footerHtml}
-    {GetScripts(enableLiveReload, enableDarkMode, buildVersion, basePath, nonce)}
+    {GetScriptsTag(enableLiveReload, enableDarkMode, buildVersion, basePath)}
 </body>
-</html>";
+</html>");
     }
 
     public static string Get404Layout(
@@ -249,6 +249,46 @@ public static partial class LayoutProvider
     public static string HtmlEncode(string? value) =>
         value != null ? System.Net.WebUtility.HtmlEncode(value) : string.Empty;
 
+    private static string CollapseBlankLines(string html)
+    {
+        if (string.IsNullOrEmpty(html))
+        {
+            return html;
+        }
+
+        var parts = System.Text.RegularExpressions.Regex.Split(
+            html,
+            @"(?i)(<article\b[^>]*>.*?</article>)",
+            System.Text.RegularExpressions.RegexOptions.Singleline);
+
+        for (var i = 0; i < parts.Length; i += 2)
+        {
+            parts[i] = CollapseBlankLinesRegex(parts[i]);
+        }
+
+        return string.Concat(parts);
+    }
+
+    private static string CollapseBlankLinesRegex(string input) =>
+        System.Text.RegularExpressions.Regex.Replace(input, @"(?m)^[ \t]*\r?\n", string.Empty);
+
+    internal sealed record GeneratedAsset(string Key, string Body, string Version);
+
+    // one mutable slot, not a dictionary keyed by build version, so long uptime with many hot-reloads can't leak
+    private static GeneratedAsset GetOrBuildAsset(ref GeneratedAsset? slot, string key, Func<string> build)
+    {
+        var current = slot;
+        if (current is not null && current.Key == key)
+            return current;
+
+        var body = build();
+        var version = Convert.ToHexStringLower(
+            System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(body)))[..10];
+        var next = new GeneratedAsset(key, body, version);
+        slot = next;
+        return next;
+    }
+
     public static string? ResolveAssetUrl(string? url, string basePath)
     {
         if (string.IsNullOrWhiteSpace(url))
@@ -307,9 +347,6 @@ public static partial class LayoutProvider
         </div>
     </div>";
     }
-
-    private static string GetNonceAttr(string? nonce) =>
-        nonce is { Length: > 0 } ? $" nonce=\"{nonce}\"" : string.Empty;
 
     private static string BuildBrandMark(string? brandImage, string basePath)
     {

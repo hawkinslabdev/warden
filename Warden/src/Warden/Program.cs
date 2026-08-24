@@ -254,6 +254,7 @@ try
     app.MapApiEndpoints();
     app.MapSeoEndpoints();
     app.MapStatusEndpoints();
+    app.MapAssetEndpoints();
     app.MapContentEndpoints();
 
     if (exportDir != null)

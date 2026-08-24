@@ -27,6 +27,7 @@ public static class StaticSiteExporter
 
         var originPrefix = address.TrimEnd('/');
         var publicPrefix = string.IsNullOrEmpty(baseUrl) ? null : baseUrl.TrimEnd('/');
+        var basePath = app.Services.GetRequiredService<PageRequestSettings>().BasePath;
 
         // (requestPath, output-relative directory). Empty dir => outputDir/index.html; "/" is the status page itself
         var routes = new List<(string Request, string Dir)> { ("/", "") };
@@ -44,6 +45,11 @@ public static class StaticSiteExporter
                 await response.Content.ReadAsStringAsync(cancellationToken), response);
             if (publicPrefix is not null)
                 html = html.Replace(originPrefix, publicPrefix);
+            // rewrite warden.css and warden.js to page depth for file:// previews, while other assets stay absolute
+            var depth = dir.Length == 0 ? 0 : dir.Split('/').Length;
+            var relativePrefix = string.Concat(Enumerable.Repeat("../", depth));
+            html = html.Replace($"{basePath}/warden.css", $"{relativePrefix}warden.css")
+                       .Replace($"{basePath}/warden.js", $"{relativePrefix}warden.js");
             var targetFile = dir.Length == 0
                 ? Path.Combine(outputDir, "index.html")
                 : Path.Combine(outputDir, Path.Combine(dir.Split('/')), "index.html");
@@ -57,6 +63,14 @@ public static class StaticSiteExporter
             if (publicPrefix is not null)
                 content = content.Replace(originPrefix, publicPrefix);
             await File.WriteAllTextAsync(Path.Combine(outputDir, extra), content, cancellationToken);
+        }
+
+        // written once at the output root so local disk previews find it at their relative depth.
+        foreach (var asset in new[] { "warden.css", "warden.js" })
+        {
+            using var assetResponse = await client.GetAsync($"/{asset}", cancellationToken);
+            var bytes = await assetResponse.Content.ReadAsByteArrayAsync(cancellationToken);
+            await File.WriteAllBytesAsync(Path.Combine(outputDir, asset), bytes, cancellationToken);
         }
 
         using var notFoundResponse = await client.GetAsync("/__warden_export_404__", cancellationToken);
@@ -74,8 +88,7 @@ public static class StaticSiteExporter
         await app.StopAsync(cancellationToken);
     }
 
-    // CSP only ever existed as a response header, so a published export had no policy at all.
-    // frame-ancestors is ignored in a meta policy and only logs a console warning, so it is dropped.
+    // csp was response-header only so published exports lacked it, and frame-ancestors is dropped since meta policies ignore it.
     private static string WithCspMeta(string html, HttpResponseMessage response)
     {
         if (!response.Headers.TryGetValues("Content-Security-Policy", out var values))

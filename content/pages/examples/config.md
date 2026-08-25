@@ -72,6 +72,7 @@ A config using most of them at once:
 | `theme` | One of the built-in palettes. See the [guide](/guide/#customize-the-look) for the full list. Add `" dark"` or `" light"` to pin a mode and drop the toggle. |
 | `structure` | `clean` (default, a flat list) or `dashboard` (card grid). Independent of `theme`; any theme pairs with either. |
 | `scrollIndicator` | Set `false` to hide the reading-progress bar at the top of the page. |
+| `showOverallUptime` | Set `false` to hide the status page's overall-uptime line. `/api/status` never included it, so nothing changes there. |
 
 ## Navigation
 

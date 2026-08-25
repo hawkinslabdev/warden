@@ -44,7 +44,7 @@ internal static class StatusEndpoints
         var structure = responder.ResolveStructure();
         var html = targets.Count == 0
             ? $"<p class=\"status-unavailable\">{LayoutProvider.HtmlEncode(l.StatusUnavailable)}</p>"
-            : BuildStatusHtml(store, targets, await content.GetAllPagesAsync(ctx.RequestAborted), monitoring, filterDay, responder.BasePath, structure);
+            : BuildStatusHtml(store, targets, await content.GetAllPagesAsync(ctx.RequestAborted), monitoring, filterDay, responder.BasePath, structure, content.SiteConfig?.ShowOverallUptime ?? true);
 
         var noIndexStatus = content.SiteConfig?.NoIndex?.Status ?? false;
         await responder.WriteAsync(ctx, new PageView(
@@ -64,7 +64,7 @@ internal static class StatusEndpoints
         + "</span><a href=\"" + basePath + "/#status-incidents\" class=\"status-filter-clear\">"
         + LayoutProvider.HtmlEncode(l.StatusFilterClear) + "</a></span>";
 
-    private static string BuildStatusHtml(HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, IReadOnlyList<DocumentationPage> pages, MonitoringConfig? monitoring, DateOnly? filterDay, string basePath, IWardenStructure structure)
+    private static string BuildStatusHtml(HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, IReadOnlyList<DocumentationPage> pages, MonitoringConfig? monitoring, DateOnly? filterDay, string basePath, IWardenStructure structure, bool showOverallUptime)
     {
         var l = Localization.Current;
         var allMonitorIds = targets.Select(t => t.Id).ToList();
@@ -102,7 +102,8 @@ internal static class StatusEndpoints
 
         if (structure.ShowStatusHeader)
         {
-            AppendOverallUptime(sb, l, store, targets, expectedInterval);
+            if (showOverallUptime)
+                AppendOverallUptime(sb, l, store, targets, expectedInterval);
             // ongoing incidents always surface here, above the list/grid - readers shouldn't have to scroll past a green page to find out why something is down
             AppendOngoingIncidents(sb, l, recentIncidents, basePath);
         }
@@ -126,7 +127,7 @@ internal static class StatusEndpoints
         var name = LayoutProvider.HtmlEncode(target.Name);
         return string.IsNullOrWhiteSpace(target.Name)
             ? $"<span class=\"status-monitor-name\">{name}</span>"
-            : $"<span class=\"status-monitor-name\" tabindex=\"0\" data-tip=\"{name}\">{name}</span>";
+            : $"<span class=\"status-monitor-name\" tabindex=\"0\"><span class=\"status-monitor-name-tip\" role=\"tooltip\">{name}</span><span class=\"status-monitor-name-text\">{name}</span></span>";
     }
 
     // fflat list item ("clean", "default", and every structure that is not the card grid)

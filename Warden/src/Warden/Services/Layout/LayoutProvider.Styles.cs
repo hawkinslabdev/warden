@@ -434,7 +434,7 @@ public static partial class LayoutProvider
             border-radius: 6px; padding: 0.25rem 0.6rem; margin-left: -0.6rem;
             scroll-margin-top: calc(var(--topbar-height) + 1rem);
         }}
-        .prose abbr[data-tip], .status-tick[data-tip], .icon-btn[data-tip], .status-monitor-name[data-tip] {{
+        .prose abbr[data-tip], .status-tick[data-tip], .icon-btn[data-tip] {{
             position: relative;
             -webkit-tap-highlight-color: transparent;
         }}
@@ -443,20 +443,20 @@ public static partial class LayoutProvider
             text-decoration: underline dotted var(--text-muted);
             text-decoration-thickness: 1px; text-underline-offset: 0.2em;
         }}
-        .prose abbr[data-tip]:focus, .status-tick[data-tip]:focus, .icon-btn[data-tip]:focus, .status-monitor-name[data-tip]:focus {{
+        .prose abbr[data-tip]:focus, .status-tick[data-tip]:focus, .icon-btn[data-tip]:focus {{
             outline: none;
         }}
-        .prose abbr[data-tip]:focus-visible, .status-tick[data-tip]:focus-visible, .icon-btn[data-tip]:focus-visible, .status-monitor-name[data-tip]:focus-visible {{
+        .prose abbr[data-tip]:focus-visible, .status-tick[data-tip]:focus-visible, .icon-btn[data-tip]:focus-visible {{
             outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px;
         }}
-        .prose abbr[data-tip]::after, .status-tick[data-tip]::after, .icon-btn[data-tip]::after, .status-monitor-name[data-tip]::after {{
+        .prose abbr[data-tip]::after, .status-tick[data-tip]::after, .icon-btn[data-tip]::after {{
             content: attr(data-tip);
             position: absolute; left: 50%; bottom: calc(100% + 0.45rem);
             transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(0.2rem); z-index: 20;
             width: max-content; max-width: min(15rem, 60vw);
             padding: 0.4rem 0.6rem;
             background-color: var(--sidebar-bg); color: var(--text-color);
-            border: 1px solid var(--accent); border-radius: 6px;
+            border: 1px solid var(--border); border-radius: 6px;
             box-shadow: var(--shadow-md);
             font: 400 0.8rem/1.4 var(--font-sans);
             text-align: center; text-decoration: none; white-space: normal;
@@ -469,9 +469,7 @@ public static partial class LayoutProvider
             transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(-0.2rem);
         }}
         .prose abbr[data-tip]:hover::after, .prose abbr[data-tip]:focus::after,
-        .status-tick[data-tip]:hover::after, .status-tick[data-tip]:focus::after,
-        .status-monitor-name[data-tip]:hover::after, .status-monitor-name[data-tip]:focus::after,
-        .status-monitor-name[data-tip].tip-open::after {{
+        .status-tick[data-tip]:hover::after, .status-tick[data-tip]:focus::after {{
             opacity: 1; visibility: visible; transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(0);
         }}
         .icon-btn[data-tip]:hover::after, .icon-btn[data-tip]:focus::after {{
@@ -1617,9 +1615,39 @@ public static partial class LayoutProvider
             font-weight: 600;
             flex: 1 1 0%;
             min-width: 0;
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
+        }}
+        .status-monitor-name:focus {{
+            outline: none;
+        }}
+        .status-monitor-name:focus-visible {{
+            outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px;
+        }}
+        .status-monitor-name-text {{
+            display: block;
             overflow: hidden;
             white-space: nowrap;
             text-overflow: ellipsis;
+        }}
+        .status-monitor-name-tip {{
+            position: absolute; left: 50%; top: calc(100% + 0.45rem);
+            transform: translateX(calc(-50% + var(--tip-shift, 0px)));
+            z-index: 20;
+            width: max-content; max-width: min(15rem, 60vw);
+            padding: 0.4rem 0.6rem;
+            background-color: var(--sidebar-bg); color: var(--text-color);
+            border: 1px solid var(--border); border-radius: 6px;
+            box-shadow: var(--shadow-md);
+            font: 400 0.8rem/1.4 var(--font-sans);
+            text-align: center; white-space: normal;
+            display: none;
+            pointer-events: none;
+        }}
+        .status-monitor-name:hover .status-monitor-name-tip,
+        .status-monitor-name:focus .status-monitor-name-tip,
+        .status-monitor-name-tip.tip-open {{
+            display: block;
         }}
         .status-monitor-badge {{
             font-size: 0.75rem;

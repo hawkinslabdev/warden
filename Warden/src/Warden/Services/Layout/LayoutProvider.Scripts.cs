@@ -764,9 +764,9 @@ public static partial class LayoutProvider
                 }});
             }}
 
-            // tooltip is a ::after pseudo-element JS can't measure, so this clamps against the CSS `max-width: min(15rem, 60vw)` upper bound instead of real rendered width - can over-shift a short tip slightly, never lets one overflow
+            // tooltip is a ::after pseudo-element JS can't measure, so this renderds against the CSS `max-width: min(15rem, 60vw)` upper bound instead of real rendered width
             function positionAbbrTip(e) {{
-                var abbr = e.target.closest && e.target.closest('abbr[data-tip], .status-tick[data-tip], .icon-btn[data-tip], .status-monitor-name[data-tip]');
+                var abbr = e.target.closest && e.target.closest('abbr[data-tip], .status-tick[data-tip], .icon-btn[data-tip], .status-monitor-name');
                 if (!abbr) return;
                 var vw = document.documentElement.clientWidth || window.innerWidth;
                 var rootFontPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
@@ -782,12 +782,13 @@ public static partial class LayoutProvider
             document.addEventListener('focusin', positionAbbrTip);
 
             document.addEventListener('click', function(e) {{
-                var name = e.target.closest && e.target.closest('.status-monitor-name[data-tip]');
-                document.querySelectorAll('.status-monitor-name.tip-open').forEach(function(el) {{
-                    if (el !== name) el.classList.remove('tip-open');
+                var name = e.target.closest && e.target.closest('.status-monitor-name');
+                var tip = name && name.querySelector('.status-monitor-name-tip');
+                document.querySelectorAll('.status-monitor-name-tip.tip-open').forEach(function(el) {{
+                    if (el !== tip) el.classList.remove('tip-open');
                 }});
-                if (name) {{
-                    name.classList.toggle('tip-open');
+                if (tip) {{
+                    tip.classList.toggle('tip-open');
                     positionAbbrTip(e);
                 }}
             }});

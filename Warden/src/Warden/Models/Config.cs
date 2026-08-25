@@ -55,6 +55,9 @@ public class Config
     /// <summary>Top reading-progress bar. Defaults to on; set false to hide it.</summary>
     public bool? ScrollIndicator { get; set; }
 
+    /// <summary>The status page's overall-uptime line. Defaults to on; set false to hide it.</summary>
+    public bool? ShowOverallUptime { get; set; }
+
     /// <summary>Noindex whole surfaces site-wide, without touching front matter per page.
     /// A page's own <c>noindex</c> front matter still applies when its surface here is off.</summary>
     public NoIndexOptions? NoIndex { get; set; }

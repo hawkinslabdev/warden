@@ -77,12 +77,6 @@ public sealed class DashboardStructure : IWardenStructure
                 .status-monitor-card--down .status-monitor-dot { background: var(--alert-caution); }
                 .status-monitor-card--maintenance .status-monitor-dot { background: var(--alert-note); }
                 .status-monitor-card--degraded .status-monitor-dot { background: var(--alert-warning); }
-                .status-monitor-card .status-monitor-name {
-                    min-width: 0;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                }
                 .status-monitor-card .status-monitor-badge {
                     flex: none;
                 }

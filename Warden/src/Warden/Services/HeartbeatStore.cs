@@ -192,9 +192,10 @@ public sealed class HeartbeatStore
         for (var i = 0; i < beats.Count; i++)
         {
             var gap = (i + 1 < beats.Count ? beats[i + 1].Timestamp : now) - beats[i].Timestamp;
-            totalSpan += gap;
+            var measuredGap = gap > gapThreshold ? interval : gap;
+            totalSpan += measuredGap;
             if (beats[i].Up)
-                upSpan += gap > gapThreshold ? interval : gap;
+                upSpan += measuredGap;
         }
 
         if (totalSpan <= TimeSpan.Zero)

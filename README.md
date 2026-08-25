@@ -6,7 +6,7 @@
 
 Warden is a self-contained status page. It checks your configured sites on a timer, keeps the history in its own local SQLite database, and reports uptime, downtime, and outages from it, no external backend to run or register with.
 
-It's a child project of [Teatime](https://github.com/melosso/teatime), and reuses that project's Markdown engine, theming, and page-structure system unchanged. Everything around the status page itself (Markdown content, themes, single-language locale files) works the same way it does there.
+It's a child project of [Teatime](https://github.com/melosso/teatime), and reuses that project's Markdown engine, theming, and page-structure system unchanged. Everything around the status page itself (Markdown content, themes, single-language locale files) works the same way.
 
 <div>
       <p align="center"><strong>🔍 <a href="https://melosso.github.io/warden/">See it in action!</a></strong></p>
@@ -105,28 +105,12 @@ Both incidents and standalone pages go through the same Markdig pipeline, so dia
 }
 ```
 
-The `id` in `monitoring` is a custom slug that acts as the database row key. Renaming it resets that target's history, but front matter can reference this ID directly for incident reports. This block hot-reloads with `config.json`: adding, removing, or rescheduling targets takes effect on the next check cycle without a restart. An unreachable target renders as down on the status page instead of throwing an error.
+The `id` in `monitoring` is a customizable database row key slug; renaming it resets history, though front matter can reference it directly for incidents. The block hot-reloads dynamically along with `config.json`, meaning adding, removing, or rescheduling targets takes effect on the next check cycle without a restart, while unreachable targets render as down rather than throwing an error.
 
-Every field, for every monitor type, is in the [config.json reference](content/pages/examples/config.md).
+Refer to the [config.json reference](content/pages/examples/config.md) for every monitor field and type. Updating the `lang` setting in `config.json` points frontend translations to `content/locale/en.json`, enabling key-by-key text overrides without touching source code.
 
-Only where the SQLite file lives is a deployment concern: set the path in `appsettings.json`, or as an environment variable (`Monitoring__DatabasePath` or the shorter `DatabasePath`):
-
-```json
-{
-  "Monitoring": {
-    "DatabasePath": "data/warden.db"
-  }
-}
-```
-
-Both your pages and your config are hot reloaded, so they can be adjusted while the server keeps running. 
-
-Change languages by updating the `lang` setting in `config.json` (e.g., `"lang": "en"`). This points frontend translations to `content/locale/en.json`, letting you override default text key-by-key without altering any source code.
-
-Keeping `content/` in sync with a Git remote — including private-repo auth — is covered in the [Git sync reference](content/pages/examples/git.md).
-
-Either way, `content/` stays your own checkout on the host — Warden only ever runs `git pull` in it.
+For details on keeping `content/` in sync with a Git remote and handling private-repo auth, see the [Git sync reference](content/pages/examples/git.md). Warden only ever runs `git pull` inside `content/`, keeping it as your own local host checkout.
 
 ## License
 
-Please see [LICENSE](LICENSE) for the full terms.
+Licensed under EUPL 1.2, see [LICENSE](LICENSE) for the details.

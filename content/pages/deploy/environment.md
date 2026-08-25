@@ -15,6 +15,7 @@ An environment variable overrides the matching `appsettings.json` value. Nested 
 | --- | --- | --- |
 | `ASPNETCORE_URLS` | `http://localhost:5000` | Address and port. The Docker image sets `http://+:8080`. |
 | `ASPNETCORE_ENVIRONMENT` | `Production` | `Development` logs more. |
+| `TZ` | `UTC` | Server's local time zone (IANA name, e.g. `Europe/Amsterdam`). Reported in `/api`'s `tz` field and used for cron/log timestamps. Heartbeat history stays UTC regardless. |
 
 | `Proxy__Trusted__0` | none | A proxy IP or CIDR network allowed to set `X-Forwarded-For`. |
 | `Proxy__TrustAny` | `false` | Honours the forwarded header from any caller. |

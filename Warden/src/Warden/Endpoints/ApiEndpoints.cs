@@ -66,7 +66,7 @@ internal static class ApiEndpoints
             .Select(p => new ApiMaintenanceWindow(p.Path, p.Title, IncidentContent.StartOf(p), IncidentContent.EndOf(p)!.Value, p.Description, IncidentContent.MaintenanceBadgeClass(p, now)))
             .ToList();
 
-        return TypedResults.Ok(new StatusApiResponse(monitors, incidents, maintenance));
+        return TypedResults.Ok(new StatusApiResponse(monitors, incidents, maintenance, TimeZoneInfo.Local.Id));
     }
 
     internal static Ok<BuildVersionResponse> GetBuildVersion(HttpContext context, ContentService docs)

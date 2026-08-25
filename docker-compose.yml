@@ -10,4 +10,5 @@ services:
     environment:
       PublicBaseUrl: https://status.example.com
       AllowedHosts: status.example.com
+      TZ: Europe/Amsterdam
     restart: unless-stopped

@@ -31,6 +31,7 @@ public sealed class HeartbeatStore
         EnsureIncrementalVacuum(connection);
         using var create = connection.CreateCommand();
         create.CommandText = """
+            -- timestamp is always UTC (DateTimeOffset.UtcNow), independent of the TZ env var
             CREATE TABLE IF NOT EXISTS heartbeats (
                 id TEXT PRIMARY KEY,
                 monitor_id TEXT NOT NULL,

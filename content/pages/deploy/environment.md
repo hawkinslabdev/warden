@@ -89,6 +89,7 @@ Gates every page behind a self-hosted [ALTCHA](https://altcha.org) proof-of-work
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `Altcha__Enabled` | `false` | Requires solving a challenge before any page loads. |
+| `Altcha__SessionHours` | `24` | How long a solved challenge exempts a visitor from re-solving. |
 
 ## Logs
 

@@ -25,7 +25,7 @@ internal static class AltchaEndpoints
             HttpOnly = true,
             Secure = context.Request.IsHttps,
             SameSite = SameSiteMode.Lax,
-            MaxAge = AltchaGate.SessionLifetime,
+            MaxAge = AltchaGate.SessionLifetime(context),
             Path = "/",
         });
         return Results.Ok();

@@ -14,10 +14,10 @@ public static class AltchaGate
 {
     internal const string CookieName = "warden_altcha";
     private const string ProtectorPurpose = "Warden.Altcha.Session";
-    internal static readonly TimeSpan SessionLifetime = TimeSpan.FromHours(24);
 
-    public static IServiceCollection AddAltchaGate(this IServiceCollection services)
+    public static IServiceCollection AddAltchaGate(this IServiceCollection services, AltchaOptions options)
     {
+        services.AddSingleton(options);
         services.AddDataProtection();
 
         var key = new byte[64];
@@ -65,7 +65,10 @@ public static class AltchaGate
     }
 
     internal static string IssueSessionCookieValue(HttpContext context) =>
-        GetProtector(context).Protect("ok", SessionLifetime);
+        GetProtector(context).Protect("ok", SessionLifetime(context));
+
+    internal static TimeSpan SessionLifetime(HttpContext context) =>
+        TimeSpan.FromHours(context.RequestServices.GetRequiredService<AltchaOptions>().SessionHours);
 
     private static ITimeLimitedDataProtector GetProtector(HttpContext context) =>
         context.RequestServices.GetRequiredService<IDataProtectionProvider>()
@@ -85,10 +88,11 @@ public static class AltchaGate
         context.Response.ContentType = "text/html; charset=utf-8";
         context.Response.Headers.CacheControl = "no-store";
         context.Response.Headers.ContentSecurityPolicy = context.Response.Headers.ContentSecurityPolicy + "; worker-src 'self' blob:";
-        return context.Response.WriteAsync(BuildChallengePageHtml(activeTheme, lang));
+        var customCssLink = ThemeProvider.BuildCustomCssLink(themeOptions, settings.ThemeDir, settings.BasePath);
+        return context.Response.WriteAsync(BuildChallengePageHtml(activeTheme, lang, customCssLink));
     }
 
-    private static string BuildChallengePageHtml(IWardenTheme activeTheme, string lang)
+    private static string BuildChallengePageHtml(IWardenTheme activeTheme, string lang, string customCssLink)
     {
         var l = Localization.Current;
         var lightVars = ThemeCssBuilder.BuildMinimalLightTokenCss(activeTheme)
@@ -138,6 +142,7 @@ public static class AltchaGate
                 .gate.is-error .gate-error { display: block; }
                 .gate.is-error h1 { color: var(--gate-error); }
             </style>
+            {{customCssLink}}
             </head>
             <body>
             <main id="gate" class="gate" role="status" aria-live="polite" aria-atomic="true">

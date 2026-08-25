@@ -65,7 +65,7 @@ try
 
     var altchaOptions = builder.Configuration.GetSection("Altcha").Get<AltchaOptions>() ?? new AltchaOptions();
     if (altchaOptions.Enabled)
-        builder.Services.AddAltchaGate();
+        builder.Services.AddAltchaGate(altchaOptions);
 
     var docsRootAbsolute = Path.GetFullPath(docsOptions.RootPath).Replace(Path.DirectorySeparatorChar, '/');
 

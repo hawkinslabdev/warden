@@ -66,7 +66,7 @@ Files under `content/incidents/*.md` use a few extra fields of their own:
 | `start` | When the incident or window began. An alias for `date`; either key works. |
 | `end` | When it ended. On an incident, its presence is what marks it resolved; a maintenance window needs it to render at all. |
 | `maintenance` | Set to `true` to make the file a planned maintenance window instead of an incident. |
-| `monitors` | The monitor ids this covers, e.g. `monitors: [forgejo]`. A single id on its own also works. |
+| `monitors` | The monitor ids this covers, e.g. `monitors: [forgejo]`. A single id on its own also works. `all` is reserved - it covers every configured monitor instead of listing them, for a system-wide incident or maintenance window. |
 | `status` | Incidents only. Set to `degraded` to badge the linked monitors Degraded rather than Down, for a service that answers but poorly. Anything else, including unset, means down. |
 
 See the guide's [Incidents and maintenance](/guide/#incidents-and-maintenance) section for how they link to a monitor.

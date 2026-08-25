@@ -33,6 +33,7 @@ public class WardenWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("urls", "http://127.0.0.1:0");
         builder.UseSetting("Docs:RootPath", ContentDir);
         builder.UseSetting("Docs:EnableHotReload", "false");
+        builder.UseSetting("Altcha:Enabled", "false");
     }
 
     protected override void Dispose(bool disposing)

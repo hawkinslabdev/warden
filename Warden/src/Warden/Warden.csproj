@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <Content Include="../../../content/**/*" LinkBase="content" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="wwwroot/js/altcha.min.js" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

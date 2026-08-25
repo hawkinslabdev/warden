@@ -212,6 +212,7 @@ public sealed partial class ContentService : IHostedService, IDisposable
         }
         catch (OperationCanceledException)
         {
+            _logger.LogDebug("File watcher consumer stopped");
         }
         catch (Exception ex)
         {

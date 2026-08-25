@@ -90,19 +90,31 @@ public sealed class HeartbeatStoreTests : IDisposable
     }
 
     [Fact]
-    public void GetUptime_ComputesShareOfUpHeartbeats()
+    public void GetUptime_WeightsByElapsedTimeBetweenChecks_NotCheckCount()
     {
         var now = DateTimeOffset.UtcNow;
-        _store.Record("site", now.AddMinutes(-3), up: true, responseMs: 10);
-        _store.Record("site", now.AddMinutes(-2), up: true, responseMs: 10);
-        _store.Record("site", now.AddMinutes(-1), up: false, responseMs: null);
-        _store.Record("site", now, up: true, responseMs: 10);
+        // Down for 3 of 4 minutes (25% uptime). A raw check count ratio would incorrectly report 50%.
+        _store.Record("site", now.AddMinutes(-4), up: true, responseMs: 10);
+        _store.Record("site", now.AddMinutes(-3), up: false, responseMs: null);
 
         var uptime = _store.GetUptime("site", TimeSpan.FromHours(24));
 
-        Assert.Equal(75.0, uptime!.Value.Percent);
+        Assert.Equal(25.0, uptime!.Value.Percent, 0);
     }
 
+    [Fact]
+    public void GetUptime_TreatsAnAbnormalGapAsDowntime_NotAsExcludedFromThePercentage()
+    {
+        var now = DateTimeOffset.UtcNow;
+        // A 10-min gap with 1-min interval indicates missed checks (e.g., crash). Only 1 min counts as up; the rest counts as downtime.
+        _store.Record("site", now.AddMinutes(-10), up: true, responseMs: 10);
+        _store.Record("site", now, up: false, responseMs: null);
+
+        var uptime = _store.GetUptime("site", TimeSpan.FromHours(24), TimeSpan.FromMinutes(1));
+
+        Assert.Equal(10.0, uptime!.Value.Percent, 0);
+    }
+    
     [Fact]
     public void GetUptime_ReportsActualSpan_WhenLessThanWindow()
     {

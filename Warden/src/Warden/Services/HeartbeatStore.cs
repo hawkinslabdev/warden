@@ -97,10 +97,6 @@ public sealed class HeartbeatStore
         return reader.Read() ? ReadRecord(reader, monitorId) : null;
     }
 
-    // one bucket per UTC calendar day, oldest first, for a left-to-right history bar; a day with no failures at
-    // all is "up", no rows that day is "unknown". Without degradedBelowPercent, "down" requires every heartbeat
-    // that day to have failed and any partial failure is "degraded" (a single blip must not paint the whole day
-    // solid red). With it set, "down" instead means the day's uptime% fell below that threshold.
     public List<DailyStatus> GetDailyStatus(string monitorId, int days, double? degradedBelowPercent = null)
     {
         var sinceDay = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-(days - 1));
@@ -133,7 +129,7 @@ public sealed class HeartbeatStore
             var upPercent = 100.0 * (c.Total - c.Down) / c.Total;
             var isDown = degradedBelowPercent is { } threshold ? upPercent < threshold : c.Down == c.Total;
             var status = c.Down == 0 ? MonitorStatus.Up : isDown ? MonitorStatus.Down : MonitorStatus.Degraded;
-            result.Add(new DailyStatus(day, status, status == MonitorStatus.Degraded ? upPercent : 0));
+            result.Add(new DailyStatus(day, status, upPercent));
         }
         return result;
     }
@@ -170,8 +166,9 @@ public sealed class HeartbeatStore
         return result;
     }
 
-    // share of "up" heartbeats within window, plus how much of the window is actually covered by data (a fresh target has minutes of history, not the full window); null when there's no data yet
-    public (double Percent, TimeSpan Span)? GetUptime(string monitorId, TimeSpan window)
+    private const int GapMultiplier = 3;
+
+    public (double Percent, TimeSpan Span)? GetUptime(string monitorId, TimeSpan window, TimeSpan? expectedInterval = null)
     {
         using var connection = Open();
         using var select = connection.CreateCommand();
@@ -179,23 +176,32 @@ public sealed class HeartbeatStore
         select.Parameters.AddWithValue("$monitorId", monitorId);
         select.Parameters.AddWithValue("$since", (DateTimeOffset.UtcNow - window).ToString("O"));
 
-        var total = 0;
-        var up = 0;
-        DateTimeOffset? earliest = null;
+        var beats = new List<(DateTimeOffset Timestamp, bool Up)>();
         using var reader = select.ExecuteReader();
         while (reader.Read())
-        {
-            earliest ??= DateTimeOffset.Parse(reader.GetString(0));
-            total++;
-            if (Deserialize(reader.GetString(1)).Up)
-                up++;
-        }
-        if (total == 0 || earliest is null)
+            beats.Add((DateTimeOffset.Parse(reader.GetString(0)), Deserialize(reader.GetString(1)).Up));
+        if (beats.Count == 0)
             return null;
 
-        var span = DateTimeOffset.UtcNow - earliest.Value;
-        if (span > window) span = window;
-        return (100.0 * up / total, span);
+        var interval = expectedInterval ?? TimeSpan.FromSeconds(MonitorScheduler.DefaultIntervalSeconds);
+        var gapThreshold = interval * GapMultiplier;
+        var now = DateTimeOffset.UtcNow;
+
+        var upSpan = TimeSpan.Zero;
+        var totalSpan = TimeSpan.Zero;
+        for (var i = 0; i < beats.Count; i++)
+        {
+            var gap = (i + 1 < beats.Count ? beats[i + 1].Timestamp : now) - beats[i].Timestamp;
+            totalSpan += gap;
+            if (beats[i].Up)
+                upSpan += gap > gapThreshold ? interval : gap;
+        }
+
+        if (totalSpan <= TimeSpan.Zero)
+            return (beats[^1].Up ? 100.0 : 0.0, TimeSpan.Zero);
+
+        var span = totalSpan > window ? window : totalSpan;
+        return (100.0 * upSpan.TotalSeconds / totalSpan.TotalSeconds, span);
     }
 
     // one retention window for all monitors, set via config.json's "retentionDays" or MonitorScheduler's default - intentionally not per-monitor

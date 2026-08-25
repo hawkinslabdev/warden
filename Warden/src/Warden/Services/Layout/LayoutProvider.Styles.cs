@@ -470,7 +470,8 @@ public static partial class LayoutProvider
         }}
         .prose abbr[data-tip]:hover::after, .prose abbr[data-tip]:focus::after,
         .status-tick[data-tip]:hover::after, .status-tick[data-tip]:focus::after,
-        .status-monitor-name[data-tip]:hover::after, .status-monitor-name[data-tip]:focus::after {{
+        .status-monitor-name[data-tip]:hover::after, .status-monitor-name[data-tip]:focus::after,
+        .status-monitor-name[data-tip].tip-open::after {{
             opacity: 1; visibility: visible; transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(0);
         }}
         .icon-btn[data-tip]:hover::after, .icon-btn[data-tip]:focus::after {{
@@ -1614,7 +1615,7 @@ public static partial class LayoutProvider
         }}
         .status-monitor-name {{
             font-weight: 600;
-            margin-right: auto;
+            flex: 1 1 0%;
             min-width: 0;
             overflow: hidden;
             white-space: nowrap;
@@ -1628,6 +1629,7 @@ public static partial class LayoutProvider
             padding: 0.2rem 0.6rem;
             border-radius: 999px;
             text-decoration: none;
+            flex-shrink: 0;
         }}
         a.status-monitor-badge {{
             cursor: pointer;
@@ -1726,6 +1728,12 @@ public static partial class LayoutProvider
             display: flex;
             align-items: center;
             gap: 0.6rem;
+            flex-wrap: wrap;
+        }}
+        @media (max-width: 620px) {{
+            .status-incident-badge, .status-maintenance-badge {{
+                flex-basis: 100%;
+            }}
         }}
         .content.reading .status-incident-title, .content.reading .status-maintenance-title {{
             margin: 0;
@@ -1733,6 +1741,7 @@ public static partial class LayoutProvider
             font-weight: 500;
             font-family: var(--font-display);
             border-bottom: none;
+            min-width: 0;
         }}
         .status-incident-badge, .status-maintenance-badge {{
             display: inline-flex;

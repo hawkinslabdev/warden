@@ -90,7 +90,8 @@ try
     // clone lands (the clone is async and may still be running when this runs)
     var usingGitTheme = !string.IsNullOrWhiteSpace(gitSyncOptions.Root);
     var themeDir = usingGitTheme ? Path.Combine(gitRoot, "theme") : Path.Combine(webRootPath, "theme");
-    try { Directory.CreateDirectory(themeDir); } catch (IOException) { }
+    try { Directory.CreateDirectory(themeDir); }
+    catch (IOException ex) { Log.Debug(ex, "Could not create theme directory {ThemeDir}", themeDir); }
 
     // appsettings.json's Docs:Themes wins if present; theme.json is the file-only alternative.
     var themeOptions = builder.Configuration.GetSection("Docs:Themes").Get<ThemeOptions>()

@@ -58,7 +58,8 @@ public sealed class GitContentSyncService(GitSyncOptions options, string content
     {
         Directory.CreateDirectory(contentRoot);
         var scratch = Path.Combine(contentRoot, ".git-sync-tmp");
-        try { Directory.Delete(scratch, recursive: true); } catch (DirectoryNotFoundException) { }
+        if (Directory.Exists(scratch))
+            Directory.Delete(scratch, recursive: true);
 
         if (!await RunGitAsync(["clone", options.Url!, scratch], Path.GetTempPath(), ct))
             return false;
@@ -151,7 +152,8 @@ public sealed class GitContentSyncService(GitSyncOptions options, string content
         {
             // Ensures timed-out processes are fully terminated.
             if (process is { HasExited: false })
-                try { process.Kill(entireProcessTree: true); } catch { /* best-effort */ }
+                try { process.Kill(entireProcessTree: true); }
+                catch (Exception ex) { logger.LogDebug(ex, "Could not kill timed-out git process"); }
             process?.Dispose();
         }
     }

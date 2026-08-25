@@ -78,9 +78,39 @@ public sealed class StatusGroupingTests : IDisposable
         Assert.DoesNotContain("uptime (1m)", flat);
 
         var sb = new System.Text.StringBuilder();
-        StatusEndpoints.AppendOverallUptime(sb, Localization.Current, _store, Targets);
+        StatusEndpoints.AppendOverallUptime(sb, Localization.Current, _store, Targets, TimeSpan.FromMinutes(1));
         Assert.Contains("100% uptime over the last 1 min", sb.ToString());
         Assert.DoesNotContain("90 days", sb.ToString());
+    }
+
+    // a monitor with zero heartbeats must say so plainly, not silently drop the uptime line
+    [Fact]
+    public void UptimeLine_ShowsNoData_WhenMonitorHasNoHeartbeats()
+    {
+        var html = Render(null, cards: false);
+        Assert.Contains(Localization.Current.StatusNoData, html);
+    }
+
+    // filtering to a past day must show that day's uptime%, not the live 24h figure - and every group must get
+    // it, not just the first one the header-indicator logic renders it next to
+    [Fact]
+    public void FilteredDay_ShowsThatDaysUptime_ForEveryGroup()
+    {
+        var day = DateOnly.FromDateTime(DateTimeOffset.UtcNow.AddDays(-2).UtcDateTime);
+        var dayStart = day.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        _store.Record("blog", dayStart.AddHours(1), up: true, responseMs: 10);
+        _store.Record("blog", dayStart.AddHours(2), up: false, responseMs: null);
+        _store.Record("s3", dayStart.AddHours(1), up: true, responseMs: 10);
+        _store.Record("s3", dayStart.AddHours(2), up: true, responseMs: 10);
+
+        var sb = new System.Text.StringBuilder();
+        var statuses = Targets.ToDictionary(t => t.Id, _ => MonitorStatus.Down);
+        StatusEndpoints.AppendMonitors(sb, Localization.Current, _store, Targets, statuses, [], "", "custom", cards: false, filterDay: day);
+
+        var html = sb.ToString();
+        Assert.Contains("50% uptime (1d)", html);
+        Assert.Contains("100% uptime (1d)", html);
+        Assert.DoesNotContain("(24h)", html);
     }
 
     // a degraded monitor must not borrow the Down badge, in either layout

@@ -84,7 +84,7 @@ public sealed record ApiMaintenanceWindow(string Slug, string Title, DateTimeOff
 // Tz is always "UTC": every timestamp in this payload is UTC, named explicitly so API consumers don't have to assume it
 public sealed record StatusApiResponse(List<ApiMonitorStatus> Monitors, List<ApiIncident> Incidents, List<ApiMaintenanceWindow> Maintenance, string Tz = "UTC");
 
-// one calendar day's aggregate for the history bar; UpPercent is only meaningful for Degraded (Up implies 100, Down implies 0)
+// one calendar day's aggregate for the history bar
 public sealed record DailyStatus(DateOnly Day, MonitorStatus Status, double UpPercent = 0);
 
 // one calendar day's average response time for the latency chart; null when no heartbeat landed that day

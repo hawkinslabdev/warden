@@ -56,15 +56,18 @@ internal static class IncidentContent
         return start < dayStart.AddDays(1) && end >= dayStart;
     }
 
+    private static IEnumerable<string> ExpandMonitors(IReadOnlyList<string> monitors, IReadOnlyList<string> allMonitorIds) =>
+        monitors.Any(id => string.Equals(id, "all", StringComparison.OrdinalIgnoreCase)) ? allMonitorIds : monitors;
+
     // uptime-kuma-style: a monitor named in an active window's `monitors:` list shows Maintenance instead of Up/Down, and is excluded from the "some systems down" banner
-    public static HashSet<string> ActiveMaintenanceMonitorIds(IReadOnlyList<DocumentationPage> pages, DateTimeOffset now)
+    public static HashSet<string> ActiveMaintenanceMonitorIds(IReadOnlyList<DocumentationPage> pages, DateTimeOffset now, IReadOnlyList<string> allMonitorIds)
     {
         var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var page in InFolder(pages, maintenance: true))
         {
             if (page.Monitors is not { Count: > 0 } monitors || MaintenanceBadgeClass(page, now) != "active")
                 continue;
-            foreach (var id in monitors)
+            foreach (var id in ExpandMonitors(monitors, allMonitorIds))
                 ids.Add(id);
         }
         return ids;
@@ -73,7 +76,7 @@ internal static class IncidentContent
     // same idea, for an unresolved incident's `monitors:` list; a declared incident is more authoritative than
     // the raw heartbeat (it covers what a simple up/down ping can't, like "API responses degraded"), so this
     // wins over both the heartbeat and an active maintenance window on the same monitor - see StatusOverride
-    public static Dictionary<string, MonitorStatus> ActiveIncidentMonitorIds(IReadOnlyList<DocumentationPage> pages)
+    public static Dictionary<string, MonitorStatus> ActiveIncidentMonitorIds(IReadOnlyList<DocumentationPage> pages, IReadOnlyList<string> allMonitorIds)
     {
         var ids = new Dictionary<string, MonitorStatus>(StringComparer.Ordinal);
         foreach (var page in InFolder(pages, maintenance: false))
@@ -81,7 +84,7 @@ internal static class IncidentContent
             if (page.Monitors is not { Count: > 0 } monitors || page.End is not null)
                 continue;
             var status = IncidentStatus(page);
-            foreach (var id in monitors)
+            foreach (var id in ExpandMonitors(monitors, allMonitorIds))
                 // two open incidents on one monitor: the harsher one wins, so a degraded note can never soften a real outage
                 if (!ids.TryGetValue(id, out var existing) || existing != MonitorStatus.Down)
                     ids[id] = status;
@@ -94,7 +97,7 @@ internal static class IncidentContent
         string.Equals(page.Status, "degraded", StringComparison.OrdinalIgnoreCase) ? MonitorStatus.Degraded : MonitorStatus.Down;
 
     // day-filtered counterpart of ActiveIncidentMonitorIds: "active" becomes "overlapped that calendar day"
-    public static Dictionary<string, MonitorStatus> IncidentMonitorIdsOnDay(IReadOnlyList<DocumentationPage> pages, DateOnly day)
+    public static Dictionary<string, MonitorStatus> IncidentMonitorIdsOnDay(IReadOnlyList<DocumentationPage> pages, DateOnly day, IReadOnlyList<string> allMonitorIds)
     {
         var ids = new Dictionary<string, MonitorStatus>(StringComparer.Ordinal);
         foreach (var page in InFolder(pages, maintenance: false))
@@ -102,7 +105,7 @@ internal static class IncidentContent
             if (page.Monitors is not { Count: > 0 } monitors || !OverlapsDay(StartOf(page), EndOf(page) ?? DateTimeOffset.UtcNow, day))
                 continue;
             var status = IncidentStatus(page);
-            foreach (var id in monitors)
+            foreach (var id in ExpandMonitors(monitors, allMonitorIds))
                 if (!ids.TryGetValue(id, out var existing) || existing != MonitorStatus.Down)
                     ids[id] = status;
         }
@@ -110,14 +113,14 @@ internal static class IncidentContent
     }
 
     // day-filtered counterpart of ActiveMaintenanceMonitorIds
-    public static HashSet<string> MaintenanceMonitorIdsOnDay(IReadOnlyList<DocumentationPage> pages, DateOnly day)
+    public static HashSet<string> MaintenanceMonitorIdsOnDay(IReadOnlyList<DocumentationPage> pages, DateOnly day, IReadOnlyList<string> allMonitorIds)
     {
         var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var page in InFolder(pages, maintenance: true))
         {
             if (page.Monitors is not { Count: > 0 } monitors || EndOf(page) is not { } end || !OverlapsDay(StartOf(page), end, day))
                 continue;
-            foreach (var id in monitors)
+            foreach (var id in ExpandMonitors(monitors, allMonitorIds))
                 ids.Add(id);
         }
         return ids;

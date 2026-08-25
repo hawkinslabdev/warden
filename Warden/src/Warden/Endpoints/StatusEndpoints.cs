@@ -67,23 +67,23 @@ internal static class StatusEndpoints
     private static string BuildStatusHtml(HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, IReadOnlyList<DocumentationPage> pages, MonitoringConfig? monitoring, DateOnly? filterDay, string basePath, IWardenStructure structure)
     {
         var l = Localization.Current;
+        var allMonitorIds = targets.Select(t => t.Id).ToList();
         // the banner always reads live health, even while a past day is filtered - only the monitor badges below travel back in time
-        var liveIncidentMonitorIds = IncidentContent.ActiveIncidentMonitorIds(pages);
-        var liveMaintainedIds = IncidentContent.ActiveMaintenanceMonitorIds(pages, DateTimeOffset.UtcNow);
+        var liveIncidentMonitorIds = IncidentContent.ActiveIncidentMonitorIds(pages, allMonitorIds);
+        var liveMaintainedIds = IncidentContent.ActiveMaintenanceMonitorIds(pages, DateTimeOffset.UtcNow, allMonitorIds);
         var anyDown = targets.Any(t =>
             (IncidentContent.StatusOverride(t.Id, liveIncidentMonitorIds, liveMaintainedIds) ?? LatestStatus(store, t.Id))
             is MonitorStatus.Down or MonitorStatus.Degraded);
 
         var incidentMonitorIds = filterDay.HasValue
-            ? IncidentContent.IncidentMonitorIdsOnDay(pages, filterDay.Value)
+            ? IncidentContent.IncidentMonitorIdsOnDay(pages, filterDay.Value, allMonitorIds)
             : liveIncidentMonitorIds;
         var maintainedIds = filterDay.HasValue
-            ? IncidentContent.MaintenanceMonitorIdsOnDay(pages, filterDay.Value)
+            ? IncidentContent.MaintenanceMonitorIdsOnDay(pages, filterDay.Value, allMonitorIds)
             : liveMaintainedIds;
-        // live badge (no filterDay) always reflects the latest heartbeat, not a day rollup - a monitor that
-        // failed earlier today and has since recovered must read "Operational" now, even though today's
-        // history tick stays red; browsing a past day still shows that day's aggregate status
+
         var degradedBelowPercent = monitoring?.DegradedBelowPercent;
+        var expectedInterval = TimeSpan.FromSeconds(Math.Max(5, monitoring?.IntervalSeconds ?? MonitorScheduler.DefaultIntervalSeconds));
         var statuses = targets.ToDictionary(t => t.Id, t =>
             IncidentContent.StatusOverride(t.Id, incidentMonitorIds, maintainedIds)
             ?? (filterDay.HasValue ? DayStatus(store, t.Id, filterDay.Value, degradedBelowPercent) : LatestStatus(store, t.Id)));
@@ -102,13 +102,13 @@ internal static class StatusEndpoints
 
         if (structure.ShowStatusHeader)
         {
-            AppendOverallUptime(sb, l, store, targets);
+            AppendOverallUptime(sb, l, store, targets, expectedInterval);
             // ongoing incidents always surface here, above the list/grid - readers shouldn't have to scroll past a green page to find out why something is down
             AppendOngoingIncidents(sb, l, recentIncidents, basePath);
         }
 
         var historyDays = Math.Clamp(monitoring?.HistoryDays ?? HistoryDays, 1, MaxHistoryDays);
-        AppendMonitors(sb, l, store, targets, statuses, linkedMonitorIds, basePath, monitoring?.Group, structure.UseCardStatusLayout, historyDays, filterDay, degradedBelowPercent);
+        AppendMonitors(sb, l, store, targets, statuses, linkedMonitorIds, basePath, monitoring?.Group, structure.UseCardStatusLayout, historyDays, filterDay, degradedBelowPercent, expectedInterval);
 
         BuildIncidentsSection(sb, l, recentIncidents, basePath, filterDay);
         BuildMaintenanceSection(sb, l, pages, monitoring, filterDay, basePath);
@@ -116,25 +116,37 @@ internal static class StatusEndpoints
         return sb.ToString();
     }
 
-    // fflat list item ("clean", "default", and every structure that is not the card grid)
-    private static string BuildFlatMonitorItem(Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, bool linked, string basePath, int historyDays, double? degradedBelowPercent)
+    private static string BuildUptimeSpan(Localization l, (double Percent, TimeSpan Span)? uptime) =>
+        uptime is { } u
+            ? $"<span class=\"status-monitor-uptime select-none\">{LayoutProvider.HtmlEncode(l.StatusUptimeLabel(u.Percent, FormatDuration(u.Span)))}</span>"
+            : $"<span class=\"status-monitor-uptime select-none\">{LayoutProvider.HtmlEncode(l.StatusNoData)}</span>";
+
+    private static string BuildMonitorNameSpan(MonitorTarget target)
     {
-        var uptime = store.GetUptime(target.Id, UptimeWindow);
+        var name = LayoutProvider.HtmlEncode(target.Name);
+        return string.IsNullOrWhiteSpace(target.Name)
+            ? $"<span class=\"status-monitor-name\">{name}</span>"
+            : $"<span class=\"status-monitor-name\" tabindex=\"0\" data-tip=\"{name}\">{name}</span>";
+    }
+
+    // fflat list item ("clean", "default", and every structure that is not the card grid)
+    private static string BuildFlatMonitorItem(Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, bool linked, string basePath, int historyDays, double? degradedBelowPercent, TimeSpan? expectedInterval, DateOnly? filterDay)
+    {
+        var uptime = filterDay is { } day ? DayUptime(store, target.Id, day, degradedBelowPercent) : store.GetUptime(target.Id, UptimeWindow, expectedInterval);
         var sb = new System.Text.StringBuilder("<li class=\"status-monitor status-monitor--").Append(StatusClass(status)).Append("\">")
-          .Append("<span class=\"status-monitor-name\" tabindex=\"0\" data-tip=\"").Append(LayoutProvider.HtmlEncode(target.Name)).Append("\">").Append(LayoutProvider.HtmlEncode(target.Name)).Append("</span>")
+          .Append(BuildMonitorNameSpan(target))
           .Append(BuildStatusBadge(l, status, linked, basePath));
-        if (uptime is { } u)
-            sb.Append("<span class=\"status-monitor-uptime select-none\">").Append(LayoutProvider.HtmlEncode(l.StatusUptimeLabel(u.Percent, FormatDuration(u.Span)))).Append("</span>");
+        sb.Append(BuildUptimeSpan(l, uptime));
         sb.Append(BuildHistoryBar(store, target.Id, basePath, historyDays, degradedBelowPercent));
         sb.Append("</li>");
         return sb.ToString();
     }
 
     // status header (overall uptime + pinned ongoing incidents), on for "default" and "dashboard"
-    internal static void AppendOverallUptime(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets)
+    internal static void AppendOverallUptime(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, TimeSpan expectedInterval)
     {
         var measured = targets
-            .Select(t => store.GetUptime(t.Id, TimeSpan.FromDays(HistoryDays)))
+            .Select(t => store.GetUptime(t.Id, TimeSpan.FromDays(HistoryDays), expectedInterval))
             .Where(u => u is not null)
             .Select(u => u!.Value)
             .ToList();
@@ -165,7 +177,7 @@ internal static class StatusEndpoints
 
     // grouping is opt-in via monitoring.group and independent of the structure: "type" groups by each target's own
     // type, "custom" by its "group" field (falling back to the type label), unset renders one ungrouped section
-    internal static void AppendMonitors(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, HashSet<string> linkedMonitorIds, string basePath, string? groupBy, bool cards, int historyDays = HistoryDays, DateOnly? filterDay = null, double? degradedBelowPercent = null)
+    internal static void AppendMonitors(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, HashSet<string> linkedMonitorIds, string basePath, string? groupBy, bool cards, int historyDays = HistoryDays, DateOnly? filterDay = null, double? degradedBelowPercent = null, TimeSpan? expectedInterval = null)
     {
         Func<MonitorTarget, string>? groupLabel = groupBy switch
         {
@@ -176,7 +188,7 @@ internal static class StatusEndpoints
 
         if (groupLabel is null)
         {
-            AppendMonitorSection(sb, l, store, targets, statuses, linkedMonitorIds, basePath, cards, heading: null, historyDays, filterDay, degradedBelowPercent);
+            AppendMonitorSection(sb, l, store, targets, statuses, linkedMonitorIds, basePath, cards, heading: null, historyDays, filterDay, degradedBelowPercent, expectedInterval, showFilterIndicator: true);
             return;
         }
 
@@ -185,18 +197,18 @@ internal static class StatusEndpoints
         var first = true;
         foreach (var group in targets.GroupBy(groupLabel, StringComparer.OrdinalIgnoreCase))
         {
-            AppendMonitorSection(sb, l, store, group, statuses, linkedMonitorIds, basePath, cards, group.Key, historyDays, first ? filterDay : null, degradedBelowPercent);
+            AppendMonitorSection(sb, l, store, group, statuses, linkedMonitorIds, basePath, cards, group.Key, historyDays, filterDay, degradedBelowPercent, expectedInterval, showFilterIndicator: first);
             first = false;
         }
     }
 
-    private static void AppendMonitorSection(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IEnumerable<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, HashSet<string> linkedMonitorIds, string basePath, bool cards, string? heading, int historyDays, DateOnly? filterDay = null, double? degradedBelowPercent = null)
+    private static void AppendMonitorSection(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IEnumerable<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, HashSet<string> linkedMonitorIds, string basePath, bool cards, string? heading, int historyDays, DateOnly? filterDay = null, double? degradedBelowPercent = null, TimeSpan? expectedInterval = null, bool showFilterIndicator = true)
     {
         sb.Append("<section class=\"status-group\">");
         if (heading is not null)
         {
             sb.Append("<h2 class=\"status-group-heading select-none\">").Append(LayoutProvider.HtmlEncode(heading));
-            if (filterDay is { } day)
+            if (showFilterIndicator && filterDay is { } day)
                 sb.Append(BuildHeaderFilterIndicator(l, day, basePath));
             sb.Append("</h2>");
         }
@@ -205,24 +217,23 @@ internal static class StatusEndpoints
         {
             var linked = linkedMonitorIds.Contains(target.Id);
             if (cards)
-                AppendMonitorCard(sb, l, store, target, statuses[target.Id], linked, basePath, degradedBelowPercent);
+                AppendMonitorCard(sb, l, store, target, statuses[target.Id], linked, basePath, degradedBelowPercent, expectedInterval, filterDay);
             else
-                sb.Append(BuildFlatMonitorItem(l, store, target, statuses[target.Id], linked, basePath, historyDays, degradedBelowPercent));
+                sb.Append(BuildFlatMonitorItem(l, store, target, statuses[target.Id], linked, basePath, historyDays, degradedBelowPercent, expectedInterval, filterDay));
         }
         sb.Append("</ul></section>");
     }
 
-    private static void AppendMonitorCard(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, bool linked, string basePath, double? degradedBelowPercent)
+    private static void AppendMonitorCard(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, bool linked, string basePath, double? degradedBelowPercent, TimeSpan? expectedInterval, DateOnly? filterDay)
     {
-        var uptime = store.GetUptime(target.Id, UptimeWindow);
+        var uptime = filterDay is { } day ? DayUptime(store, target.Id, day, degradedBelowPercent) : store.GetUptime(target.Id, UptimeWindow, expectedInterval);
         sb.Append("<li class=\"status-monitor-card status-monitor-card--").Append(StatusClass(status)).Append("\">")
           .Append("<div class=\"status-monitor-card-head\">")
           .Append("<span class=\"status-monitor-dot select-none\" aria-hidden=\"true\"></span>")
-          .Append("<span class=\"status-monitor-name\" tabindex=\"0\" data-tip=\"").Append(LayoutProvider.HtmlEncode(target.Name)).Append("\">").Append(LayoutProvider.HtmlEncode(target.Name)).Append("</span>")
+          .Append(BuildMonitorNameSpan(target))
           .Append(BuildStatusBadge(l, status, linked, basePath))
           .Append("</div>");
-        if (uptime is { } u)
-            sb.Append("<span class=\"status-monitor-uptime select-none\">").Append(LayoutProvider.HtmlEncode(l.StatusUptimeLabel(u.Percent, FormatDuration(u.Span)))).Append("</span>");
+        sb.Append(BuildUptimeSpan(l, uptime));
         sb.Append(BuildResponseTimeChart(store, target.Id, basePath));
         sb.Append(BuildHistoryBar(store, target.Id, basePath, ResponseChartDays, degradedBelowPercent));
         sb.Append("</li>");
@@ -362,11 +373,20 @@ internal static class StatusEndpoints
     private static MonitorStatus LatestStatus(HeartbeatStore store, string monitorId) =>
         store.GetLatest(monitorId) is { } beat ? (beat.Data.Up ? MonitorStatus.Up : MonitorStatus.Down) : MonitorStatus.Unknown;
 
-    private static MonitorStatus DayStatus(HeartbeatStore store, string monitorId, DateOnly day, double? degradedBelowPercent)
+    private static DailyStatus? DayEntry(HeartbeatStore store, string monitorId, DateOnly day, double? degradedBelowPercent)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var windowDays = Math.Clamp(today.DayNumber - day.DayNumber + 1, 1, MaxHistoryDays);
-        return store.GetDailyStatus(monitorId, windowDays, degradedBelowPercent).FirstOrDefault(d => d.Day == day)?.Status ?? MonitorStatus.Unknown;
+        return store.GetDailyStatus(monitorId, windowDays, degradedBelowPercent).FirstOrDefault(d => d.Day == day);
+    }
+
+    private static MonitorStatus DayStatus(HeartbeatStore store, string monitorId, DateOnly day, double? degradedBelowPercent) =>
+        DayEntry(store, monitorId, day, degradedBelowPercent)?.Status ?? MonitorStatus.Unknown;
+
+    private static (double Percent, TimeSpan Span)? DayUptime(HeartbeatStore store, string monitorId, DateOnly day, double? degradedBelowPercent)
+    {
+        var entry = DayEntry(store, monitorId, day, degradedBelowPercent);
+        return entry is null || entry.Status == MonitorStatus.Unknown ? null : (entry.UpPercent, TimeSpan.FromDays(1));
     }
 
     private static string StatusClass(MonitorStatus status) => status switch

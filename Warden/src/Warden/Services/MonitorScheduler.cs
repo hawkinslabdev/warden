@@ -22,7 +22,7 @@ public sealed class MonitorScheduler(
 {
     public const string HttpClientName = "monitor-check";
     public const string InsecureHttpClientName = "monitor-check-insecure";
-    private const int DefaultIntervalSeconds = 60;
+    internal const int DefaultIntervalSeconds = 60;
     private const int DefaultRetentionDays = 30;
     private const int CheckTimeoutSeconds = 10;
     private const int MaxConcurrentChecks = 8;
@@ -61,6 +61,7 @@ public sealed class MonitorScheduler(
             }
             catch (OperationCanceledException)
             {
+                logger.LogDebug("Monitor scheduler stopped");
             }
         }
     }

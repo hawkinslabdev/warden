@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Warden.Configuration;
@@ -152,5 +153,19 @@ public sealed class SecurityRegressionTests : IDisposable
 
         Assert.Contains("'self'", imgSrc);
         Assert.DoesNotContain("jsdelivr", imgSrc);
+    }
+
+    [Fact]
+    public async Task AltchaScript_MatchesVettedRelease_UnexpectedChangeMeansTamperingOrAnUnauditedUpgrade()
+    {
+        // Pinned hash of the vendored build. A mismatch means the file was swapped (compromised PR,
+        // bad merge) or someone upgraded it without re-vetting: update the constant only after review.
+        const string expectedSha256 = "71b2d6829de9893e5d6bfc806d343b2c7dead04b2157ff2a5ba3372938c3a6be";
+        var path = Path.Combine(AppContext.BaseDirectory, "wwwroot", "js", "altcha.min.js");
+
+        await using var stream = File.OpenRead(path);
+        var hash = Convert.ToHexStringLower(await SHA256.HashDataAsync(stream));
+
+        Assert.Equal(expectedSha256, hash);
     }
 }

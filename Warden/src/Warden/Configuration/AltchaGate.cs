@@ -84,15 +84,18 @@ public static class AltchaGate
         var activeTheme = ThemeSelection.Resolve(themeOptions, settings.CliTheme, config?.Theme).Theme;
         var lang = Config.ResolveLocale(config)?.Code ?? "en";
 
+        var nonce = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
         context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
         context.Response.ContentType = "text/html; charset=utf-8";
         context.Response.Headers.CacheControl = "no-store";
-        context.Response.Headers.ContentSecurityPolicy = context.Response.Headers.ContentSecurityPolicy + "; worker-src 'self' blob:";
+        // Drops 'unsafe-inline' on this gate: an XSS elsewhere can't script its way past the challenge without the nonce.
+        context.Response.Headers.ContentSecurityPolicy =
+            SecurityHeaders.BuildNonceCsp(context.Response.Headers.ContentSecurityPolicy.ToString(), nonce) + "; worker-src 'self' blob:";
         var customCssLink = ThemeProvider.BuildCustomCssLink(themeOptions, settings.ThemeDir, settings.BasePath);
-        return context.Response.WriteAsync(BuildChallengePageHtml(activeTheme, lang, customCssLink));
+        return context.Response.WriteAsync(BuildChallengePageHtml(activeTheme, lang, customCssLink, nonce));
     }
 
-    private static string BuildChallengePageHtml(IWardenTheme activeTheme, string lang, string customCssLink)
+    private static string BuildChallengePageHtml(IWardenTheme activeTheme, string lang, string customCssLink, string nonce)
     {
         var l = Localization.Current;
         var lightVars = ThemeCssBuilder.BuildMinimalLightTokenCss(activeTheme)
@@ -109,12 +112,12 @@ public static class AltchaGate
             <html lang="{{LayoutProvider.HtmlEncode(lang)}}" class="theme-{{activeTheme.Name}}">
             <head>
             <meta charset="utf-8">
-            {{ThemeInitScript}}
+            {{ThemeInitScript(nonce)}}
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <meta name="robots" content="noindex,nofollow">
             <title>{{LayoutProvider.HtmlEncode(l.AltchaGateTitle)}}</title>
-            <script type="module" src="/js/altcha.min.js"></script>
-            <style>
+            <script type="module" src="/js/altcha.min.js" nonce="{{nonce}}"></script>
+            <style nonce="{{nonce}}">
                 :root {
                 {{lightVars}}    --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                 }
@@ -157,8 +160,8 @@ public static class AltchaGate
               </div>
             </main>
             <altcha-widget challenge="/altcha/challenge" auto="onload" display="invisible" configuration='{"minDuration":800}'></altcha-widget>
-            <noscript><style>#gate { display: none; }</style><p class="gate">{{LayoutProvider.HtmlEncode(l.AltchaGateNoScript)}}</p></noscript>
-            <script>
+            <noscript><style nonce="{{nonce}}">#gate { display: none; }</style><p class="gate">{{LayoutProvider.HtmlEncode(l.AltchaGateNoScript)}}</p></noscript>
+            <script nonce="{{nonce}}">
                 (function () {
                 "use strict";
                 var gate = document.getElementById("gate");
@@ -184,7 +187,7 @@ public static class AltchaGate
             """;
     }
 
-    private const string ThemeInitScript = "<script>(function(){"
+    private static string ThemeInitScript(string nonce) => $"<script nonce=\"{nonce}\">(function(){{"
         + "function apply(){try{var t=localStorage.getItem('warden-theme');var r=document.documentElement;"
         + "if(t==='dark'||t==='light'){r.setAttribute('data-theme',t);r.style.colorScheme=t;}"
         + "else{r.removeAttribute('data-theme');r.style.colorScheme='';}"

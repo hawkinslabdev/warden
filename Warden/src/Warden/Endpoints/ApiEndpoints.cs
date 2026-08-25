@@ -37,8 +37,9 @@ internal static class ApiEndpoints
         var pages = await content.GetAllPagesAsync(cancellationToken);
         var now = DateTimeOffset.UtcNow;
 
-        var incidentMonitorIds = IncidentContent.ActiveIncidentMonitorIds(pages);
-        var maintainedIds = IncidentContent.ActiveMaintenanceMonitorIds(pages, now);
+        var allMonitorIds = targets.Select(t => t.Id).ToList();
+        var incidentMonitorIds = IncidentContent.ActiveIncidentMonitorIds(pages, allMonitorIds);
+        var maintainedIds = IncidentContent.ActiveMaintenanceMonitorIds(pages, now, allMonitorIds);
         var monitors = targets.Select(t =>
         {
             var latest = store.GetLatest(t.Id);

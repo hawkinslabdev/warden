@@ -125,7 +125,7 @@ public sealed class IncidentContentTests
             Page("incidents/planned-linked.md", now.AddDays(1).UtcDateTime, maintenance: true, end: now.AddDays(2).UtcDateTime, monitors: ["fedora-magazine"]),
         };
 
-        var ids = IncidentContent.ActiveMaintenanceMonitorIds(pages, now);
+        var ids = IncidentContent.ActiveMaintenanceMonitorIds(pages, now, ["forgejo", "codeberg", "fedora-magazine"]);
 
         Assert.Equal(new HashSet<string> { "forgejo", "codeberg" }, ids);
     }
@@ -141,9 +141,25 @@ public sealed class IncidentContentTests
             Page("incidents/resolved-linked.md", now.AddHours(-2), end: now.AddHours(-1), monitors: ["codeberg"]),
         };
 
-        var ids = IncidentContent.ActiveIncidentMonitorIds(pages);
+        var ids = IncidentContent.ActiveIncidentMonitorIds(pages, ["forgejo", "codeberg"]);
 
         Assert.Equal(new Dictionary<string, MonitorStatus> { ["forgejo"] = MonitorStatus.Down }, ids);
+    }
+
+    [Fact]
+    public void ActiveIncidentMonitorIds_ExpandsAllToEveryConfiguredMonitor()
+    {
+        var now = DateTime.UtcNow;
+        var pages = new[] { Page("incidents/system-wide.md", now.AddHours(-1), monitors: ["all"]) };
+
+        var ids = IncidentContent.ActiveIncidentMonitorIds(pages, ["forgejo", "codeberg", "blog"]);
+
+        Assert.Equal(new Dictionary<string, MonitorStatus>
+        {
+            ["forgejo"] = MonitorStatus.Down,
+            ["codeberg"] = MonitorStatus.Down,
+            ["blog"] = MonitorStatus.Down,
+        }, ids);
     }
 
     // "API responses degraded" is not an outage: the probe keeps passing, so the badge must say so instead of claiming Down
@@ -159,7 +175,7 @@ public sealed class IncidentContentTests
             Page("incidents/both-b.md", now.AddHours(-1), monitors: ["blog"]),
         };
 
-        var ids = IncidentContent.ActiveIncidentMonitorIds(pages);
+        var ids = IncidentContent.ActiveIncidentMonitorIds(pages, ["forgejo", "codeberg", "blog"]);
 
         Assert.Equal(MonitorStatus.Degraded, ids["forgejo"]);
         Assert.Equal(MonitorStatus.Down, ids["codeberg"]);

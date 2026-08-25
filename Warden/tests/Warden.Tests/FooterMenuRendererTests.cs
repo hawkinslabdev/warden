@@ -23,9 +23,9 @@ public sealed class FooterMenuRendererTests
     public void PopulatedMenu_RendersLinks()
     {
         var html = FooterMenuRenderer.Build(
-            [new MenuLink { Title = "GitHub", Path = "https://github.com/melosso/warden", External = true }],
+            [new MenuLink { Title = "GitHub", Path = "https://github.com/hawkinslabdev/warden", External = true }],
             basePath: "");
 
-        Assert.Equal("<a href=\"https://github.com/melosso/warden\" target=\"_blank\" rel=\"noopener noreferrer\">GitHub</a>", html);
+        Assert.Equal("<a href=\"https://github.com/hawkinslabdev/warden\" target=\"_blank\" rel=\"noopener noreferrer\">GitHub</a>", html);
     }
 }

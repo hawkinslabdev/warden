@@ -50,7 +50,7 @@ try
         client.Timeout = TimeSpan.FromSeconds(10);
         client.MaxResponseContentBufferSize = 8 * 1024 * 1024;
         // some origins (Forgejo instances, api.github.com, ...) 403 a bare User-Agent regardless of reachability - identify as a real client
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("Warden-Uptime-Monitor/1.0 (+https://github.com/melosso/warden)");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("Warden-Uptime-Monitor/1.0 (+https://github.com/hawkinslabdev/warden)");
     }
     builder.Services.AddHttpClient(MonitorScheduler.HttpClientName, ConfigureMonitorClient);
     // a target opts into this with "insecure": true for a self-signed/untrusted internal service; every other target keeps strict validation

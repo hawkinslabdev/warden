@@ -32,7 +32,7 @@ A config using most of them at once:
   "footerMenu": [
     { "title": "Status API", "path": "/api/status", "external": true }
   ],
-  "footer": "© {year} {author}. Built with [Warden](https://github.com/melosso/warden).",
+  "footer": "© {year} {author}. Built with [Warden](https://github.com/hawkinslabdev/warden).",
   "monitoring": {
     "intervalSeconds": 60,
     "retentionDays": 90,

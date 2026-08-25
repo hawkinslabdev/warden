@@ -1,15 +1,15 @@
 # 🧿 Warden
 
 [![License](https://img.shields.io/badge/license-EUPL%201.2-blue)](LICENSE)
-[![Last commit](https://img.shields.io/github/last-commit/melosso/warden)](https://github.com/melosso/warden/commits/main)
-[![Docker](https://img.shields.io/badge/ghcr.io-melosso%2Fwarden-blue?logo=docker)](https://github.com/melosso/warden/pkgs/container/warden)
+[![Last commit](https://img.shields.io/github/last-commit/hawkinslabdev/warden)](https://github.com/hawkinslabdev/warden/commits/main)
+[![Docker](https://img.shields.io/badge/ghcr.io-hawkinslabdev%2Fwarden-blue?logo=docker)](https://github.com/hawkinslabdev/warden/pkgs/container/warden)
 
 Warden is a self-contained status page. It checks your configured sites on a timer, keeps the history in its own local SQLite database, and reports uptime, downtime, and outages from it, no external backend to run or register with.
 
-It's a child project of [Teatime](https://github.com/melosso/teatime), and reuses that project's Markdown engine, theming, and page-structure system unchanged. Everything around the status page itself (Markdown content, themes, single-language locale files) works the same way.
+It's a child project of [Teatime](https://github.com/hawkinslabdev/teatime), and reuses that project's Markdown engine, theming, and page-structure system unchanged. Everything around the status page itself (Markdown content, themes, single-language locale files) works the same way.
 
 <div>
-      <p align="center"><strong>🔍 <a href="https://melosso.github.io/warden/">See it in action!</a></strong></p>
+      <p align="center"><strong>🔍 <a href="https://hawkinslabdev.github.io/warden/">See it in action!</a></strong></p>
 </div>
 
 ![Screenshot of Warden](.github/images/preview.webp)
@@ -48,8 +48,8 @@ The quickest way to run Warden is the published container image, which has every
 ```bash
 mkdir -p warden/content/incidents warden/content/pages warden/content/locale warden/data
 cd warden
-curl -O https://raw.githubusercontent.com/melosso/warden/main/docker-compose.yml
-curl -o content/config.json https://raw.githubusercontent.com/melosso/warden/main/content/config.example.json
+curl -O https://raw.githubusercontent.com/hawkinslabdev/warden/main/docker-compose.yml
+curl -o content/config.json https://raw.githubusercontent.com/hawkinslabdev/warden/main/content/config.example.json
 
 docker compose up -d
 ```
@@ -66,7 +66,7 @@ Running locally only? The `PublicBaseUrl`/`AllowedHosts` lines can be left out e
 
 If you would rather host on Windows, each release ships a ready to run build:
 
-1. Download the latest `*-Windows_x64.zip` from the [Releases](https://github.com/melosso/warden/releases) page.
+1. Download the latest `*-Windows_x64.zip` from the [Releases](https://github.com/hawkinslabdev/warden/releases) page.
 2. Extract it into your site folder, for example `C:\inetpub\warden`.
 3. Create an IIS site pointed at that folder, with the CLR version set to "No Managed Code".
 4. Make sure the [.NET 11 Hosting Bundle](https://dotnet.microsoft.com/download/dotnet/11.0) is installed.

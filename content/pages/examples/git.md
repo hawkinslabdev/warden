@@ -9,7 +9,7 @@ Warden can clone and pull `content/` for you, entirely from env vars: no manual 
 ```yaml [docker-compose.yml]
 services:
   warden:
-    image: ghcr.io/melosso/warden:latest
+    image: ghcr.io/hawkinslabdev/warden:latest
     env_file: .env
     volumes:
       - ./content:/app/content:Z

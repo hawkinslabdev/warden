@@ -22,7 +22,7 @@
     ]
   },
   "noIndex": { "pages": true },
-  "footer": "Built with [Warden](https://github.com/melosso/warden){target=\"_blank\" rel=\"noopener\"}.",
+  "footer": "Built with [Warden](https://github.com/hawkinslabdev/warden){target=\"_blank\" rel=\"noopener\"}.",
   "menu": [
     { "title": "Status", "path": "/" },
     { "title": "About", "path": "/about/" },
@@ -40,6 +40,6 @@
     { "title": "Privacy", "path": "/privacy/" }    
   ],
   "socialLinks": [
-    { "icon": "github", "url": "https://github.com/melosso/warden", "title": "GitHub" }
+    { "icon": "github", "url": "https://github.com/hawkinslabdev/warden", "title": "GitHub" }
   ]
 }

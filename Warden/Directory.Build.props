@@ -1,9 +1,9 @@
 <Project>
   <PropertyGroup>
-    <Authors>Melosso</Authors>
+    <Authors>hawkinslabdev</Authors>
     <Product>Warden</Product>
-    <PackageProjectUrl>https://github.com/melosso/warden</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/melosso/warden</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/hawkinslabdev/warden</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/hawkinslabdev/warden</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 

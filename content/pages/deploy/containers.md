@@ -10,7 +10,7 @@ The published image runs on any host with Docker. Start with a `docker-compose.y
 ```yaml [docker-compose.yml]
 services:
   warden:
-    image: ghcr.io/melosso/warden:latest
+    image: ghcr.io/hawkinslabdev/warden:latest
     container_name: warden
     ports:
       - "8080:8080"

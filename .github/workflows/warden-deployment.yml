@@ -44,7 +44,7 @@ jobs:
     - name: Generate static site
       working-directory: ${{ github.workspace }}/publish
       run: |
-        ./Warden --export ${{ github.workspace }}/site --base-url https://melosso.github.io --base-path /warden
+        ./Warden --export ${{ github.workspace }}/site --base-url https://hawkinslabdev.github.io --base-path /warden
 
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3

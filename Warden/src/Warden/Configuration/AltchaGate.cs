@@ -89,8 +89,9 @@ public static class AltchaGate
         context.Response.ContentType = "text/html; charset=utf-8";
         context.Response.Headers.CacheControl = "no-store";
         // Drops 'unsafe-inline' on this gate: an XSS elsewhere can't script its way past the challenge without the nonce.
+        // style-src stays unnonced: altcha.min.js injects an unnonced <style> into its shadow root to stay hidden.
         context.Response.Headers.ContentSecurityPolicy =
-            SecurityHeaders.BuildNonceCsp(context.Response.Headers.ContentSecurityPolicy.ToString(), nonce) + "; worker-src 'self' blob:";
+            SecurityHeaders.BuildNonceCsp(context.Response.Headers.ContentSecurityPolicy.ToString(), nonce, nonceStyles: false) + "; worker-src 'self' blob:";
         var customCssLink = ThemeProvider.BuildCustomCssLink(themeOptions, settings.ThemeDir, settings.BasePath);
         return context.Response.WriteAsync(BuildChallengePageHtml(activeTheme, lang, customCssLink, nonce));
     }

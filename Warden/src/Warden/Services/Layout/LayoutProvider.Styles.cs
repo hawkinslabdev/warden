@@ -456,7 +456,7 @@ public static partial class LayoutProvider
             width: max-content; max-width: min(15rem, 60vw);
             padding: 0.4rem 0.6rem;
             background-color: var(--sidebar-bg); color: var(--text-color);
-            border: 1px solid var(--border); border-radius: 6px;
+            border: 1px solid var(--accent); border-radius: 6px;
             box-shadow: var(--shadow-md);
             font: 400 0.8rem/1.4 var(--font-sans);
             text-align: center; text-decoration: none; white-space: normal;

@@ -766,7 +766,7 @@ public static partial class LayoutProvider
 
             // tooltip is a ::after pseudo-element JS can't measure, so this clamps against the CSS `max-width: min(15rem, 60vw)` upper bound instead of real rendered width - can over-shift a short tip slightly, never lets one overflow
             function positionAbbrTip(e) {{
-                var abbr = e.target.closest && e.target.closest('abbr[data-tip], .status-tick[data-tip], .icon-btn[data-tip]');
+                var abbr = e.target.closest && e.target.closest('abbr[data-tip], .status-tick[data-tip], .icon-btn[data-tip], .status-monitor-name[data-tip]');
                 if (!abbr) return;
                 var vw = document.documentElement.clientWidth || window.innerWidth;
                 var rootFontPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;

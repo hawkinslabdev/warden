@@ -147,6 +147,32 @@ public sealed class HeartbeatStoreTests : IDisposable
     }
 
     [Fact]
+    public void GetDailyStatus_MarksTodayDown_WhenUptimeBelowConfiguredThreshold()
+    {
+        var now = DateTimeOffset.UtcNow;
+        for (var i = 0; i < 9; i++)
+            _store.Record("site", now.AddMinutes(-i), up: true, responseMs: 10);
+        _store.Record("site", now.AddMinutes(-9), up: false, responseMs: null);
+
+        var days = _store.GetDailyStatus("site", 1, degradedBelowPercent: 95);
+
+        Assert.Equal(MonitorStatus.Down, Assert.Single(days).Status);
+    }
+
+    [Fact]
+    public void GetDailyStatus_MarksTodayDegraded_WhenUptimeAtOrAboveConfiguredThreshold()
+    {
+        var now = DateTimeOffset.UtcNow;
+        for (var i = 0; i < 99; i++)
+            _store.Record("site", now.AddMinutes(-i), up: true, responseMs: 10);
+        _store.Record("site", now.AddMinutes(-99), up: false, responseMs: null);
+
+        var days = _store.GetDailyStatus("site", 1, degradedBelowPercent: 95);
+
+        Assert.Equal(MonitorStatus.Degraded, Assert.Single(days).Status);
+    }
+
+    [Fact]
     public void GetDailyStatus_MarksDayUnknown_WhenNoData()
     {
         var days = _store.GetDailyStatus("nothing-recorded", 5);

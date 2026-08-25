@@ -434,12 +434,7 @@ public static partial class LayoutProvider
             border-radius: 6px; padding: 0.25rem 0.6rem; margin-left: -0.6rem;
             scroll-margin-top: calc(var(--topbar-height) + 1rem);
         }}
-        /* The browser's own abbr tooltip never opens on touch and cannot be styled, so MarkdownService
-           moves the expansion to data-tip and this bubble replaces it: hover on desktop, tap on touch.
-           Status ticks and topbar icon buttons (e.g. the timezone toggle) reuse the same [data-tip]
-           bubble for their own detail; a tick is also a link (filters the page to that day), so it
-           gets a pointer cursor instead of abbr's help cursor. */
-        .prose abbr[data-tip], .status-tick[data-tip], .icon-btn[data-tip] {{
+        .prose abbr[data-tip], .status-tick[data-tip], .icon-btn[data-tip], .status-monitor-name[data-tip] {{
             position: relative;
             -webkit-tap-highlight-color: transparent;
         }}
@@ -448,13 +443,13 @@ public static partial class LayoutProvider
             text-decoration: underline dotted var(--text-muted);
             text-decoration-thickness: 1px; text-underline-offset: 0.2em;
         }}
-        .prose abbr[data-tip]:focus, .status-tick[data-tip]:focus, .icon-btn[data-tip]:focus {{
+        .prose abbr[data-tip]:focus, .status-tick[data-tip]:focus, .icon-btn[data-tip]:focus, .status-monitor-name[data-tip]:focus {{
             outline: none;
         }}
-        .prose abbr[data-tip]:focus-visible, .status-tick[data-tip]:focus-visible, .icon-btn[data-tip]:focus-visible {{
+        .prose abbr[data-tip]:focus-visible, .status-tick[data-tip]:focus-visible, .icon-btn[data-tip]:focus-visible, .status-monitor-name[data-tip]:focus-visible {{
             outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px;
         }}
-        .prose abbr[data-tip]::after, .status-tick[data-tip]::after, .icon-btn[data-tip]::after {{
+        .prose abbr[data-tip]::after, .status-tick[data-tip]::after, .icon-btn[data-tip]::after, .status-monitor-name[data-tip]::after {{
             content: attr(data-tip);
             position: absolute; left: 50%; bottom: calc(100% + 0.45rem);
             transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(0.2rem); z-index: 20;
@@ -474,7 +469,8 @@ public static partial class LayoutProvider
             transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(-0.2rem);
         }}
         .prose abbr[data-tip]:hover::after, .prose abbr[data-tip]:focus::after,
-        .status-tick[data-tip]:hover::after, .status-tick[data-tip]:focus::after {{
+        .status-tick[data-tip]:hover::after, .status-tick[data-tip]:focus::after,
+        .status-monitor-name[data-tip]:hover::after, .status-monitor-name[data-tip]:focus::after {{
             opacity: 1; visibility: visible; transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(0);
         }}
         .icon-btn[data-tip]:hover::after, .icon-btn[data-tip]:focus::after {{
@@ -1620,7 +1616,9 @@ public static partial class LayoutProvider
             font-weight: 600;
             margin-right: auto;
             min-width: 0;
-            overflow-wrap: anywhere;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
         }}
         .status-monitor-badge {{
             font-size: 0.75rem;

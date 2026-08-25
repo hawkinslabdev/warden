@@ -97,11 +97,11 @@ public sealed class HeartbeatStore
         return reader.Read() ? ReadRecord(reader, monitorId) : null;
     }
 
-    // one bucket per UTC calendar day, oldest first, for a left-to-right history bar; a day where every heartbeat
-    // failed is "down", a day with some failures mixed with successes is "degraded" (a single blip must not paint
-    // the whole day solid red - that erases the difference between one bad minute and a full outage), a day with
-    // no failures at all is "up", no rows that day is "unknown"
-    public List<DailyStatus> GetDailyStatus(string monitorId, int days)
+    // one bucket per UTC calendar day, oldest first, for a left-to-right history bar; a day with no failures at
+    // all is "up", no rows that day is "unknown". Without degradedBelowPercent, "down" requires every heartbeat
+    // that day to have failed and any partial failure is "degraded" (a single blip must not paint the whole day
+    // solid red). With it set, "down" instead means the day's uptime% fell below that threshold.
+    public List<DailyStatus> GetDailyStatus(string monitorId, int days, double? degradedBelowPercent = null)
     {
         var sinceDay = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-(days - 1));
 
@@ -124,11 +124,16 @@ public sealed class HeartbeatStore
         var result = new List<DailyStatus>();
         for (var day = sinceDay; day <= today; day = day.AddDays(1))
         {
-            var status = !counts.TryGetValue(day, out var c) ? MonitorStatus.Unknown
-                : c.Down == 0 ? MonitorStatus.Up
-                : c.Down == c.Total ? MonitorStatus.Down
-                : MonitorStatus.Degraded;
-            result.Add(new DailyStatus(day, status));
+            if (!counts.TryGetValue(day, out var c))
+            {
+                result.Add(new DailyStatus(day, MonitorStatus.Unknown));
+                continue;
+            }
+
+            var upPercent = 100.0 * (c.Total - c.Down) / c.Total;
+            var isDown = degradedBelowPercent is { } threshold ? upPercent < threshold : c.Down == c.Total;
+            var status = c.Down == 0 ? MonitorStatus.Up : isDown ? MonitorStatus.Down : MonitorStatus.Degraded;
+            result.Add(new DailyStatus(day, status, status == MonitorStatus.Degraded ? upPercent : 0));
         }
         return result;
     }

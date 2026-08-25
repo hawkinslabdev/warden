@@ -42,6 +42,8 @@ public sealed record MonitoringConfig(
     int? MaintenanceMaxShown,
     // days of ticks shown in each monitor's history bar (status-tick); default 90, clamped to 1-365. The card grid layout keeps its own shorter, width-constrained window regardless
     int? HistoryDays,
+    // a day's tick is Down when its uptime% falls below this; unset keeps the stricter default (Down only when every check that day failed, Degraded otherwise)
+    double? DegradedBelowPercent = null,
     // opt-in only; unset renders one flat grid. "type" groups by each target's type, "custom" groups by each target's own "group" field (falling back to its type)
     string? Group = null,
     // opt-in only; unset keeps a content/incidents/*.md file's own folder placement as its URL. "year" -> /incidents/{year}/{slug}/, "year-month" -> /incidents/{year}/{month}/{slug}/, derived from the incident's date front matter regardless of which folder the file actually lives in
@@ -82,8 +84,8 @@ public sealed record ApiMaintenanceWindow(string Slug, string Title, DateTimeOff
 // Tz is always "UTC": every timestamp in this payload is UTC, named explicitly so API consumers don't have to assume it
 public sealed record StatusApiResponse(List<ApiMonitorStatus> Monitors, List<ApiIncident> Incidents, List<ApiMaintenanceWindow> Maintenance, string Tz = "UTC");
 
-// one calendar day's aggregate for the history bar
-public sealed record DailyStatus(DateOnly Day, MonitorStatus Status);
+// one calendar day's aggregate for the history bar; UpPercent is only meaningful for Degraded (Up implies 100, Down implies 0)
+public sealed record DailyStatus(DateOnly Day, MonitorStatus Status, double UpPercent = 0);
 
 // one calendar day's average response time for the latency chart; null when no heartbeat landed that day
 public sealed record DailyResponseTime(DateOnly Day, double? AvgResponseMs);

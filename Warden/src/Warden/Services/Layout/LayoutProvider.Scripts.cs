@@ -781,17 +781,19 @@ public static partial class LayoutProvider
             document.addEventListener('mouseover', positionAbbrTip);
             document.addEventListener('focusin', positionAbbrTip);
 
-            document.addEventListener('click', function(e) {{
-                var name = e.target.closest && e.target.closest('.status-monitor-name');
-                var tip = name && name.querySelector('.status-monitor-name-tip');
-                document.querySelectorAll('.status-monitor-name-tip.tip-open').forEach(function(el) {{
-                    if (el !== tip) el.classList.remove('tip-open');
+            if (window.matchMedia('(hover: none), (pointer: coarse)').matches) {{
+                document.addEventListener('click', function(e) {{
+                    var name = e.target.closest && e.target.closest('.status-monitor-name');
+                    var tip = name && name.querySelector('.status-monitor-name-tip');
+                    document.querySelectorAll('.status-monitor-name-tip.tip-open').forEach(function(el) {{
+                        if (el !== tip) el.classList.remove('tip-open');
+                    }});
+                    if (tip) {{
+                        tip.classList.toggle('tip-open');
+                        positionAbbrTip(e);
+                    }}
                 }});
-                if (tip) {{
-                    tip.classList.toggle('tip-open');
-                    positionAbbrTip(e);
-                }}
-            }});
+            }}
 
             // server renders a UTC fallback; this rewrites it to the viewer's own locale, in whatever
             // timezone is currently selected (device default until the timezone picker below overrides it)

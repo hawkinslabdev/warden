@@ -36,6 +36,9 @@ internal static class ApiEndpoints
         var targets = (monitoring?.Targets ?? []).Where(t => t.Hidden != true).ToList();
         var pages = await content.GetAllPagesAsync(cancellationToken);
         var now = DateTimeOffset.UtcNow;
+        // stored/compared in UTC; converted to the TZ env var's zone only for the response, matching the reported `tz`
+        DateTimeOffset ToLocal(DateTimeOffset dto) => TimeZoneInfo.ConvertTime(dto, TimeZoneInfo.Local);
+        DateTimeOffset? ToLocalOrNull(DateTimeOffset? dto) => dto is { } d ? ToLocal(d) : null;
 
         var allMonitorIds = targets.Select(t => t.Id).ToList();
         var incidentMonitorIds = IncidentContent.ActiveIncidentMonitorIds(pages, allMonitorIds);
@@ -53,17 +56,17 @@ internal static class ApiEndpoints
             };
             var uptime = store.GetUptime(t.Id, UptimeWindow);
             var pct = uptime?.Percent is { } p ? Math.Round(p, 2) : (double?)null;
-            return new ApiMonitorStatus(t.Name.ToLowerInvariant(), status, pct, latest?.Timestamp);
+            return new ApiMonitorStatus(t.Name.ToLowerInvariant(), status, pct, ToLocalOrNull(latest?.Timestamp));
         }).ToList();
 
         var incidents = IncidentContent
             .RecentIncidents(pages, now, monitoring?.IncidentWindowDays ?? IncidentContent.DefaultIncidentWindowDays, monitoring?.IncidentMaxShown ?? IncidentContent.DefaultIncidentMaxShown)
-            .Select(p => new ApiIncident(p.Path, p.Title, p.Description, IncidentContent.StartOf(p), IncidentContent.EndOf(p), IncidentContent.IncidentBadgeClass(p)))
+            .Select(p => new ApiIncident(p.Path, p.Title, p.Description, ToLocal(IncidentContent.StartOf(p)), ToLocalOrNull(IncidentContent.EndOf(p)), IncidentContent.IncidentBadgeClass(p)))
             .ToList();
 
         var maintenance = IncidentContent
             .UpcomingMaintenance(pages, now, monitoring?.MaintenanceWindowDays ?? IncidentContent.DefaultMaintenanceWindowDays, monitoring?.MaintenanceMaxShown ?? IncidentContent.DefaultMaintenanceMaxShown)
-            .Select(p => new ApiMaintenanceWindow(p.Path, p.Title, IncidentContent.StartOf(p), IncidentContent.EndOf(p)!.Value, p.Description, IncidentContent.MaintenanceBadgeClass(p, now)))
+            .Select(p => new ApiMaintenanceWindow(p.Path, p.Title, ToLocal(IncidentContent.StartOf(p)), ToLocal(IncidentContent.EndOf(p)!.Value), p.Description, IncidentContent.MaintenanceBadgeClass(p, now)))
             .ToList();
 
         return TypedResults.Ok(new StatusApiResponse(monitors, incidents, maintenance, TimeZoneInfo.Local.Id));

@@ -81,7 +81,7 @@ public sealed record HeartbeatRecord(string Id, string MonitorId, DateTimeOffset
 public sealed record ApiMonitorStatus(string Name, string Status, double? UptimePercent24h, DateTimeOffset? LastCheckedAt);
 public sealed record ApiIncident(string Slug, string Title, string? Description, DateTimeOffset Start, DateTimeOffset? End, string Status);
 public sealed record ApiMaintenanceWindow(string Slug, string Title, DateTimeOffset Start, DateTimeOffset End, string? Description, string Status);
-// timestamps in this payload are always UTC; Tz names the server's local zone (TZ env var) for display purposes only
+// timestamps in this payload are converted to the zone named by Tz (the TZ env var); stored history stays UTC
 public sealed record StatusApiResponse(List<ApiMonitorStatus> Monitors, List<ApiIncident> Incidents, List<ApiMaintenanceWindow> Maintenance, string Tz);
 
 // one calendar day's aggregate for the history bar

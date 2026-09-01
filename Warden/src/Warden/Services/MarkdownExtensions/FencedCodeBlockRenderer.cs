@@ -5,7 +5,7 @@ using Markdig.Syntax;
 
 namespace Warden.Services.MarkdownExtensions;
 
-/// <summary>Replaces Markdig's default <see cref="FencedCodeBlockRenderer"/> with language wrappers, notation classes, copy button, and optional line numbers.</summary>
+/// <summary>Replaces Markdig's default <see cref="FencedCodeBlockRenderer"/> with language wrappers, notation classes, and optional line numbers.</summary>
 public sealed class FencedCodeBlockRenderer(ISyntaxHighlighter syntaxHighlighter) : HtmlObjectRenderer<CodeBlock>
 {
     protected override void Write(HtmlRenderer renderer, CodeBlock obj)
@@ -80,10 +80,12 @@ public sealed class FencedCodeBlockRenderer(ISyntaxHighlighter syntaxHighlighter
         renderer.Write("<div class=\"").Write(string.Join(' ', outerClasses)).Write("\"");
         if (showTitleBar)
             renderer.Write(" data-filename=\"").WriteEscape(meta.Title!).Write('"');
+        // Uses CSS counters on line spans so line numbers can never get out of sync.
+        if (meta.LineNumbers == true && meta.LineNumbersStart is { } startAt && startAt != 1)
+            renderer.Write(" style=\"--line-start:").Write((startAt - 1).ToString()).Write('"');
         renderer.Write('>');
         if (showTitleBar)
             renderer.Write("<div class=\"code-title\">").WriteEscape(meta.Title!).Write("</div>");
-        renderer.Write("<button title=\"Copy code\" class=\"copy\"></button>");
         renderer.Write("<span class=\"lang\">").WriteEscape(lang.Replace('_', ' ')).Write("</span>");
 
         var theme = syntaxHighlighter.Theme;
@@ -119,15 +121,6 @@ public sealed class FencedCodeBlockRenderer(ISyntaxHighlighter syntaxHighlighter
         }
 
         renderer.Write("</code></pre>");
-
-        if (meta.LineNumbers == true)
-        {
-            var start = meta.LineNumbersStart ?? 1;
-            renderer.Write("<div class=\"line-numbers-wrapper\" aria-hidden=\"true\">");
-            for (var i = 0; i < notated.Lines.Count; i++)
-                renderer.Write("<span class=\"line-number\">").Write((start + i).ToString()).Write("</span><br>");
-            renderer.Write("</div>");
-        }
 
         renderer.WriteLine("</div>");
         renderer.EnsureLine();

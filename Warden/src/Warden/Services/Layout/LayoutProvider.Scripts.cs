@@ -502,48 +502,66 @@ public static partial class LayoutProvider
                 var iconCopy = '<svg xmlns=""http://www.w3.org/2000/svg"" width=""17"" height=""17"" viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" aria-hidden=""true""><rect width=""14"" height=""14"" x=""8"" y=""8"" rx=""2"" ry=""2""/><path d=""M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2""/></svg>';
                 var iconCheck = '<svg xmlns=""http://www.w3.org/2000/svg"" width=""17"" height=""17"" viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2.5"" stroke-linecap=""round"" stroke-linejoin=""round"" aria-hidden=""true""><path d=""M20 6 9 17l-5-5""/></svg>';
                 var iconX = '<svg xmlns=""http://www.w3.org/2000/svg"" width=""17"" height=""17"" viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" aria-hidden=""true""><path d=""M18 6 6 18""/><path d=""m6 6 12 12""/></svg>';
+                var iconDownload = '<svg xmlns=""http://www.w3.org/2000/svg"" width=""17"" height=""17"" viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" aria-hidden=""true""><path d=""M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4""/><polyline points=""7 10 12 15 17 10""/><line x1=""12"" x2=""12"" y1=""3"" y2=""15""/></svg>';
+                var iconSpin = '<svg xmlns=""http://www.w3.org/2000/svg"" width=""17"" height=""17"" viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" class=""spin"" aria-hidden=""true""><path d=""M21 12a9 9 0 1 1-6.219-8.56""/></svg>';
+
+                // Diff-removed lines are rendered for reading, but must not land in the clipboard or the file.
+                function codeText() {{
+                    var lines = pre.querySelectorAll('code .line');
+                    if (!lines.length) {{
+                        var code = pre.querySelector('code');
+                        return code ? code.textContent : pre.textContent;
+                    }}
+                    var kept = [];
+                    lines.forEach(function(line) {{
+                        if (!line.classList.contains('remove')) kept.push(line.textContent);
+                    }});
+                    return kept.join('\n');
+                }}
+
+                function flash(btn, base, icon, cls) {{
+                    btn.innerHTML = icon;
+                    btn.classList.add(cls);
+                    setTimeout(function() {{
+                        btn.innerHTML = base;
+                        btn.classList.remove(cls);
+                    }}, 2000);
+                }}
                 var copyBtn = document.createElement('button');
                 copyBtn.innerHTML = iconCopy;
                 copyBtn.setAttribute('aria-label', 'Copy code');
                 copyBtn.setAttribute('title', 'Copy code');
                 copyBtn.addEventListener('click', function() {{
-                    var code = pre.querySelector('code');
-                    var text = code ? code.textContent : pre.textContent;
-                    navigator.clipboard.writeText(text).then(function() {{
-                        copyBtn.innerHTML = iconCheck;
-                        copyBtn.classList.add('copied');
-                        setTimeout(function() {{
-                            copyBtn.innerHTML = iconCopy;
-                            copyBtn.classList.remove('copied');
-                        }}, 2000);
+                    navigator.clipboard.writeText(codeText()).then(function() {{
+                        flash(copyBtn, iconCopy, iconCheck, 'copied');
                     }})['catch'](function() {{
-                        copyBtn.innerHTML = iconX;
-                        copyBtn.classList.add('failed');
-                        setTimeout(function() {{
-                            copyBtn.innerHTML = iconCopy;
-                            copyBtn.classList.remove('failed');
-                        }}, 2000);
+                        flash(copyBtn, iconCopy, iconX, 'failed');
                     }});
                 }});
                 buttons.appendChild(copyBtn);
 
                 var downloadBtn = document.createElement('button');
-                downloadBtn.innerHTML = '<svg xmlns=""http://www.w3.org/2000/svg"" width=""17"" height=""17"" viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" aria-hidden=""true""><path d=""M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4""/><polyline points=""7 10 12 15 17 10""/><line x1=""12"" x2=""12"" y1=""3"" y2=""15""/></svg>';
+                downloadBtn.innerHTML = iconDownload;
                 downloadBtn.setAttribute('aria-label', 'Download code');
                 downloadBtn.setAttribute('title', 'Download code');
                 downloadBtn.addEventListener('click', function() {{
-                    var code = pre.querySelector('code');
-                    var text = code ? code.textContent : pre.textContent;
-                    var blob = new Blob([text], {{ type: 'text/plain' }});
-                    var url = URL.createObjectURL(blob);
-                    var a = document.createElement('a');
-                    a.href = url;
-                    var langBlock = pre.closest('[class^=""language-""]');
-                    a.download = (langBlock && langBlock.dataset.filename) || 'code.txt';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
+                    if (downloadBtn.disabled) return;
+                    downloadBtn.disabled = true;
+                    downloadBtn.innerHTML = iconSpin;
+                    // Blob build is synchronous; yield once so the spinner paints before it runs.
+                    setTimeout(function() {{
+                        var url = URL.createObjectURL(new Blob([codeText()], {{ type: 'text/plain' }}));
+                        var a = document.createElement('a');
+                        a.href = url;
+                        var langBlock = pre.closest('[class^=""language-""]');
+                        a.download = (langBlock && langBlock.dataset.filename) || 'code.txt';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        downloadBtn.disabled = false;
+                        flash(downloadBtn, iconDownload, iconCheck, 'copied');
+                    }}, 0);
                 }});
                 buttons.appendChild(downloadBtn);
 

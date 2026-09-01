@@ -175,7 +175,7 @@ const a = 1 // [!code {marker}]
     }
 
     [Fact]
-    public void FencedCode_LineNumbersFlag_RendersGutter()
+    public void FencedCode_LineNumbersFlag_MarksTheBlock()
     {
         var md = """
 ```js:line-numbers
@@ -186,9 +186,6 @@ const b = 2
         var (html, _, _, _) = _service.Parse(md);
 
         Assert.Contains("line-numbers-mode", html);
-        Assert.Contains("line-numbers-wrapper", html);
-        Assert.Contains("<span class=\"line-number\">1</span>", html);
-        Assert.Contains("<span class=\"line-number\">2</span>", html);
     }
 
     [Fact]
@@ -201,7 +198,7 @@ const a = 1
 """;
         var (html, _, _, _) = _service.Parse(md);
 
-        Assert.Contains("<span class=\"line-number\">10</span>", html);
+        Assert.Contains("--line-start:9", html);
     }
 
     [Fact]
@@ -215,7 +212,6 @@ var x = 1;
         var (html, _, _, _) = _service.Parse(md);
 
         Assert.Contains("class=\"language-csharp\"", html);
-        Assert.Contains("class=\"copy\"", html);
         Assert.Contains("class=\"lang\">csharp</span>", html);
         Assert.Contains("var x = 1;", html);
     }

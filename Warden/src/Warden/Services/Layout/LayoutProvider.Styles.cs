@@ -851,6 +851,15 @@ public static partial class LayoutProvider
         .code-block-buttons button.failed {{
             opacity: 0.5;
         }}
+        .code-block-buttons button[aria-pressed=""true""] {{
+            color: var(--code-button-hover); border-color: var(--code-button-hover);
+        }}
+        .prose div[class^=""language-""].show-result .line.diff.remove {{
+            display: none;
+        }}
+        .prose div[class^=""language-""].show-result .line.diff.add {{
+            background-color: transparent;
+        }}
         .code-block-buttons button:disabled {{
             cursor: default;
         }}

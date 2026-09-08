@@ -527,6 +527,26 @@ public static partial class LayoutProvider
                         btn.classList.remove(cls);
                     }}, 2000);
                 }}
+                var iconResult = '<svg xmlns=""http://www.w3.org/2000/svg"" width=""17"" height=""17"" viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" aria-hidden=""true""><path d=""M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z""/><circle cx=""12"" cy=""12"" r=""3""/></svg>';
+                var iconDiff = '<svg xmlns=""http://www.w3.org/2000/svg"" width=""17"" height=""17"" viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" aria-hidden=""true""><path d=""M12 3v6M9 6h6""/><path d=""M9 18h6""/><path d=""M4 12h16""/></svg>';
+
+                var diffBlock = pre.closest('[class^=""language-""]');
+                if (diffBlock && pre.querySelector('.line.diff.remove')) {{
+                    var resultBtn = document.createElement('button');
+                    resultBtn.innerHTML = iconResult;
+                    resultBtn.setAttribute('aria-pressed', 'false');
+                    resultBtn.setAttribute('aria-label', 'Show result');
+                    resultBtn.setAttribute('title', 'Show result');
+                    resultBtn.addEventListener('click', function() {{
+                        var showing = diffBlock.classList.toggle('show-result');
+                        resultBtn.innerHTML = showing ? iconDiff : iconResult;
+                        resultBtn.setAttribute('aria-pressed', showing ? 'true' : 'false');
+                        resultBtn.setAttribute('aria-label', showing ? 'Show diff' : 'Show result');
+                        resultBtn.setAttribute('title', showing ? 'Show diff' : 'Show result');
+                    }});
+                    buttons.appendChild(resultBtn);
+                }}
+
                 var copyBtn = document.createElement('button');
                 copyBtn.innerHTML = iconCopy;
                 copyBtn.setAttribute('aria-label', 'Copy code');

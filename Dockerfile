@@ -21,6 +21,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends git \
 
 COPY --from=build /app ./
 
+# Non-root
+RUN mkdir -p /app/log /app/data && chown -R 1654:1654 /app
+USER 1654
+
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "Warden.dll"]

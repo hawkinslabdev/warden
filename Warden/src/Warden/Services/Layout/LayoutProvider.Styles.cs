@@ -91,6 +91,408 @@ public static partial class LayoutProvider
         .timezone-toggle {{
             position: relative;
         }}
+        /* ---- Admin: the settings surface, same room as the status page ---- */
+        .main-container:has([data-page=""admin""]) {{
+            max-width: 1080px;
+        }}
+        [data-page=""admin""] .status-group-heading {{
+            font-family: var(--font-display);
+            font-size: 1.1rem; font-weight: 600; letter-spacing: -0.01em;
+            margin: 0 0 0.75rem;
+        }}
+        .admin-section {{
+            margin: 0 0 3rem;
+        }}
+        .admin-header {{
+            display: flex; align-items: flex-end; justify-content: space-between;
+            gap: 1rem 1.5rem; flex-wrap: wrap;
+        }}
+        .admin-identity {{
+            display: flex; align-items: center; gap: 0.75rem; padding-bottom: 0.4rem;
+        }}
+        .admin-identity-who {{
+            font-size: 0.85rem; color: var(--text-muted);
+        }}
+        .content .admin-note {{
+            font-size: 0.9rem; line-height: 1.6; color: var(--text-muted);
+            max-width: 62ch; margin: -0.35rem 0 1.15rem;
+        }}
+        .admin-note code, .admin-empty-note code {{
+            font-family: var(--font-mono); font-size: 0.85em;
+            background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 4px;
+        }}
+        .content .admin-list {{
+            list-style: none; margin: 0; padding: 0;
+            display: flex; flex-direction: column; gap: 0.7rem;
+        }}
+        .content .admin-card {{
+            display: flex; flex-direction: column; gap: 0.9rem;
+            margin: 0; padding: 1rem 1.15rem;
+            border: 1px solid var(--border); border-radius: 10px;
+            background: var(--bg-color);
+        }}
+        .admin-card-head {{
+            display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;
+        }}
+        .admin-card-name {{
+            font-weight: 600; flex: 1 1 8rem; min-width: 0;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }}
+        .admin-card-meta {{
+            font-size: 0.8rem; color: var(--text-muted); font-variant-numeric: tabular-nums;
+        }}
+        .admin-card-controls {{
+            display: flex; align-items: flex-end; flex-wrap: wrap; gap: 0.8rem 1.15rem;
+        }}
+        .admin-card-reset {{ margin-left: auto; }}
+        .admin-badge {{
+            font-size: 0.75rem; font-weight: 700; letter-spacing: 0.03em;
+            text-transform: uppercase; flex-shrink: 0;
+            padding: 0.2rem 0.6rem; border-radius: 999px;
+            background: color-mix(in srgb, var(--admin-state) 16%, transparent);
+            /* tinted from the state's own hue and pulled toward the foreground, so it clears 4.5:1 on the tint */
+            color: color-mix(in srgb, var(--admin-state) 72%, var(--text-color));
+        }}
+        .admin-card--up {{ --admin-state: var(--alert-tip); }}
+        .admin-card--down {{ --admin-state: var(--alert-caution); }}
+        .admin-card--unknown, .admin-card--off {{ --admin-state: var(--text-muted); }}
+        /* only the broken one earns a coloured hairline; everything else stays quiet */
+        .content .admin-card--down {{
+            border-color: color-mix(in srgb, var(--alert-caution) 40%, var(--border));
+        }}
+        .admin-field {{
+            display: flex; flex-direction: column; min-width: 0;
+        }}
+        .admin-field-label {{
+            font-size: 0.78rem; font-weight: 500; color: var(--text-muted); margin-bottom: 0.35rem;
+        }}
+        .admin-field--num {{ width: 7rem; }}
+        .admin-field--time {{ flex: 1 1 11rem; }}
+        .admin-field--url {{ flex: 3 1 18rem; }}
+        .admin-field--head {{ flex: 1 1 10rem; }}
+        .admin-field--full {{ flex: 1 1 100%; }}
+        .admin-input, .content .admin-input {{
+            font-family: var(--font-sans); font-size: 0.9rem; line-height: 1.45;
+            color: var(--text-color); background: var(--bg-color);
+            border: 1px solid var(--border); border-radius: 8px;
+            padding: 0.5rem 0.65rem; width: 100%;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }}
+        .admin-input:hover {{
+            border-color: color-mix(in srgb, var(--text-muted) 55%, var(--border));
+        }}
+        .admin-input:focus-visible {{
+            outline: none; border-color: var(--accent);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+        }}
+        .admin-input::placeholder {{ color: var(--text-muted); opacity: 1; }}
+        .admin-field--num .admin-input {{ font-variant-numeric: tabular-nums; }}
+        textarea.admin-input {{ resize: vertical; min-height: 7rem; }}
+        .admin-switch {{
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            cursor: pointer; padding-bottom: 0.5rem; white-space: nowrap;
+        }}
+        .admin-switch-label {{ font-size: 0.875rem; }}
+        .admin-switch-input {{
+            appearance: none; -webkit-appearance: none; margin: 0;
+            position: relative; flex-shrink: 0; cursor: pointer;
+            width: 2.15rem; height: 1.2rem; border-radius: 999px;
+            border: 1px solid var(--border); background: var(--code-bg);
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+        }}
+        .admin-switch-input::after {{
+            content: """"; position: absolute; top: 50%; left: 2px;
+            width: 0.85rem; height: 0.85rem; border-radius: 50%;
+            background: var(--text-muted); transform: translateY(-50%);
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }}
+        .admin-switch-input:checked {{
+            background: color-mix(in srgb, var(--accent) 22%, transparent);
+            border-color: var(--accent);
+        }}
+        .admin-switch-input:checked::after {{
+            background: var(--accent); transform: translateY(-50%) translateX(0.92rem);
+        }}
+        .admin-switch-input:focus-visible {{ outline: 2px solid var(--accent); outline-offset: 2px; }}
+        .admin-btn {{
+            font-family: var(--font-sans); font-size: 0.85rem; font-weight: 500; line-height: 1.4;
+            color: var(--text-color); background: var(--bg-color);
+            border: 1px solid var(--border); border-radius: 8px;
+            padding: 0.5rem 0.95rem; cursor: pointer; white-space: nowrap;
+            transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+        }}
+        .admin-btn:hover {{
+            color: var(--accent);
+            border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+        }}
+        .admin-btn:disabled {{
+            opacity: 0.55; cursor: default;
+            color: var(--text-muted); border-color: var(--border); background: var(--bg-color);
+        }}
+        .admin-btn--primary {{
+            font-weight: 600; color: var(--bg-color);
+            background: var(--accent); border-color: var(--accent);
+        }}
+        .admin-btn--primary:hover {{
+            color: var(--bg-color); border-color: transparent;
+            background: color-mix(in srgb, var(--accent) 85%, var(--text-color));
+        }}
+        .admin-btn--danger {{ color: var(--alert-caution); }}
+        .admin-btn--danger:hover {{
+            color: var(--alert-caution);
+            border-color: color-mix(in srgb, var(--alert-caution) 45%, var(--border));
+            background: color-mix(in srgb, var(--alert-caution) 8%, var(--bg-color));
+        }}
+        .admin-grip {{
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 1.85rem; height: 1.85rem; flex-shrink: 0; padding: 0;
+            border: none; border-radius: 6px; background: transparent;
+            color: var(--text-muted); cursor: grab;
+            transition: color 0.15s ease, background-color 0.15s ease;
+        }}
+        .admin-grip:hover {{ color: var(--accent); background: var(--nav-hover-bg); }}
+        .admin-grip:focus-visible {{ outline: 2px solid var(--accent); outline-offset: 2px; }}
+        .admin-grip svg {{ width: 15px; height: 15px; }}
+        .content .admin-card.is-dragging {{ opacity: 0.45; border-color: var(--accent); }}
+        .admin-card[draggable=""true""] .admin-grip {{ cursor: grabbing; }}
+        .admin-fieldset {{ border: none; padding: 0; margin: 0; min-width: 0; }}
+        .admin-legend {{
+            font-size: 0.78rem; font-weight: 500; color: var(--text-muted);
+            padding: 0; margin-bottom: 0.45rem;
+        }}
+        .admin-choices {{ display: flex; flex-wrap: wrap; gap: 0.45rem; }}
+        .admin-choice {{
+            display: inline-flex; align-items: center; gap: 0.45rem; cursor: pointer;
+            border: 1px solid var(--border); border-radius: 999px;
+            padding: 0.32rem 0.8rem; font-size: 0.82rem; color: var(--text-muted);
+            transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+        }}
+        /* the chip is the control; the checkbox stays reachable but never renders its own box */
+        .admin-choice-input {{
+            position: absolute; width: 1px; height: 1px;
+            margin: 0; padding: 0; border: 0; overflow: hidden;
+            clip-path: inset(50%); white-space: nowrap;
+        }}
+        .admin-choice-dot {{
+            width: 0.5rem; height: 0.5rem; border-radius: 50%; flex-shrink: 0;
+            border: 1px solid color-mix(in srgb, var(--text-muted) 60%, var(--border));
+            background: transparent;
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+        }}
+        .admin-choice:hover {{
+            color: var(--text-color);
+            border-color: color-mix(in srgb, var(--text-muted) 45%, var(--border));
+        }}
+        /* geometry is identical in both states, so selecting never reflows the row */
+        .admin-choice:has(.admin-choice-input:checked) {{
+            color: var(--accent); border-color: var(--accent);
+            background: color-mix(in srgb, var(--accent) 9%, transparent);
+        }}
+        .admin-choice:has(.admin-choice-input:checked) .admin-choice-dot {{
+            background: var(--accent); border-color: var(--accent);
+        }}
+        .admin-choice:has(.admin-choice-input:focus-visible) {{ outline: 2px solid var(--accent); outline-offset: 2px; }}
+        .admin-datetime {{ position: relative; }}
+        .admin-datetime-control {{ position: relative; display: flex; }}
+        .admin-datetime-input {{ padding-right: 2.4rem; font-variant-numeric: tabular-nums; }}
+        .admin-datetime-open {{
+            position: absolute; top: 50%; right: 0.3rem; transform: translateY(-50%);
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 1.85rem; height: 1.85rem; padding: 0;
+            border: none; border-radius: 6px; background: transparent;
+            color: var(--text-muted); cursor: pointer;
+            transition: color 0.15s ease, background-color 0.15s ease;
+        }}
+        .admin-datetime-open:hover {{ color: var(--accent); background: var(--nav-hover-bg); }}
+        .admin-datetime-open:focus-visible {{ outline: 2px solid var(--accent); outline-offset: 2px; }}
+        .admin-datetime-open svg {{ width: 15px; height: 15px; }}
+        .admin-datetime-pop {{
+            position: absolute; z-index: 40; top: calc(100% + 0.4rem); left: 0;
+            width: 17.5rem; max-width: calc(100vw - 2rem);
+            padding: 0.85rem;
+            border: 1px solid var(--border); border-radius: 12px;
+            background: var(--bg-color); box-shadow: var(--shadow-md);
+            animation: admin-rise 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }}
+        .admin-datetime-pop[hidden] {{ display: none; }}
+        .admin-datetime--right .admin-datetime-pop {{ left: auto; right: 0; }}
+        .admin-datetime-head {{
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 0.5rem; margin-bottom: 0.6rem;
+        }}
+        .admin-datetime-month {{
+            font-family: var(--font-display); font-size: 0.9rem; font-weight: 600;
+            text-align: center; flex: 1 1 auto;
+        }}
+        .admin-datetime-nav {{
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 1.75rem; height: 1.75rem; flex-shrink: 0; padding: 0;
+            border: 1px solid var(--border); border-radius: 6px; background: transparent;
+            color: var(--text-muted); cursor: pointer; font: inherit; line-height: 1;
+            transition: color 0.15s ease, border-color 0.15s ease;
+        }}
+        .admin-datetime-nav:hover {{ color: var(--accent); border-color: var(--accent); }}
+        .admin-datetime-nav:focus-visible {{ outline: 2px solid var(--accent); outline-offset: 2px; }}
+        .admin-datetime-grid {{ display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }}
+        .admin-datetime-dow {{
+            font-size: 0.68rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+            color: var(--text-muted); text-align: center; padding: 0.3rem 0;
+        }}
+        .admin-datetime-day {{
+            font: inherit; font-size: 0.82rem; font-variant-numeric: tabular-nums;
+            display: flex; align-items: center; justify-content: center;
+            aspect-ratio: 1; padding: 0; cursor: pointer;
+            border: 1px solid transparent; border-radius: 7px;
+            background: transparent; color: var(--text-color);
+            transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        }}
+        .admin-datetime-day:hover {{ background: var(--nav-hover-bg); }}
+        .admin-datetime-day:focus-visible {{ outline: 2px solid var(--accent); outline-offset: -2px; }}
+        .admin-datetime-day--muted {{ color: color-mix(in srgb, var(--text-muted) 65%, transparent); }}
+        .admin-datetime-day--today {{ border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }}
+        .admin-datetime-day--on {{
+            background: var(--accent); border-color: var(--accent);
+            color: var(--bg-color); font-weight: 600;
+        }}
+        .admin-datetime-day--on:hover {{ background: var(--accent); }}
+        .admin-datetime-time {{
+            display: flex; align-items: center; gap: 0.4rem;
+            margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);
+        }}
+        .admin-datetime-part {{
+            width: 3.2rem; text-align: center; font-variant-numeric: tabular-nums;
+            font-family: var(--font-sans); font-size: 0.85rem;
+            color: var(--text-color); background: var(--bg-color);
+            border: 1px solid var(--border); border-radius: 7px; padding: 0.35rem 0.3rem;
+        }}
+        .admin-datetime-part:focus-visible {{
+            outline: none; border-color: var(--accent);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+        }}
+        .admin-datetime-colon {{ color: var(--text-muted); }}
+        .admin-datetime-actions {{ display: flex; gap: 0.4rem; margin-left: auto; }}
+        .admin-datetime-btn {{
+            font-family: var(--font-sans); font-size: 0.78rem; font-weight: 500;
+            color: var(--text-muted); background: transparent;
+            border: 1px solid var(--border); border-radius: 7px;
+            padding: 0.35rem 0.6rem; cursor: pointer; white-space: nowrap;
+            transition: color 0.15s ease, border-color 0.15s ease;
+        }}
+        .admin-datetime-btn:hover {{ color: var(--accent); border-color: var(--accent); }}
+        .admin-datetime-btn:focus-visible {{ outline: 2px solid var(--accent); outline-offset: 2px; }}
+        .admin-datetime-btn--go {{ color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }}
+        .admin-incident {{ gap: 1.1rem; }}
+        .admin-incident-actions {{ display: flex; justify-content: flex-end; }}
+        .content .admin-empty {{
+            border: 1px dashed color-mix(in srgb, var(--text-muted) 35%, var(--border));
+            border-radius: 10px; padding: 1.75rem 1.25rem; text-align: center;
+        }}
+        .content .admin-empty-title {{
+            font-family: var(--font-display); font-weight: 600; margin: 0 0 0.3rem;
+        }}
+        .content .admin-empty-note {{
+            font-size: 0.875rem; color: var(--text-muted); margin: 0;
+        }}
+        .content .admin-draft {{
+            margin: 0; padding: 1rem 1.15rem; overflow-x: auto;
+            border: 1px solid var(--border); border-radius: 10px; background: var(--code-bg);
+            font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.6;
+        }}
+        .admin-actionbar {{
+            position: sticky; bottom: 0.9rem; z-index: 30;
+            display: flex; align-items: center; justify-content: flex-end; gap: 0.7rem;
+            margin: 2.5rem 0 1rem; padding: 0.8rem 1rem;
+            border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+            border-radius: 12px; background: var(--sidebar-bg);
+            box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05), 0 14px 34px rgba(0, 0, 0, 0.16);
+            animation: admin-rise 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }}
+        /* an author display rule outranks the UA [hidden] rule, so say it again here */
+        .admin-actionbar[hidden] {{ display: none; }}
+        .admin-actionbar-count {{
+            margin-right: auto; font-size: 0.85rem; font-weight: 500;
+            color: var(--text-muted); font-variant-numeric: tabular-nums;
+        }}
+        @keyframes admin-rise {{
+            from {{ opacity: 0; transform: translateY(0.75rem); }}
+            to {{ opacity: 1; transform: none; }}
+        }}
+        .admin-dialog {{
+            border: 1px solid var(--border); border-radius: 12px;
+            padding: 1.5rem; max-width: 28rem; width: calc(100vw - 2rem);
+            color: var(--text-color); background: var(--bg-color);
+            box-shadow: var(--shadow-lg);
+        }}
+        .admin-dialog-title {{
+            font-family: var(--font-display); font-size: 1.15rem; font-weight: 600;
+            letter-spacing: -0.01em; margin: 0 0 0.6rem;
+        }}
+        .admin-dialog-target {{ font-size: 0.95rem; margin: 0 0 0.5rem; }}
+        .admin-dialog-body {{
+            font-size: 0.9rem; line-height: 1.6; color: var(--text-muted); margin: 0 0 1.4rem;
+        }}
+        .admin-dialog-actions {{ display: flex; justify-content: flex-end; gap: 0.6rem; }}
+        .admin-dialog::backdrop {{
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+        }}
+        .toast-stack {{
+            position: fixed; z-index: 1200;
+            right: clamp(0.75rem, 3vw, 1.5rem); bottom: clamp(0.75rem, 3vw, 1.5rem);
+            display: flex; flex-direction: column; gap: 0.55rem;
+            width: min(23rem, calc(100vw - 1.5rem)); pointer-events: none;
+        }}
+        .toast {{
+            padding: 0.75rem 0.95rem; border-radius: 10px; cursor: pointer;
+            border: 1px solid var(--border); background: var(--sidebar-bg);
+            box-shadow: var(--shadow-md); color: var(--text-color);
+            font-size: 0.875rem; line-height: 1.5; pointer-events: auto;
+            animation: admin-rise 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }}
+        .toast--ok {{ --toast-tone: var(--alert-tip); }}
+        .toast--bad {{ --toast-tone: var(--alert-caution); }}
+        .toast--warn {{ --toast-tone: var(--alert-warning); }}
+        .toast--ok, .toast--bad, .toast--warn {{
+            background: color-mix(in srgb, var(--toast-tone) 12%, var(--sidebar-bg));
+            border-color: color-mix(in srgb, var(--toast-tone) 38%, var(--border));
+            color: color-mix(in srgb, var(--toast-tone) 70%, var(--text-color));
+        }}
+        .toast.is-leaving {{ animation: admin-fade 0.2s ease both; }}
+        @keyframes admin-fade {{
+            from {{ opacity: 1; }}
+            to {{ opacity: 0; transform: translateY(0.35rem); }}
+        }}
+        .auth-button {{
+            position: relative;
+        }}
+        .auth-button--active {{
+            color: var(--accent);
+        }}
+        .auth-button--active::before {{
+            content: """";
+            position: absolute; top: 4px; right: 4px;
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 0 2px var(--bg-color);
+        }}
+        @media (max-width: 620px) {{
+            .admin-header {{ align-items: flex-start; }}
+            .admin-field--num {{ width: 100%; }}
+            .admin-card-reset {{ margin-left: 0; width: 100%; }}
+            .admin-actionbar {{ flex-wrap: wrap; }}
+            .admin-actionbar-count {{ flex: 1 1 100%; margin: 0 0 0.15rem; }}
+            .admin-actionbar .admin-btn {{ flex: 1 1 auto; }}
+        }}
+        @media (hover: none) and (pointer: coarse) {{
+            .admin-btn {{ padding: 0.6rem 1rem; }}
+            .admin-grip {{ width: 2.5rem; height: 2.5rem; }}
+        }}
+        @media (prefers-reduced-motion: reduce) {{
+            .admin-actionbar, .toast, .toast.is-leaving, .admin-datetime-pop {{ animation: none; }}
+            .admin-switch-input, .admin-switch-input::after,
+            .admin-input, .admin-btn, .admin-choice, .admin-choice-dot, .admin-grip,
+            .admin-datetime-day, .admin-datetime-nav, .admin-datetime-btn {{ transition: none; }}
+        }}
         .timezone-toggle--overridden::before {{
             content: ""!"";
             position: absolute; top: 3px; right: 3px;

@@ -33,7 +33,7 @@ internal static class ApiEndpoints
     internal static async Task<Ok<StatusApiResponse>> GetStatus(HeartbeatStore store, ContentService content, CancellationToken cancellationToken)
     {
         var monitoring = content.SiteConfig?.Monitoring;
-        var targets = (monitoring?.Targets ?? []).Where(t => t.Hidden != true).ToList();
+        var targets = (monitoring?.Targets ?? []).Where(t => t.Hidden != true && t.Enabled != false).ToList();
         var pages = await content.GetAllPagesAsync(cancellationToken);
         var now = DateTimeOffset.UtcNow;
         // stored/compared in UTC; converted to the TZ env var's zone only for the response, matching the reported `tz`

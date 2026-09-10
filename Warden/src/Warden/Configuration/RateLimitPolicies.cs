@@ -4,4 +4,11 @@ namespace Warden.Configuration;
 internal static class RateLimitPolicies
 {
     public const string Api = "api-limit";
+
+    // three requests per save (POST, redirect, GET); the API budget is too tight
+    public const string Admin = "admin-limit";
+
+    // Its own bucket, deliberately not Admin's. Sharing one meant a flood of /auth/login spent the
+    // same budget a signed-in operator needs for /admin/settings, so anyone could lock the panel out.
+    public const string Auth = "auth-limit";
 }

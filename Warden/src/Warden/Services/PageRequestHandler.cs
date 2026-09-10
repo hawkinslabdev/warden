@@ -1,3 +1,4 @@
+using Warden.Services.Layout;
 using Warden.Services.Rendering;
 
 namespace Warden.Services;
@@ -156,12 +157,21 @@ public sealed class PageRequestHandler
         return PageChromeRenderer.BuildAdjacentNav(prevHref, prevTitle, nextHref, nextTitle, Localization.Current.PageNavAria);
     }
 
+    /// <summary>The href for an absolute front-matter page link, or null when the target is relative.
+    /// Encoded here rather than at the renderer: the relative branch goes through UrlPaths.Href, which
+    /// already encodes, so encoding downstream would double-escape every ampersand.</summary>
+    internal static string? AbsoluteHref(string? target) =>
+        target is not null
+        && (target.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || target.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            ? LayoutProvider.HtmlEncode(target)
+            : null;
+
     private async ValueTask<(string? Href, string? Title)> ResolvePageLink(string? target, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(target)) return (null, null);
-        if (target.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-            || target.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            return (target, target);
+        if (AbsoluteHref(target) is { } absolute)
+            return (absolute, target);
 
         var norm = target.Trim('/').ToLowerInvariant();
         var targetPage = await _content.GetPageAsync($"pages/{norm}", ct) ?? await _content.GetPageAsync(norm, ct);

@@ -10,6 +10,14 @@ namespace Warden.Endpoints;
 
 internal static class SeoEndpoints
 {
+    // These bodies embed an absolute origin taken from the Host header, so a shared cache must not
+    // serve one host's sitemap under another's key. PageResponder does the same for page responses.
+    private static void VaryOnHost(HttpContext context, PageRequestSettings settings)
+    {
+        if (settings.PublicBaseUrl is null)
+            context.Response.Headers.Vary = "Host";
+    }
+
     public static IEndpointRouteBuilder MapSeoEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapMethods("/robots.txt", HttpVerbs.GetAndHead, GetRobots);
@@ -19,6 +27,7 @@ internal static class SeoEndpoints
 
     internal static ContentHttpResult GetRobots(HttpContext context, PageRequestSettings settings)
     {
+        VaryOnHost(context, settings);
         var baseUrl = settings.Origin(context);
         var body = $"User-agent: *\nAllow: /\nSitemap: {baseUrl}{settings.BasePath}/sitemap.xml\n";
         return TypedResults.Text(body, "text/plain", Encoding.UTF8);
@@ -26,6 +35,7 @@ internal static class SeoEndpoints
 
     internal static async Task<ContentHttpResult> GetSitemap(ContentService content, PageRequestSettings settings, HttpContext context)
     {
+        VaryOnHost(context, settings);
         var basePath = settings.BasePath;
         var config = content.SiteConfig;
         var pages = await content.GetAllPagesAsync(context.RequestAborted);

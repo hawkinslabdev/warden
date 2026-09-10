@@ -29,7 +29,9 @@ public sealed record MonitorTarget(
     // dashboard structure, monitoring.group: "custom" only: this target's own group heading; falls back to its type's label when unset
     string? Group = null,
     // still scheduled and checked normally; just excluded from the status page and /api/status, for a backend you track but don't publish
-    bool? Hidden = null);
+    bool? Hidden = null,
+    // false stops the checks entirely and drops the target from the page; though hidden keeps probing
+    bool? Enabled = null);
 
 // the "monitoring" block in content/config.json; hot-reloaded with the rest of the file
 public sealed record MonitoringConfig(
@@ -49,7 +51,9 @@ public sealed record MonitoringConfig(
     // opt-in only; unset keeps a content/incidents/*.md file's own folder placement as its URL. "year" -> /incidents/{year}/{slug}/, "year-month" -> /incidents/{year}/{month}/{slug}/, derived from the incident's date front matter regardless of which folder the file actually lives in
     string? IncidentUrlPattern = null,
     // POST with JSON once per down/recovery transition, not on every check while a monitor stays down
-    List<WebhookTarget>? Webhooks = null);
+    List<WebhookTarget>? Webhooks = null,
+    // minimum minutes between repeat down webhooks per monitor; unset means one per transition
+    int? WebhookCooldownMinutes = null);
 
 // one entry in MonitoringConfig.Webhooks; Headers is opt-in, e.g. { "Authorization": "Bearer ..." } for receivers that need auth
 public sealed record WebhookTarget(string Url, Dictionary<string, string>? Headers = null);

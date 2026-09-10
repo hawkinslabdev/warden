@@ -18,7 +18,9 @@ public sealed record PageView(
     bool Prose = false,
     string? Image = null,
     DateTime? Modified = null,
-    bool NoIndex = false);
+    bool NoIndex = false,
+    // no-store and no ETag; the page carries antiforgery tokens
+    bool NoStore = false);
 
 public sealed class PageResponder
 {
@@ -27,6 +29,7 @@ public sealed class PageResponder
     private readonly ThemeOptions _theme;
     private readonly DocsOptions _docsOptions;
     private readonly PageRequestSettings _settings;
+    private readonly AuthOptions _auth;
     private readonly string _iconsDir;
     private readonly string? _fallbackIconsDir;
 
@@ -35,13 +38,15 @@ public sealed class PageResponder
         MarkdownService markdown,
         ThemeOptions theme,
         DocsOptions docsOptions,
-        PageRequestSettings settings)
+        PageRequestSettings settings,
+        AuthOptions auth)
     {
         _content = content;
         _markdown = markdown;
         _theme = theme;
         _docsOptions = docsOptions;
         _settings = settings;
+        _auth = auth;
         _iconsDir = Path.Combine(settings.WebRootPath, "icons");
         var defaultIconsDir = Path.Combine(AppContext.BaseDirectory, "wwwroot-default", "icons");
         _fallbackIconsDir = Directory.Exists(defaultIconsDir) ? defaultIconsDir : null;
@@ -85,9 +90,17 @@ public sealed class PageResponder
 
         // Origin folded in so a shared cache cannot serve one host's body under another host's key.
         var pageOrigin = _settings.Origin(context);
-        var etag = ComputeETag(pageOrigin, _content.BuildVersion, view.ContentHtml);
-        context.Response.Headers.ETag = $"\"{etag}\"";
-        context.Response.Headers.CacheControl = "no-cache";
+        if (view.NoStore)
+        {
+            context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, private";
+            context.Response.Headers.Pragma = "no-cache";
+        }
+        else
+        {
+            var etag = ComputeETag(pageOrigin, _content.BuildVersion, view.ContentHtml);
+            context.Response.Headers.ETag = $"\"{etag}\"";
+            context.Response.Headers.CacheControl = "no-cache";
+        }
         if (view.NoIndex)
             context.Response.Headers["X-Robots-Tag"] = "noindex, follow";
         if (_settings.PublicBaseUrl is null)
@@ -160,7 +173,10 @@ public sealed class PageResponder
             socialMetaHtml: socialMetaHtml,
             structuredDataHtml: structuredDataHtml,
             theme: activeTheme,
-            structure: activeStructure);
+            structure: activeStructure,
+            authButtonHtml: _auth.AdminEnabled
+                ? LayoutProvider.BuildAuthButton(context.User.Identity?.IsAuthenticated == true, _auth.AuthPath, basePath)
+                : null);
 
         context.Response.ContentType = "text/html; charset=utf-8";
         await context.Response.WriteAsync(fullHtml);

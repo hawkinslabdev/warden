@@ -39,7 +39,7 @@ internal static class StatusEndpoints
     {
         var l = Localization.Current;
         var monitoring = content.SiteConfig?.Monitoring;
-        var targets = (monitoring?.Targets ?? []).Where(t => t.Hidden != true).ToList();
+        var targets = (monitoring?.Targets ?? []).Where(t => t.Hidden != true && t.Enabled != false).ToList();
         var filterDay = ParseFilterDay(ctx.Request.Query["on"]);
         var structure = responder.ResolveStructure();
         var html = targets.Count == 0

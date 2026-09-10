@@ -496,7 +496,7 @@ public sealed partial class ContentService : IHostedService, IDisposable
     private static partial Regex AssetSrcHrefRegex();
 
     /// <summary>Prefers <c>NAME.json.dev</c> over <c>NAME.json</c> when the former exists and parses, for a local override that never ships.</summary>
-    private static string ResolveJsonFile(string docsPath, string fileName)
+    internal static string ResolveJsonFile(string docsPath, string fileName)
     {
         var devPath = Path.Combine(docsPath, fileName + ".dev");
         if (File.Exists(devPath) && ParsesAsJson(devPath))

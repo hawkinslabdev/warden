@@ -1006,6 +1006,349 @@ public static partial class LayoutProvider
             }} else if (tzToggle) {{
                 tzToggle.style.display = 'none';
             }}
+
+            var settingsForm = document.getElementById('admin-settings');
+            var actionBar = document.getElementById('admin-actionbar');
+            if (settingsForm && actionBar) {{
+                var orderInput = document.getElementById('admin-order');
+                var orderList = document.getElementById('monitor-order');
+                var fields = Array.prototype.slice.call(
+                    settingsForm.querySelectorAll('input:not([type=hidden]), textarea, select'));
+
+                function fieldValue(el) {{
+                    return el.type === 'checkbox' || el.type === 'radio' ? (el.checked ? '1' : '0') : el.value;
+                }}
+                function readOrder() {{
+                    var ids = [];
+                    if (orderList) Array.prototype.forEach.call(orderList.children, function(row) {{
+                        ids.push(row.getAttribute('data-monitor-id'));
+                    }});
+                    return ids.join(',');
+                }}
+                fields.forEach(function(el) {{ el.setAttribute('data-base', fieldValue(el)); }});
+                var baseOrder = readOrder();
+
+                function dirtyCount() {{
+                    var n = 0;
+                    fields.forEach(function(el) {{ if (fieldValue(el) !== el.getAttribute('data-base')) n++; }});
+                    if (readOrder() !== baseOrder) n++;
+                    return n;
+                }}
+                function sync() {{
+                    var order = readOrder();
+                    // an empty value tells the server to leave the stored order alone, so only a real move is sent
+                    if (orderInput) orderInput.value = order === baseOrder ? '' : order;
+                    actionBar.hidden = dirtyCount() === 0;
+                }}
+                settingsForm.addEventListener('input', sync);
+                settingsForm.addEventListener('change', sync);
+
+                var discard = document.getElementById('admin-discard');
+                if (discard) discard.addEventListener('click', function() {{
+                    fields.forEach(function(el) {{
+                        var base = el.getAttribute('data-base');
+                        if (el.type === 'checkbox' || el.type === 'radio') el.checked = base === '1';
+                        else el.value = base;
+                    }});
+                    if (orderList) baseOrder.split(',').forEach(function(id) {{
+                        var row = orderList.querySelector('[data-monitor-id=""' + id.replace(/""/g, '') + '""]');
+                        if (row) orderList.appendChild(row);
+                    }});
+                    sync();
+                }});
+
+                var saving = false;
+                settingsForm.addEventListener('submit', function() {{ saving = true; }});
+                window.addEventListener('beforeunload', function(e) {{
+                    if (saving || dirtyCount() === 0) return;
+                    e.preventDefault();
+                    e.returnValue = '';
+                }});
+
+                if (orderList) {{
+                    var dragged = null;
+                    Array.prototype.forEach.call(orderList.children, function(row) {{
+                        var grip = row.querySelector('[data-grip]');
+                        if (!grip) return;
+                        // only the handle starts a drag, so a text selection inside a field never does
+                        grip.addEventListener('mousedown', function() {{ row.draggable = true; }});
+                        grip.addEventListener('touchstart', function() {{ row.draggable = true; }}, {{ passive: true }});
+                        row.addEventListener('dragstart', function(e) {{
+                            dragged = row;
+                            row.classList.add('is-dragging');
+                            if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+                        }});
+                        row.addEventListener('dragend', function() {{
+                            row.classList.remove('is-dragging');
+                            row.draggable = false;
+                            dragged = null;
+                            sync();
+                        }});
+                        row.addEventListener('dragover', function(e) {{
+                            if (!dragged || dragged === row) return;
+                            e.preventDefault();
+                            var box = row.getBoundingClientRect();
+                            orderList.insertBefore(dragged, (e.clientY - box.top) > box.height / 2 ? row.nextSibling : row);
+                        }});
+                        // arrow keys move the row in place; nothing posts until Save, so focus never round-trips the server
+                        grip.addEventListener('keydown', function(e) {{
+                            if (e.key === 'ArrowUp' && row.previousElementSibling) {{
+                                e.preventDefault();
+                                orderList.insertBefore(row, row.previousElementSibling);
+                            }} else if (e.key === 'ArrowDown' && row.nextElementSibling) {{
+                                e.preventDefault();
+                                orderList.insertBefore(row.nextElementSibling, row);
+                            }} else return;
+                            grip.focus();
+                            sync();
+                        }});
+                    }});
+                }}
+                sync();
+            }}
+
+            var toastStack = document.getElementById('toast-stack');
+            if (toastStack) {{
+                Array.prototype.forEach.call(toastStack.querySelectorAll('.toast'), function(toast) {{
+                    function dismiss() {{
+                        toast.classList.add('is-leaving');
+                        window.setTimeout(function() {{ toast.remove(); }}, 220);
+                    }}
+                    toast.addEventListener('click', dismiss);
+                    window.setTimeout(dismiss, 5000);
+                }});
+            }}
+
+            var resetDialog = document.getElementById('reset-dialog');
+            if (resetDialog) {{
+                var resetForm = document.getElementById('reset-form');
+                var resetId = document.getElementById('reset-id');
+                var resetName = document.getElementById('reset-name');
+                Array.prototype.forEach.call(document.querySelectorAll('[data-reset]'), function(btn) {{
+                    btn.addEventListener('click', function() {{
+                        resetId.value = btn.getAttribute('data-reset');
+                        resetName.textContent = btn.getAttribute('data-reset-name');
+                        resetDialog.showModal();
+                    }});
+                }});
+                resetDialog.addEventListener('close', function() {{
+                    if (resetDialog.returnValue === 'confirm') resetForm.submit();
+                }});
+            }}
+
+            // Custom date + time picker. The field still posts ""yyyy-MM-dd HH:mm"" as plain text,
+            // so with scripting off it stays a typable input the server parses the same way.
+            Array.prototype.forEach.call(document.querySelectorAll('[data-datetime]'), function(wrap) {{
+                var input = wrap.querySelector('.admin-datetime-input');
+                var openBtn = wrap.querySelector('.admin-datetime-open');
+                var pop = wrap.querySelector('.admin-datetime-pop');
+                if (!input || !openBtn || !pop) return;
+
+                var lang = document.documentElement.lang || 'en';
+                var monthFmt, dowFmt;
+                try {{
+                    monthFmt = new Intl.DateTimeFormat(lang, {{ month: 'long', year: 'numeric' }});
+                    dowFmt = new Intl.DateTimeFormat(lang, {{ weekday: 'short' }});
+                }} catch (e) {{
+                    monthFmt = new Intl.DateTimeFormat('en', {{ month: 'long', year: 'numeric' }});
+                    dowFmt = new Intl.DateTimeFormat('en', {{ weekday: 'short' }});
+                }}
+                // month and weekday names come from the page language, so no month table needs translating
+                var firstDay = 1;
+                try {{
+                    var info = new Intl.Locale(lang).weekInfo;
+                    if (info && info.firstDay) firstDay = info.firstDay % 7;
+                }} catch (e) {{}}
+
+                var view = null, grid = null, monthEl = null, hourEl = null, minEl = null;
+
+                function pad(n) {{ return (n < 10 ? '0' : '') + n; }}
+                function stamp(d) {{
+                    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+                        ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+                }}
+                function parse(v) {{
+                    var m = /^(\d{{4}})-(\d{{1,2}})-(\d{{1,2}})(?:[ T](\d{{1,2}}):(\d{{1,2}}))?/.exec((v || '').trim());
+                    if (!m) return null;
+                    var d = new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0));
+                    return isNaN(d.getTime()) ? null : d;
+                }}
+                function sameDay(a, b) {{
+                    return !!a && !!b && a.getFullYear() === b.getFullYear() &&
+                        a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+                }}
+                function clamp(v, max) {{
+                    var n = parseInt(v, 10);
+                    return isNaN(n) ? 0 : Math.min(Math.max(n, 0), max);
+                }}
+                function commit(d) {{
+                    input.value = stamp(d);
+                    input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                }}
+                function label(key, fallback) {{ return wrap.getAttribute(key) || fallback; }}
+
+                function navButton(glyph, key, fallback, step) {{
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'admin-datetime-nav';
+                    b.textContent = glyph;
+                    b.setAttribute('aria-label', label(key, fallback));
+                    b.addEventListener('click', function() {{ view.setMonth(view.getMonth() + step); paint(); }});
+                    return b;
+                }}
+                function actionButton(text, primary, fn) {{
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'admin-datetime-btn' + (primary ? ' admin-datetime-btn--go' : '');
+                    b.textContent = text;
+                    b.addEventListener('click', fn);
+                    return b;
+                }}
+                function timePart(max, text) {{
+                    var i = document.createElement('input');
+                    i.type = 'number';
+                    i.min = '0';
+                    i.max = String(max);
+                    i.className = 'admin-datetime-part';
+                    i.setAttribute('aria-label', text);
+                    i.addEventListener('change', function() {{
+                        var d = parse(input.value) || new Date();
+                        d.setHours(clamp(hourEl.value, 23), clamp(minEl.value, 59), 0, 0);
+                        commit(d);
+                        paint();
+                    }});
+                    return i;
+                }}
+
+                function build() {{
+                    var head = document.createElement('div');
+                    head.className = 'admin-datetime-head';
+                    monthEl = document.createElement('div');
+                    monthEl.className = 'admin-datetime-month';
+                    monthEl.setAttribute('aria-live', 'polite');
+                    head.appendChild(navButton('‹', 'data-prev', 'Previous month', -1));
+                    head.appendChild(monthEl);
+                    head.appendChild(navButton('›', 'data-next', 'Next month', 1));
+
+                    grid = document.createElement('div');
+                    grid.className = 'admin-datetime-grid';
+
+                    hourEl = timePart(23, label('data-hours', 'Hours'));
+                    minEl = timePart(59, label('data-minutes', 'Minutes'));
+                    var colon = document.createElement('span');
+                    colon.className = 'admin-datetime-colon';
+                    colon.textContent = ':';
+
+                    var acts = document.createElement('div');
+                    acts.className = 'admin-datetime-actions';
+                    acts.appendChild(actionButton(label('data-now', 'Now'), false, function() {{
+                        var n = new Date();
+                        view = new Date(n.getFullYear(), n.getMonth(), 1);
+                        commit(n);
+                        paint();
+                    }}));
+                    acts.appendChild(actionButton(label('data-clear', 'Clear'), false, function() {{
+                        input.value = '';
+                        input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                        paint();
+                    }}));
+                    acts.appendChild(actionButton(label('data-done', 'Done'), true, close));
+
+                    var time = document.createElement('div');
+                    time.className = 'admin-datetime-time';
+                    time.appendChild(hourEl);
+                    time.appendChild(colon);
+                    time.appendChild(minEl);
+                    time.appendChild(acts);
+
+                    pop.appendChild(head);
+                    pop.appendChild(grid);
+                    pop.appendChild(time);
+                }}
+
+                function paint() {{
+                    var picked = parse(input.value);
+                    var today = new Date();
+                    if (!view) view = new Date((picked || today).getFullYear(), (picked || today).getMonth(), 1);
+
+                    monthEl.textContent = monthFmt.format(view);
+                    hourEl.value = picked ? pad(picked.getHours()) : '';
+                    minEl.value = picked ? pad(picked.getMinutes()) : '';
+
+                    grid.textContent = '';
+                    var i;
+                    for (i = 0; i < 7; i++) {{
+                        var dow = document.createElement('div');
+                        dow.className = 'admin-datetime-dow';
+                        // 2024-01-07 was a Sunday, so this walks real weekdays in the page's own locale
+                        dow.textContent = dowFmt.format(new Date(2024, 0, 7 + ((firstDay + i) % 7))).slice(0, 2);
+                        grid.appendChild(dow);
+                    }}
+
+                    var first = new Date(view.getFullYear(), view.getMonth(), 1);
+                    var lead = (first.getDay() - firstDay + 7) % 7;
+                    for (i = 0; i < 42; i++) {{
+                        var day = new Date(view.getFullYear(), view.getMonth(), 1 - lead + i);
+                        var b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'admin-datetime-day';
+                        if (day.getMonth() !== view.getMonth()) b.className += ' admin-datetime-day--muted';
+                        if (sameDay(day, today)) b.className += ' admin-datetime-day--today';
+                        if (sameDay(day, picked)) {{
+                            b.className += ' admin-datetime-day--on';
+                            b.setAttribute('aria-current', 'date');
+                        }}
+                        b.textContent = String(day.getDate());
+                        b.addEventListener('click', (function(d) {{
+                            return function() {{
+                                var t = parse(input.value);
+                                view = new Date(d.getFullYear(), d.getMonth(), 1);
+                                commit(new Date(d.getFullYear(), d.getMonth(), d.getDate(),
+                                    t ? t.getHours() : clamp(hourEl.value, 23),
+                                    t ? t.getMinutes() : clamp(minEl.value, 59), 0, 0));
+                                paint();
+                            }};
+                        }})(day));
+                        grid.appendChild(b);
+                    }}
+                }}
+
+                function open() {{
+                    if (!pop.firstChild) build();
+                    view = null;
+                    paint();
+                    pop.hidden = false;
+                    input.setAttribute('aria-expanded', 'true');
+                    // flip to the right edge when the popover would leave the viewport
+                    wrap.classList.remove('admin-datetime--right');
+                    if (pop.getBoundingClientRect().right > document.documentElement.clientWidth - 8)
+                        wrap.classList.add('admin-datetime--right');
+                }}
+                function hide() {{
+                    pop.hidden = true;
+                    input.setAttribute('aria-expanded', 'false');
+                }}
+                function close() {{
+                    if (pop.hidden) return;
+                    hide();
+                    input.focus();
+                }}
+
+                openBtn.addEventListener('click', function() {{ if (pop.hidden) open(); else close(); }});
+                input.addEventListener('keydown', function(e) {{
+                    if (e.key === 'ArrowDown' && pop.hidden) {{ e.preventDefault(); open(); }}
+                }});
+                input.addEventListener('change', function() {{ if (!pop.hidden) {{ view = null; paint(); }} }});
+                wrap.addEventListener('keydown', function(e) {{
+                    if (e.key === 'Escape' && !pop.hidden) {{ e.preventDefault(); close(); }}
+                }});
+                // a click elsewhere dismisses without stealing focus back. A day button is replaced by the
+                // repaint before this runs, so a detached target means the click came from inside the grid.
+                document.addEventListener('click', function(e) {{
+                    if (pop.hidden || !e.target || !e.target.isConnected) return;
+                    if (!wrap.contains(e.target)) hide();
+                }});
+            }});
         }});
 ");
     }

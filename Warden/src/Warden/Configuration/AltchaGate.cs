@@ -32,11 +32,14 @@ public static class AltchaGate
         return services;
     }
 
-    public static IApplicationBuilder UseAltchaGate(this IApplicationBuilder app) =>
+    public static IApplicationBuilder UseAltchaGate(this IApplicationBuilder app, string? authPath = null) =>
         app.Use(async (context, next) =>
         {
             var path = context.Request.Path;
-            if (path.StartsWithSegments("/altcha") || path.StartsWithSegments("/health") || path.StartsWithSegments("/api"))
+            // a challenge mid-redirect breaks the OIDC callback; /admin is already behind OIDC
+            if (path.StartsWithSegments("/altcha") || path.StartsWithSegments("/health") || path.StartsWithSegments("/api")
+                || path.StartsWithSegments("/admin")
+                || (authPath is not null && path.StartsWithSegments(authPath)))
             {
                 await next(context);
                 return;

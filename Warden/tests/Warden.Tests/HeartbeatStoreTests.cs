@@ -97,22 +97,26 @@ public sealed class HeartbeatStoreTests : IDisposable
         _store.Record("site", now.AddMinutes(-4), up: true, responseMs: 10);
         _store.Record("site", now.AddMinutes(-3), up: false, responseMs: null);
 
-        var uptime = _store.GetUptime("site", TimeSpan.FromHours(24));
+        // 5-minute interval keeps both segments under the gap threshold; at the default 60s the
+        // trailing segment is 3min plus however long this test took, landing on the 3x boundary
+        var uptime = _store.GetUptime("site", TimeSpan.FromHours(24), TimeSpan.FromMinutes(5));
 
         Assert.Equal(25.0, uptime!.Value.Percent, 0);
     }
 
     [Fact]
-    public void GetUptime_TreatsAnAbnormalGapAsDowntime_NotAsExcludedFromThePercentage()
+    public void GetUptime_ExcludesAnAbnormalGapFromThePercentage_RatherThanCountingItAsDowntime()
     {
         var now = DateTimeOffset.UtcNow;
-        // A 10-min gap with 1-min interval indicates missed checks (e.g., crash). Only 1 min counts as up; the rest counts as downtime.
+        // A 10-min gap with 1-min interval indicates missed checks (e.g., crash). The unmonitored
+        // time is credited as one interval and otherwise left out, so a Warden outage does not
+        // read as target downtime.
         _store.Record("site", now.AddMinutes(-10), up: true, responseMs: 10);
         _store.Record("site", now, up: false, responseMs: null);
 
         var uptime = _store.GetUptime("site", TimeSpan.FromHours(24), TimeSpan.FromMinutes(1));
 
-        Assert.Equal(10.0, uptime!.Value.Percent, 0);
+        Assert.Equal(100.0, uptime!.Value.Percent, 0);
     }
     
     [Fact]
@@ -122,7 +126,8 @@ public sealed class HeartbeatStoreTests : IDisposable
         _store.Record("site", now.AddMinutes(-10), up: true, responseMs: 10);
         _store.Record("site", now, up: true, responseMs: 10);
 
-        var uptime = _store.GetUptime("site", TimeSpan.FromHours(24));
+        // 5-minute interval keeps the 10-minute gap under the threshold, so the span is the real elapsed time
+        var uptime = _store.GetUptime("site", TimeSpan.FromHours(24), TimeSpan.FromMinutes(5));
 
         Assert.True(uptime!.Value.Span <= TimeSpan.FromMinutes(10.1));
         Assert.True(uptime.Value.Span >= TimeSpan.FromMinutes(9.9));

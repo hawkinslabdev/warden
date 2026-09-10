@@ -92,6 +92,26 @@ Gates every page behind a self-hosted [ALTCHA](https://altcha.org) proof-of-work
 | `Altcha__Enabled` | `false` | Requires solving a challenge before any page loads. |
 | `Altcha__SessionHours` | `24` | How long a solved challenge exempts a visitor from re-solving. |
 
+## Admin panel
+
+Off by default, though you can enable  the `/admin` route when configured with your identity provider.
+
+This path allows you to either toggle and reorder monitors, and configure notifications by using webhooks. 
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `OIDC_ISSUER` | none | Provider URL. `https`, or `http` on loopback. |
+| `OIDC_CLIENT_ID` | none | Client registered with that provider. |
+| `OIDC_CLIENT_SECRET` | none | That client's secret. |
+| `OIDC_ALLOWED_SUBJECTS` | none | Comma-separated `sub` claims allowed in. |
+| `AUTH_PATH` | `auth` | Prefix for the sign-in routes. |
+
+Register `https://your-site/auth/callback` as the redirect URI. Warden asks for the `openid` scope only, uses PKCE, and stores no tokens.
+
+`OIDC_ALLOWED_SUBJECTS` requires the `sub` claim. Your provider's user admin should include this value, Keycloak as the user ID, Authentik as `sub`.
+
+Behind a reverse proxy, list it under `Proxy__Trusted__0` as well. Without it Warden cannot tell the request arrived over https, so the session cookie goes out without its `Secure` flag.
+
 ## Logs
 
 Warnings and errors go to `logs/warden-<date>.log` beside the binary, rolling daily and keeping a fortnight. Everything at `Information` stays on the console only, so the file itself stays small.

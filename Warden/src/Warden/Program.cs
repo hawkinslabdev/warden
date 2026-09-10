@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
@@ -11,6 +12,7 @@ using Warden.Endpoints;
 using Warden.Models;
 using Warden.Serialization;
 using Warden.Services;
+using Warden.Services.Admin;
 using Warden.Services.MarkdownExtensions;
 
 Directory.CreateDirectory("log");
@@ -60,8 +62,64 @@ try
             ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
         });
 
+    var authOptions = AuthOptions.FromEnvironment() with { IsExport = exportDir is not null };
+    if (!string.IsNullOrEmpty(authOptions.Issuer) && !authOptions.Enabled)
+        Log.Warning("OIDC_ISSUER is set but the admin panel stays off: the issuer must be an absolute https URL (or http on loopback), both OIDC_CLIENT_ID and OIDC_CLIENT_SECRET must be present, and OIDC_ALLOWED_SUBJECTS must list at least one subject (an empty allowlist would admit every account the issuer serves)");
+
+    var adminEnabled = authOptions.AdminEnabled;
+    if (adminEnabled)
+    {
+        builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+            .AddCookie(opts =>
+            {
+                opts.Cookie.Name = "warden_admin";
+                opts.Cookie.HttpOnly = true;
+                // Lax, not Strict: the provider redirects back with a cross-site GET
+                opts.Cookie.SameSite = SameSiteMode.Lax;
+                // SameAsRequest, not Always: forcing Always makes the antiforgery system throw on any
+                // non-SSL request. Secure is earned by the request actually being https, which behind a
+                // proxy means trusting X-Forwarded-Proto — see the Proxy:Trusted warning below.
+                opts.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+                opts.LoginPath = $"{authOptions.AuthPath}/login";
+                opts.SlidingExpiration = true;
+                opts.ExpireTimeSpan = TimeSpan.FromHours(12);
+            })
+            .AddOpenIdConnect(opts =>
+            {
+                opts.Authority = authOptions.Issuer;
+                opts.ClientId = authOptions.ClientId;
+                opts.ClientSecret = authOptions.ClientSecret;
+                opts.ResponseType = "code";
+                opts.UsePkce = true;
+                opts.RequireHttpsMetadata = authOptions.RequiresHttpsMetadata;
+                opts.SaveTokens = false;
+                opts.Scope.Clear();
+                opts.Scope.Add("openid");
+                opts.CallbackPath = $"{authOptions.AuthPath}/callback";
+                opts.SignedOutCallbackPath = $"{authOptions.AuthPath}/signed-out";
+                opts.RemoteSignOutPath = $"{authOptions.AuthPath}/signout";
+                opts.GetClaimsFromUserInfoEndpoint = false;
+            });
+
+        builder.Services.AddAntiforgery(opts => opts.Cookie.Name = "warden_admin_af");
+        builder.Services.AddSingleton<AdminConfigWriter>();
+
+        builder.Services.AddAuthorizationBuilder()
+            .AddPolicy(AuthEndpoints.AdminPolicy, policy => policy
+                .RequireAuthenticatedUser()
+                // per request, not baked into the cookie; revoking takes effect on the next click
+                .RequireAssertion(ctx => authOptions.Permits(
+                    ctx.User.FindFirst(AuthEndpoints.SubjectClaim)?.Value
+                    ?? ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value)));
+    }
+
     var proxyOptions = builder.Configuration.GetSection("Proxy").Get<ProxyOptions>() ?? new ProxyOptions();
     builder.Services.Configure<ForwardedHeadersOptions>(options => ForwardedHeaderSetup.Configure(options, proxyOptions));
+
+    // Without a trusted proxy, X-Forwarded-Proto is ignored, every request looks like plain http, and
+    // the admin session cookie goes out with no Secure flag while HSTS is never sent at all.
+    if (adminEnabled && !proxyOptions.TrustAny && proxyOptions.Trusted.Length == 0 && !authOptions.IsLoopbackIssuer)
+        Log.Warning("The admin panel is on but no Proxy:Trusted entry is configured. If TLS terminates at a reverse proxy, Warden cannot see that the request was https, so the admin session cookie ships without the Secure flag and no HSTS header is sent. Set Proxy:Trusted to your proxy's address or CIDR, or terminate TLS in Warden itself");
 
     var altchaOptions = builder.Configuration.GetSection("Altcha").Get<AltchaOptions>() ?? new AltchaOptions();
     if (altchaOptions.Enabled)
@@ -85,6 +143,10 @@ try
     var gitRoot = string.IsNullOrWhiteSpace(gitSyncOptions.Root)
         ? docsRootAbsolute
         : Path.GetFullPath(gitSyncOptions.Root).Replace(Path.DirectorySeparatorChar, '/');
+
+    // incidents folder as the repo sees it, not as the container does
+    authOptions = authOptions with { IncidentPath = AuthOptions.ResolveIncidentPath(gitRoot, docsRootAbsolute) };
+    builder.Services.AddSingleton(authOptions);
 
     // theme/ inside the git-synced repo wins over wwwroot/theme when Git:Root is set, even before the first
     // clone lands (the clone is async and may still be running when this runs)
@@ -185,6 +247,27 @@ try
                     Window = TimeSpan.FromMinutes(1),
                     QueueLimit = 0
                 }));
+        // Sign-in is a redirect initiator, not an expensive call: the OIDC handler caches issuer
+        // metadata, so this budget exists to blunt correlation-cookie flooding, not backchannel load.
+        // Kept generous because an untrusted proxy collapses every caller into one partition.
+        options.AddPolicy(RateLimitPolicies.Auth, httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 30,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                }));
+        options.AddPolicy(RateLimitPolicies.Admin, httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 120,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                }));
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     });
 
@@ -253,13 +336,23 @@ try
     }
 
     if (altchaOptions.Enabled && exportDir is null) // export crawl is first-party, not public traffic to gate
-        app.UseAltchaGate();
+        app.UseAltchaGate(adminEnabled ? authOptions.AuthPath : null);
 
     app.UseRouting();
+
+    if (adminEnabled) { app.UseAuthentication(); app.UseAuthorization(); }
+
     app.UseRateLimiter();
 
     if (altchaOptions.Enabled)
         app.MapAltchaEndpoints();
+
+    if (adminEnabled)
+    {
+        app.UseAntiforgery();
+        app.MapAuthEndpoints(authOptions);
+        app.MapAdminEndpoints(authOptions);
+    }
 
     app.MapHealthEndpoints();
     app.MapApiEndpoints();
@@ -293,6 +386,10 @@ try
         Log.Information("   {Url}", url.Trim());
         Log.Information("");
     }
+
+    // after Kestrel's "Now listening on", which only lands once the server is actually up
+    app.Lifetime.ApplicationStarted.Register(() =>
+        Log.Information("Admin panel: {State}", adminEnabled ? $"enabled ({authOptions.Issuer})" : "off"));
 
     app.Lifetime.ApplicationStopping.Register(() =>
     {

@@ -203,7 +203,8 @@ public sealed class HeartbeatStore
             return (beats[^1].Up ? 100.0 : 0.0, TimeSpan.Zero);
 
         var span = totalSpan > window ? window : totalSpan;
-        return (100.0 * upSpan.TotalSeconds / totalSpan.TotalSeconds, span);
+        // divide first; (100.0 * x) / x can land on 100.00000000000001
+        return (100.0 * (upSpan.TotalSeconds / totalSpan.TotalSeconds), span);
     }
 
     // one retention window for all monitors, set via config.json's "retentionDays" or MonitorScheduler's default - intentionally not per-monitor
@@ -222,6 +223,24 @@ public sealed class HeartbeatStore
             incrementalVacuum.CommandText = "PRAGMA incremental_vacuum;";
             incrementalVacuum.ExecuteNonQuery();
         }
+    }
+
+    // drops one monitor's history for the admin reset; returns the row count
+    public int DeleteFor(string monitorId)
+    {
+        using var connection = Open();
+        using var delete = connection.CreateCommand();
+        delete.CommandText = "DELETE FROM heartbeats WHERE monitor_id = $id;";
+        delete.Parameters.AddWithValue("$id", monitorId);
+        var removed = delete.ExecuteNonQuery();
+        if (removed > 0)
+        {
+            _logger.LogInformation("Reset {Count} heartbeats for monitor {MonitorId}", removed, monitorId);
+            using var incrementalVacuum = connection.CreateCommand();
+            incrementalVacuum.CommandText = "PRAGMA incremental_vacuum;";
+            incrementalVacuum.ExecuteNonQuery();
+        }
+        return removed;
     }
 
     private static HeartbeatRecord ReadRecord(SqliteDataReader reader, string monitorId) =>

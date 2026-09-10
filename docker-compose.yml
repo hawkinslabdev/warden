@@ -5,10 +5,16 @@ services:
     ports:
       - "8080:8080"
     volumes:
+      # drop :ro if you enable the admin panel below; it writes content/config.json
       - ./content:/app/content:ro,Z
       - ./data:/app/data
     environment:
       PublicBaseUrl: https://status.example.com
       AllowedHosts: status.example.com
       TZ: Europe/Amsterdam
+      # Optional. OIDC to configure /admin route.
+      # OIDC_ISSUER: https://idp.example.com/realms/main
+      # OIDC_CLIENT_ID: warden
+      # OIDC_CLIENT_SECRET: change-me
+      # OIDC_ALLOWED_SUBJECTS: your-sub-claim
     restart: unless-stopped

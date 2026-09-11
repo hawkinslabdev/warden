@@ -136,26 +136,40 @@ internal static class IncidentContent
         return ids;
     }
 
-    // per monitor, every day a declared incident overlapped, for the history bar; an outage beats a degraded note
-    public static Dictionary<string, Dictionary<DateOnly, MonitorStatus>> IncidentDays(IReadOnlyList<DocumentationPage> pages, DateOnly from, DateOnly to, IReadOnlyList<string> allMonitorIds)
+    // declared downtime per day
+    public sealed record IncidentDay(TimeSpan Down, TimeSpan Degraded)
     {
-        var result = new Dictionary<string, Dictionary<DateOnly, MonitorStatus>>(StringComparer.Ordinal);
+        public static readonly IncidentDay None = new(TimeSpan.Zero, TimeSpan.Zero);
+        public double UpPercent => 100.0 * (1 - Down.TotalSeconds / TimeSpan.FromDays(1).TotalSeconds);
+    }
+
+    // history bar input
+    public static Dictionary<string, Dictionary<DateOnly, IncidentDay>> IncidentDays(IReadOnlyList<DocumentationPage> pages, DateOnly from, DateOnly to, IReadOnlyList<string> allMonitorIds)
+    {
+        var result = new Dictionary<string, Dictionary<DateOnly, IncidentDay>>(StringComparer.Ordinal);
         foreach (var page in InFolder(pages, maintenance: false))
         {
             if (page.Monitors is not { Count: > 0 } monitors || IsNotice(page))
                 continue;
-            var status = IncidentStatus(page);
-            var first = DateOnly.FromDateTime(StartOf(page).UtcDateTime);
-            var last = DateOnly.FromDateTime((EndOf(page) ?? DateTimeOffset.UtcNow).UtcDateTime);
+            var degraded = IncidentStatus(page) == MonitorStatus.Degraded;
+            var start = StartOf(page);
+            var end = EndOf(page) ?? DateTimeOffset.UtcNow;
+            var first = DateOnly.FromDateTime(start.UtcDateTime);
+            var last = DateOnly.FromDateTime(end.UtcDateTime);
             if (first < from) first = from;
             if (last > to) last = to;
             for (var day = first; day <= last; day = day.AddDays(1))
+            {
+                var dayStart = new DateTimeOffset(day.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+                var covered = (end < dayStart.AddDays(1) ? end : dayStart.AddDays(1)) - (start > dayStart ? start : dayStart);
+                if (covered <= TimeSpan.Zero) continue;
                 foreach (var id in ExpandMonitors(monitors, allMonitorIds))
                 {
                     var days = result.TryGetValue(id, out var d) ? d : result[id] = [];
-                    if (!days.TryGetValue(day, out var existing) || existing != MonitorStatus.Down)
-                        days[day] = status;
+                    var so_far = days.GetValueOrDefault(day, IncidentDay.None);
+                    days[day] = degraded ? so_far with { Degraded = so_far.Degraded + covered } : so_far with { Down = so_far.Down + covered };
                 }
+            }
         }
         return result;
     }

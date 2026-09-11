@@ -145,10 +145,10 @@ internal static class StatusEndpoints
     }
 
     // fflat list item ("clean", "default", and every structure that is not the card grid)
-    private static Dictionary<DateOnly, MonitorStatus>? DaysFor(IReadOnlyDictionary<string, Dictionary<DateOnly, MonitorStatus>>? incidentDays, string monitorId) =>
+    private static Dictionary<DateOnly, IncidentContent.IncidentDay>? DaysFor(IReadOnlyDictionary<string, Dictionary<DateOnly, IncidentContent.IncidentDay>>? incidentDays, string monitorId) =>
         incidentDays is not null && incidentDays.TryGetValue(monitorId, out var days) ? days : null;
 
-    private static string BuildFlatMonitorItem(Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, bool linked, string basePath, int historyDays, double? degradedBelowPercent, TimeSpan? expectedInterval, DateOnly? filterDay, Dictionary<DateOnly, MonitorStatus>? incidentDays = null)
+    private static string BuildFlatMonitorItem(Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, bool linked, string basePath, int historyDays, double? degradedBelowPercent, TimeSpan? expectedInterval, DateOnly? filterDay, Dictionary<DateOnly, IncidentContent.IncidentDay>? incidentDays = null)
     {
         var uptime = filterDay is { } day ? DayUptime(store, target.Id, day, degradedBelowPercent) : store.GetUptime(target.Id, UptimeWindow, expectedInterval);
         var sb = new System.Text.StringBuilder("<li class=\"status-monitor status-monitor--").Append(StatusClass(status)).Append("\">")
@@ -195,7 +195,7 @@ internal static class StatusEndpoints
 
     // grouping is opt-in via monitoring.group and independent of the structure: "type" groups by each target's own
     // type, "custom" by its "group" field (falling back to the type label), unset renders one ungrouped section
-    internal static void AppendMonitors(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, HashSet<string> linkedMonitorIds, string basePath, string? groupBy, bool cards, int historyDays = HistoryDays, DateOnly? filterDay = null, double? degradedBelowPercent = null, TimeSpan? expectedInterval = null, IReadOnlyDictionary<string, Dictionary<DateOnly, MonitorStatus>>? incidentDays = null)
+    internal static void AppendMonitors(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, HashSet<string> linkedMonitorIds, string basePath, string? groupBy, bool cards, int historyDays = HistoryDays, DateOnly? filterDay = null, double? degradedBelowPercent = null, TimeSpan? expectedInterval = null, IReadOnlyDictionary<string, Dictionary<DateOnly, IncidentContent.IncidentDay>>? incidentDays = null)
     {
         Func<MonitorTarget, string>? groupLabel = groupBy switch
         {
@@ -220,7 +220,7 @@ internal static class StatusEndpoints
         }
     }
 
-    private static void AppendMonitorSection(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IEnumerable<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, HashSet<string> linkedMonitorIds, string basePath, bool cards, string? heading, int historyDays, DateOnly? filterDay = null, double? degradedBelowPercent = null, TimeSpan? expectedInterval = null, bool showFilterIndicator = true, IReadOnlyDictionary<string, Dictionary<DateOnly, MonitorStatus>>? incidentDays = null)
+    private static void AppendMonitorSection(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IEnumerable<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, HashSet<string> linkedMonitorIds, string basePath, bool cards, string? heading, int historyDays, DateOnly? filterDay = null, double? degradedBelowPercent = null, TimeSpan? expectedInterval = null, bool showFilterIndicator = true, IReadOnlyDictionary<string, Dictionary<DateOnly, IncidentContent.IncidentDay>>? incidentDays = null)
     {
         sb.Append("<section class=\"status-group\">");
         if (heading is not null)
@@ -242,7 +242,7 @@ internal static class StatusEndpoints
         sb.Append("</ul></section>");
     }
 
-    private static void AppendMonitorCard(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, bool linked, string basePath, int historyDays, double? degradedBelowPercent, TimeSpan? expectedInterval, DateOnly? filterDay, Dictionary<DateOnly, MonitorStatus>? incidentDays = null)
+    private static void AppendMonitorCard(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, bool linked, string basePath, int historyDays, double? degradedBelowPercent, TimeSpan? expectedInterval, DateOnly? filterDay, Dictionary<DateOnly, IncidentContent.IncidentDay>? incidentDays = null)
     {
         var uptime = filterDay is { } day ? DayUptime(store, target.Id, day, degradedBelowPercent) : store.GetUptime(target.Id, UptimeWindow, expectedInterval);
         sb.Append("<li class=\"status-monitor-card status-monitor-card--").Append(StatusClass(status)).Append("\">")
@@ -365,7 +365,7 @@ internal static class StatusEndpoints
     };
 
     // one tick per calendar day, links to ?on=<day>; the dashboard card grid passes a shorter window than the flat list's HistoryDays, since 90 ticks reads as noise at card width
-    private static string BuildHistoryBar(HeartbeatStore store, string monitorId, string basePath, int windowDays = HistoryDays, double? degradedBelowPercent = null, Dictionary<DateOnly, MonitorStatus>? incidentDays = null)
+    private static string BuildHistoryBar(HeartbeatStore store, string monitorId, string basePath, int windowDays = HistoryDays, double? degradedBelowPercent = null, Dictionary<DateOnly, IncidentContent.IncidentDay>? incidentDays = null)
     {
         var l = Localization.Current;
         var days = store.GetDailyStatus(monitorId, windowDays, degradedBelowPercent);
@@ -373,10 +373,13 @@ internal static class StatusEndpoints
 
         foreach (var measured in days)
         {
-            // a declared incident marks the day even when every check passed; a measured outage is never softened
-            var day = incidentDays is not null && incidentDays.TryGetValue(measured.Day, out var declared) && measured.Status != MonitorStatus.Down
-                ? measured with { Status = declared == MonitorStatus.Down ? MonitorStatus.Down : MonitorStatus.Degraded, UpPercent = measured.Status == MonitorStatus.Unknown ? 100 : measured.UpPercent }
-                : measured;
+            // measured down never softened
+            var day = measured;
+            if (incidentDays is not null && incidentDays.TryGetValue(measured.Day, out var declared) && measured.Status != MonitorStatus.Down)
+            {
+                var percent = Math.Min(measured.Status == MonitorStatus.Unknown ? 100 : measured.UpPercent, declared.UpPercent);
+                day = measured with { Status = declared.Down >= TimeSpan.FromDays(1) ? MonitorStatus.Down : MonitorStatus.Degraded, UpPercent = percent };
+            }
             var cls = day.Status switch { MonitorStatus.Up => "up", MonitorStatus.Down => "down", MonitorStatus.Degraded => "degraded", _ => "unknown" };
             var label = day.Status switch
             {

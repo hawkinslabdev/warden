@@ -210,7 +210,7 @@ public sealed class IncidentContentTests
     }
 
     [Fact]
-    public void IncidentDays_MarksEveryOverlappedDayAndKeepsTheHarsherStatus()
+    public void IncidentDays_SplitsDeclaredTimeAcrossCalendarDays()
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var d0 = today.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
@@ -223,9 +223,11 @@ public sealed class IncidentContentTests
 
         var days = IncidentContent.IncidentDays(pages, today.AddDays(-6), today, ["forgejo"])["forgejo"];
 
-        Assert.Equal(MonitorStatus.Down, days[today.AddDays(-3)]);     // 5-minute degraded blip, then an outage: outage wins
-        Assert.Equal(MonitorStatus.Down, days[today.AddDays(-2)]);     // outage ran past midnight
-        Assert.False(days.ContainsKey(today.AddDays(-1)));             // notice never marks a day
+        Assert.Equal(TimeSpan.FromHours(4), days[today.AddDays(-3)].Down);        // 20:00 to midnight
+        Assert.Equal(TimeSpan.FromMinutes(5), days[today.AddDays(-3)].Degraded);
+        Assert.Equal(TimeSpan.FromHours(2), days[today.AddDays(-2)].Down);        // midnight to 02:00
+        Assert.Equal(100.0 * 20 / 24, days[today.AddDays(-3)].UpPercent, 6);
+        Assert.False(days.ContainsKey(today.AddDays(-1)));                        // notice never marks a day
     }
 
     [Fact]

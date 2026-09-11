@@ -335,7 +335,7 @@ try
     }
 
     app.Lifetime.ApplicationStarted.Register(() =>
-        Log.Information("Admin panel: {State}", adminEnabled ? $"enabled ({authOptions.Issuer})" : "off"));
+        Log.Information("Admin panel: {State}", adminEnabled ? $"enabled; auth issuer: {authOptions.Issuer}" : "off"));
 
     app.Lifetime.ApplicationStopping.Register(() =>
     {

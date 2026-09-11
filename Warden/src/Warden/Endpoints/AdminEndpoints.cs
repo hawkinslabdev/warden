@@ -197,7 +197,7 @@ internal static class AdminEndpoints
         var existing = ExistingHeaders(monitoring);
         if (webhooks.Count == 0)
         {
-            // Empty array, not removed key.
+            // empty array, not removed key.
             monitoring["webhooks"] = new JsonArray();
             return;
         }

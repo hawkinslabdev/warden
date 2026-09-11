@@ -11,7 +11,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Warden.Models;
 using Warden.Services;
-using Warden.Services.Admin;
 
 namespace Warden.Tests;
 
@@ -77,10 +76,7 @@ public sealed class AdminWebApplicationFactory : WardenWebApplicationFactory
     public JsonObject ReadConfig() =>
         (JsonObject)JsonNode.Parse(File.ReadAllText(Path.Combine(ContentDir, "config.json")))!;
 
-    public JsonObject? ReadOverrides() =>
-        Services.GetRequiredService<AdminOverrideStore>().GetMonitoring();
-
-    // Effective merged state, same as the app sees.
+    // effective merged state, same as the app.
     public MonitoringConfig Monitoring() =>
         Services.GetRequiredService<ContentService>().SiteConfig!.Monitoring!;
 

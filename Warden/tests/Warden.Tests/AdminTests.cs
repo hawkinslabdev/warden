@@ -35,7 +35,7 @@ public sealed class AdminConfigWriterTests : IDisposable
 
         Assert.True(await writer.UpdateMonitoringAsync(m => m["intervalSeconds"] = 120, CancellationToken.None));
 
-        var saved = _store.GetMonitoring()!;
+        var saved = (await _store.GetMonitoringAsync(CancellationToken.None))!;
         Assert.Equal(3, ((JsonArray)saved["somethingWardenNeverParses"]!["keep"]!).Count);
         Assert.Equal(120, (int?)saved["intervalSeconds"]);
     }
@@ -46,7 +46,7 @@ public sealed class AdminConfigWriterTests : IDisposable
         var writer = Writer();
 
         Assert.True(await writer.UpdateMonitoringAsync(m => m["intervalSeconds"] = 30, CancellationToken.None));
-        Assert.Equal(30, (int?)_store.GetMonitoring()!["intervalSeconds"]);
+        Assert.Equal(30, (int?)(await _store.GetMonitoringAsync(CancellationToken.None))!["intervalSeconds"]);
     }
 
     [Fact]
@@ -61,10 +61,10 @@ public sealed class AdminConfigWriterTests : IDisposable
             await insert.ExecuteNonQueryAsync();
         }
 
-        Assert.Null(_store.GetMonitoring());
+        Assert.Null(await _store.GetMonitoringAsync(CancellationToken.None));
         var writer = Writer();
         Assert.True(await writer.UpdateMonitoringAsync(m => m["intervalSeconds"] = 5, CancellationToken.None));
-        Assert.Equal(5, (int?)_store.GetMonitoring()!["intervalSeconds"]);
+        Assert.Equal(5, (int?)(await _store.GetMonitoringAsync(CancellationToken.None))!["intervalSeconds"]);
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public sealed class AdminConfigWriterTests : IDisposable
         await Task.WhenAll(Enumerable.Range(0, 40).Select(i =>
             writer.UpdateMonitoringAsync(m => m["intervalSeconds"] = 10 + i, CancellationToken.None)));
 
-        var value = (int?)_store.GetMonitoring()!["intervalSeconds"];
+        var value = (int?)(await _store.GetMonitoringAsync(CancellationToken.None))!["intervalSeconds"];
         Assert.InRange(value!.Value, 10, 49);
     }
 
@@ -288,6 +288,11 @@ public sealed class AuthEndpointGuardTests
     public void ReturnUrlOnlyEverStaysLocal(string? candidate, string expected) =>
         Assert.Equal(expected, AuthEndpoints.SafeReturnUrl(candidate));
 
+    // fallback now respects admin_path.
+    [Fact]
+    public void InvalidReturnUrlFallsBackToTheConfiguredAdminPath() =>
+        Assert.Equal("/_/settings", AuthEndpoints.SafeReturnUrl(null, "", "/_/settings"));
+
     [Theory]
     [InlineData("https://hooks.example/x", true)]
     [InlineData("http://hooks.example/x", true)]
@@ -422,7 +427,7 @@ public sealed class AdminStressTests : IDisposable
             AdminConfigWriter.SetInt(AdminConfigWriter.GetOrAddTarget(m, $"m{i % 20}"), "retries", i % 7);
         }, CancellationToken.None)));
 
-        var saved = (JsonArray)_store.GetMonitoring()!["targets"]!;
+        var saved = (JsonArray)(await _store.GetMonitoringAsync(CancellationToken.None))!["targets"]!;
         Assert.Equal(20, saved.Count);
         Assert.All(saved, node => Assert.NotNull((string?)node!["id"]));
     }
@@ -434,11 +439,11 @@ public sealed class AdminStressTests : IDisposable
         await _store.SetMonitoringAsync((JsonObject)JsonNode.Parse("""{ "targets": [] }""")!, CancellationToken.None);
 
         using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        var reader = Task.Run(() =>
+        var reader = Task.Run(async () =>
         {
             var reads = 0;
             while (!stop.IsCancellationRequested)
-                if (_store.GetMonitoring() is not null) reads++;
+                if (await _store.GetMonitoringAsync(CancellationToken.None) is not null) reads++;
             return reads;
         }, CancellationToken.None);
 

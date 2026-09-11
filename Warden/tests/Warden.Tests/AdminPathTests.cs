@@ -25,14 +25,14 @@ public sealed class CustomAdminPathFactory : WardenWebApplicationFactory
     }
 }
 
-/// <summary>ADMIN_PATH moves the whole panel; /admin stops existing.</summary>
+/// <summary>admin_path moves panel; /admin gone.</summary>
 public sealed class AdminPathTests : IClassFixture<CustomAdminPathFactory>
 {
     private readonly CustomAdminPathFactory _factory;
 
     public AdminPathTests(CustomAdminPathFactory factory) => _factory = factory;
 
-    // Route resolves (auth challenge, not 404).
+    // route resolves; not a 404.
     [Fact]
     public async Task TheCustomPathResolvesToTheAdminRoute()
     {

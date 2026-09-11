@@ -166,9 +166,27 @@ public static partial class LayoutProvider
         IWardenTheme? theme = null)
     {
         var l = Localization.Current;
+        return BuildMinimalStatusPage(htmlEncode, basePath, lang, theme, "404", l.NotFoundTitle, l.NotFoundMessage, l.NotFoundHome);
+    }
+
+    // no exception detail shown to visitors.
+    public static string Get500Layout(
+        Func<string?, string> htmlEncode,
+        string basePath = "",
+        string lang = "en",
+        IWardenTheme? theme = null)
+    {
+        var l = Localization.Current;
+        return BuildMinimalStatusPage(htmlEncode, basePath, lang, theme, "500", l.ServerErrorTitle, l.ServerErrorMessage, l.NotFoundHome);
+    }
+
+    private static string BuildMinimalStatusPage(
+        Func<string?, string> htmlEncode, string basePath, string lang, IWardenTheme? theme,
+        string code, string title, string message, string homeLabel)
+    {
         var homeHref = basePath.Length == 0 ? "/" : $"{basePath}/";
         var activeTheme = theme ?? ThemeRegistry.Default;
-        // Build outside the interpolated block so JS/CSS braces don't need escaping.
+        // avoids escaping js/css braces below.
         var darkVars = ThemeCssBuilder.BuildMinimalTokenCss(activeTheme);
         var lightVars = ThemeCssBuilder.BuildMinimalLightTokenCss(activeTheme);
         const string themeInit = "<script>(function(){" +
@@ -190,7 +208,7 @@ public static partial class LayoutProvider
     <meta charset=""UTF-8"">
     {themeInit}
     <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
-    <title>{htmlEncode(l.NotFoundTitle)}</title>
+    <title>{htmlEncode(title)}</title>
     <style>
         :root {{
 {lightVars}            --font-sans: system-ui, -apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, sans-serif;
@@ -240,9 +258,9 @@ public static partial class LayoutProvider
 </head>
 <body>
     <div class=""not-found"">
-        <h1>404</h1>
-        <p>{htmlEncode(l.NotFoundMessage)}</p>
-        <a href=""{homeHref}"">{htmlEncode(l.NotFoundHome)}</a>
+        <h1>{htmlEncode(code)}</h1>
+        <p>{htmlEncode(message)}</p>
+        <a href=""{homeHref}"">{htmlEncode(homeLabel)}</a>
     </div>
 </body>
 </html>";

@@ -133,6 +133,30 @@ public sealed class LayoutProviderTests
     }
 
     [Fact]
+    public void Get500Layout_Contains500()
+    {
+        var html = LayoutProvider.Get500Layout(LayoutProvider.HtmlEncode);
+        Assert.Contains("500", html);
+    }
+
+    [Fact]
+    public void Get500Layout_ContainsReturnHomeLink()
+    {
+        var html = LayoutProvider.Get500Layout(LayoutProvider.HtmlEncode);
+        Assert.Contains("Return home", html);
+        Assert.Contains("href=\"/\"", html);
+    }
+
+    // themed page never leaks exception details.
+    [Fact]
+    public void Get500Layout_NeverLeaksExceptionDetail()
+    {
+        var html = LayoutProvider.Get500Layout(LayoutProvider.HtmlEncode);
+        Assert.DoesNotContain("Exception", html, StringComparison.Ordinal);
+        Assert.DoesNotContain(" at ", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void HtmlEncode_EncodesHtml()
     {
         var result = LayoutProvider.HtmlEncode("<script>alert('xss')</script>");

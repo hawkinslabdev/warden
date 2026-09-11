@@ -36,7 +36,7 @@ public static class AltchaGate
         app.Use(async (context, next) =>
         {
             var path = context.Request.Path;
-            // Challenge mid-redirect breaks OIDC callback.
+            // challenge mid-redirect breaks oidc callback.
             if (path.StartsWithSegments("/altcha") || path.StartsWithSegments("/health") || path.StartsWithSegments("/api")
                 || (adminPath is not null && path.StartsWithSegments(adminPath))
                 || (authPath is not null && path.StartsWithSegments(authPath)))

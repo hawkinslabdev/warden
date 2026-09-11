@@ -2,7 +2,7 @@ using System.Text.Json.Nodes;
 
 namespace Warden.Services.Admin;
 
-// Edits stored overrides as raw JSON.
+// edits stored overrides as raw json.
 public sealed class AdminConfigWriter(AdminOverrideStore store, ILogger<AdminConfigWriter> logger)
 {
     // ponytail: single lock; per-operator locks if needed.
@@ -13,7 +13,7 @@ public sealed class AdminConfigWriter(AdminOverrideStore store, ILogger<AdminCon
         await _gate.WaitAsync(ct);
         try
         {
-            var monitoring = store.GetMonitoring() ?? [];
+            var monitoring = await store.GetMonitoringAsync(ct) ?? [];
             mutate(monitoring);
             await store.SetMonitoringAsync(monitoring, ct);
             return true;
@@ -34,7 +34,7 @@ public sealed class AdminConfigWriter(AdminOverrideStore store, ILogger<AdminCon
             ? targets.OfType<JsonObject>().FirstOrDefault(t => (string?)t["id"] == id)
             : null;
 
-    // Creates a bare row if none saved yet.
+    // creates a bare row if none saved yet.
     public static JsonObject GetOrAddTarget(JsonObject monitoring, string id)
     {
         if (monitoring["targets"] is not JsonArray targets)
@@ -47,7 +47,7 @@ public sealed class AdminConfigWriter(AdminOverrideStore store, ILogger<AdminCon
         return created;
     }
 
-    // Omits key when value is default.
+    // omits key when value is default.
     public static void SetFlag(JsonObject target, string key, bool value, bool omitWhen)
     {
         if (value == omitWhen)

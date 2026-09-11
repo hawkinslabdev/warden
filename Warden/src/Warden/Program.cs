@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
@@ -281,6 +282,14 @@ try
 
     // Must finish before ContentService's async renders the pages
     await app.Services.GetRequiredService<ISyntaxHighlighter>().InitializeAsync(CancellationToken.None);
+
+    // catches anything downstream, oidc challenge failures included.
+    app.UseExceptionHandler(errorApp => errorApp.Run(async ctx =>
+    {
+        var error = ctx.Features.Get<IExceptionHandlerPathFeature>()?.Error;
+        Log.Error(error, "Unhandled exception for {Path}", ctx.Request.Path);
+        await ctx.RequestServices.GetRequiredService<PageResponder>().Write500Async(ctx);
+    }));
 
     app.UseForwardedHeaders();
 

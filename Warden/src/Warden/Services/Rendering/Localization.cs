@@ -31,6 +31,8 @@ public sealed class Localization
         ["notFoundTitle"] = "Page Not Found",
         ["notFoundMessage"] = "The page you're looking for doesn't exist.",
         ["notFoundHome"] = "Return home",
+        ["serverErrorTitle"] = "Something Went Wrong",
+        ["serverErrorMessage"] = "An unexpected error occurred. Please try again.",
         ["statusPageTitle"] = "Status",
         ["statusAllOperational"] = "All systems operational",
         ["statusSomeDown"] = "Some systems are experiencing issues",
@@ -196,6 +198,8 @@ public sealed class Localization
     public string NotFoundTitle => this["notFoundTitle"];
     public string NotFoundMessage => this["notFoundMessage"];
     public string NotFoundHome => this["notFoundHome"];
+    public string ServerErrorTitle => this["serverErrorTitle"];
+    public string ServerErrorMessage => this["serverErrorMessage"];
     public string StatusPageTitle => this["statusPageTitle"];
     public string StatusAllOperational => this["statusAllOperational"];
     public string StatusSomeDown => this["statusSomeDown"];

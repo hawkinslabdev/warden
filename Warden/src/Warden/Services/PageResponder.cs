@@ -194,4 +194,18 @@ public sealed class PageResponder
                 Config.ResolveLocale(config)?.Code ?? "en",
                 ThemeSelection.Resolve(_theme, _settings.CliTheme, config?.Theme).Theme));
     }
+
+    // themed page; no exception leaks out.
+    public Task Write500Async(HttpContext context)
+    {
+        var config = _content.SiteConfig;
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "text/html; charset=utf-8";
+        return context.Response.WriteAsync(
+            LayoutProvider.Get500Layout(
+                LayoutProvider.HtmlEncode,
+                _settings.BasePath,
+                Config.ResolveLocale(config)?.Code ?? "en",
+                ThemeSelection.Resolve(_theme, _settings.CliTheme, config?.Theme).Theme));
+    }
 }

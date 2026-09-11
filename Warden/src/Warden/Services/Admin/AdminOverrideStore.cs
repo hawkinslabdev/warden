@@ -4,7 +4,7 @@ using Warden.Configuration;
 
 namespace Warden.Services.Admin;
 
-// Local overrides; prevents git pull to ever conflict.
+// local overrides; git can't touch them.
 public sealed class AdminOverrideStore
 {
     private readonly string _connectionString;
@@ -17,7 +17,9 @@ public sealed class AdminOverrideStore
         Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
         _connectionString = new SqliteConnectionStringBuilder { DataSource = dbPath }.ToString();
 
-        using var connection = Open();
+        // one-time setup; sync is fine here.
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
         using var pragma = connection.CreateCommand();
         pragma.CommandText = "PRAGMA journal_mode=WAL;";
         pragma.ExecuteNonQuery();
@@ -31,36 +33,36 @@ public sealed class AdminOverrideStore
         create.ExecuteNonQuery();
     }
 
-    private SqliteConnection Open()
+    private async Task<SqliteConnection> OpenAsync(CancellationToken ct)
     {
         var connection = new SqliteConnection(_connectionString);
-        connection.Open();
+        await connection.OpenAsync(ct);
         return connection;
     }
 
-    /// <summary>Null if unset or corrupt.</summary>
-    public JsonObject? GetMonitoring()
+    /// <summary>null if unset or corrupt.</summary>
+    public async Task<JsonObject?> GetMonitoringAsync(CancellationToken ct)
     {
-        using var connection = Open();
-        using var select = connection.CreateCommand();
+        await using var connection = await OpenAsync(ct);
+        await using var select = connection.CreateCommand();
         select.CommandText = "SELECT json FROM admin_overrides WHERE key = 'monitoring';";
-        using var reader = select.ExecuteReader();
-        if (!reader.Read())
+        await using var reader = await select.ExecuteReaderAsync(ct);
+        if (!await reader.ReadAsync(ct))
             return null;
 
         try { return JsonNode.Parse(reader.GetString(0)) as JsonObject; }
         catch (System.Text.Json.JsonException) { return null; }
     }
 
-    public Task SetMonitoringAsync(JsonObject monitoring, CancellationToken ct)
+    public async Task SetMonitoringAsync(JsonObject monitoring, CancellationToken ct)
     {
-        using var connection = Open();
-        using var upsert = connection.CreateCommand();
+        await using var connection = await OpenAsync(ct);
+        await using var upsert = connection.CreateCommand();
         upsert.CommandText = """
             INSERT INTO admin_overrides (key, json) VALUES ('monitoring', $json)
             ON CONFLICT(key) DO UPDATE SET json = excluded.json;
             """;
         upsert.Parameters.AddWithValue("$json", monitoring.ToJsonString());
-        return upsert.ExecuteNonQueryAsync(ct);
+        await upsert.ExecuteNonQueryAsync(ct);
     }
 }

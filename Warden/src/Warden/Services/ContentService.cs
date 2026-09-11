@@ -251,7 +251,10 @@ public sealed partial class ContentService : IHostedService, IDisposable
 
         var config = LoadConfig(docsPath, _logger);
         if (config is not null)
-            ApplyAdminOverrides(config, _overrides);
+        {
+            var overrideBlob = _overrides is null ? null : await _overrides.GetMonitoringAsync(cancellationToken);
+            ApplyAdminOverrides(config, overrideBlob);
+        }
 
         DateFormatter.Current = DateFormatter.From(Config.ResolveLocale(config));
         Localization.Current = Localization.From(docsPath, config, _logger);
@@ -530,10 +533,10 @@ public sealed partial class ContentService : IHostedService, IDisposable
         NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
     };
 
-    // Admin-saved fields win; git fills gaps.
-    private static void ApplyAdminOverrides(Config config, AdminOverrideStore? overrides)
+    // admin-saved fields win; git fills gaps.
+    private static void ApplyAdminOverrides(Config config, JsonObject? blob)
     {
-        if (overrides?.GetMonitoring() is not { } blob || config.Monitoring is not { } monitoring)
+        if (blob is null || config.Monitoring is not { } monitoring)
             return;
 
         var targets = monitoring.Targets;
@@ -554,13 +557,13 @@ public sealed partial class ContentService : IHostedService, IDisposable
                 };
             }
 
-            // Untouched git targets append after saved order.
+            // untouched git targets append after saved order.
             var seen = orderedIds.ToHashSet(StringComparer.Ordinal);
             var leftoverIds = targets.Select(t => t.Id).Where(id => !seen.Contains(id));
             targets = orderedIds.Concat(leftoverIds).Select(id => byId[id]).ToList();
         }
 
-        // Empty list still means cleared; check key.
+        // empty list still means cleared; check key.
         var webhooks = blob.ContainsKey("webhooks")
             ? blob["webhooks"]?.Deserialize<List<WebhookTarget>>(AdminOverrideJsonOptions)
             : monitoring.Webhooks;

@@ -12,24 +12,22 @@ internal static class AuthEndpoints
 
     public const string AdminPolicy = "warden-admin";
 
-    /// <summary>A returnUrl is a local path, and it is round-tripped through the OIDC correlation
-    /// cookie. Anything longer than this is not a real path and only serves to inflate that cookie.</summary>
+    /// <summary>local path length cap; blocks cookie bloat.</summary>
     internal const int MaxReturnUrlLength = 512;
 
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app, AuthOptions options)
     {
         app.MapGet($"{options.AuthPath}/login", (HttpContext ctx, string? returnUrl) =>
         {
-            // the response carries a correlation Set-Cookie and is single-use; no cache may keep it
+            // single-use cookie; never cache.
             ctx.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, private";
             ctx.Response.Headers.Pragma = "no-cache";
             return Results.Challenge(
-                new AuthenticationProperties { RedirectUri = SafeReturnUrl(returnUrl, ctx.Request.PathBase) },
+                new AuthenticationProperties { RedirectUri = SafeReturnUrl(returnUrl, ctx.Request.PathBase, options.AdminPath) },
                 [OpenIdConnectDefaults.AuthenticationScheme]);
         }).RequireRateLimiting(RateLimitPolicies.Auth);
 
-        // POST only; a GET logout fires from any third-party <img>. The token is validated by hand:
-        // UseAntiforgery only auto-validates endpoints that bind a form, and this one binds none.
+        // post only; validated by hand, no bound form.
         app.MapPost($"{options.AuthPath}/logout", async (HttpContext ctx, IAntiforgery antiforgery) =>
         {
             try
@@ -49,14 +47,12 @@ internal static class AuthEndpoints
         return app;
     }
 
-    // Open-redirect guard: only a local path is honoured. Browsers strip TAB/CR/LF from a URL before
-    // parsing it, so "/<TAB>/evil.example" would otherwise reach the browser as "//evil.example" — a
-    // protocol-relative URL pointing off-origin. Reject every control character, not just those three.
-    internal static string SafeReturnUrl(string? returnUrl, string pathBase = "") =>
+    // blocks open redirect; rejects control chars.
+    internal static string SafeReturnUrl(string? returnUrl, string pathBase = "", string adminPath = "/admin") =>
         returnUrl is { Length: > 0 and <= MaxReturnUrlLength }
         && returnUrl.StartsWith('/')
         && !returnUrl.StartsWith("//", StringComparison.Ordinal)
         && !returnUrl.Any(c => char.IsControl(c) || c == '\\')
             ? returnUrl
-            : $"{pathBase}/admin";
+            : $"{pathBase}{adminPath}";
 }

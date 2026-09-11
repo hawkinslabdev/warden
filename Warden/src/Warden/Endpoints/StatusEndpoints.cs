@@ -14,6 +14,8 @@ internal static class StatusEndpoints
     internal const int HistoryDays = 90;
     // latency chart window
     private const int ResponseChartDays = 30;
+    // ticks in card bar, 90 is noise at card width
+    private const int CardHistoryDays = 30;
     // cap so config typo can't flood page
     internal const int MaxHistoryDays = 365;
 
@@ -87,6 +89,7 @@ internal static class StatusEndpoints
             : liveMaintainedIds;
 
         var degradedBelowPercent = monitoring?.DegradedBelowPercent;
+        var historyDays = Math.Clamp(monitoring?.HistoryDays ?? HistoryDays, 1, MaxHistoryDays);
         var expectedInterval = TimeSpan.FromSeconds(Math.Max(5, monitoring?.IntervalSeconds ?? MonitorScheduler.DefaultIntervalSeconds));
         var statuses = targets.ToDictionary(t => t.Id, t =>
             IncidentContent.StatusOverride(t.Id, incidentMonitorIds, maintainedIds)
@@ -107,12 +110,11 @@ internal static class StatusEndpoints
         if (structure.ShowStatusHeader)
         {
             if (showOverallUptime)
-                AppendOverallUptime(sb, l, store, targets, expectedInterval);
+                AppendOverallUptime(sb, l, store, targets, expectedInterval, historyDays);
             // ongoing incidents always surface here, above the list/grid - readers shouldn't have to scroll past a green page to find out why something is down
             AppendOngoingIncidents(sb, l, recentIncidents, basePath);
         }
 
-        var historyDays = Math.Clamp(monitoring?.HistoryDays ?? HistoryDays, 1, MaxHistoryDays);
         AppendMonitors(sb, l, store, targets, statuses, linkedMonitorIds, basePath, monitoring?.Group, structure.UseCardStatusLayout, historyDays, filterDay, degradedBelowPercent, expectedInterval);
 
         BuildIncidentsSection(sb, l, recentIncidents, basePath, filterDay);
@@ -153,10 +155,10 @@ internal static class StatusEndpoints
     }
 
     // status header (overall uptime + pinned ongoing incidents), on for "default" and "dashboard"
-    internal static void AppendOverallUptime(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, TimeSpan expectedInterval)
+    internal static void AppendOverallUptime(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, TimeSpan expectedInterval, int historyDays = HistoryDays)
     {
         var measured = targets
-            .Select(t => store.GetUptime(t.Id, TimeSpan.FromDays(HistoryDays), expectedInterval))
+            .Select(t => store.GetUptime(t.Id, TimeSpan.FromDays(historyDays), expectedInterval))
             .Where(u => u is not null)
             .Select(u => u!.Value)
             .ToList();
@@ -227,14 +229,14 @@ internal static class StatusEndpoints
         {
             var linked = linkedMonitorIds.Contains(target.Id);
             if (cards)
-                AppendMonitorCard(sb, l, store, target, statuses[target.Id], linked, basePath, degradedBelowPercent, expectedInterval, filterDay);
+                AppendMonitorCard(sb, l, store, target, statuses[target.Id], linked, basePath, Math.Min(historyDays, CardHistoryDays), degradedBelowPercent, expectedInterval, filterDay);
             else
                 sb.Append(BuildFlatMonitorItem(l, store, target, statuses[target.Id], linked, basePath, historyDays, degradedBelowPercent, expectedInterval, filterDay));
         }
         sb.Append("</ul></section>");
     }
 
-    private static void AppendMonitorCard(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, bool linked, string basePath, double? degradedBelowPercent, TimeSpan? expectedInterval, DateOnly? filterDay)
+    private static void AppendMonitorCard(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, bool linked, string basePath, int historyDays, double? degradedBelowPercent, TimeSpan? expectedInterval, DateOnly? filterDay)
     {
         var uptime = filterDay is { } day ? DayUptime(store, target.Id, day, degradedBelowPercent) : store.GetUptime(target.Id, UptimeWindow, expectedInterval);
         sb.Append("<li class=\"status-monitor-card status-monitor-card--").Append(StatusClass(status)).Append("\">")
@@ -245,7 +247,7 @@ internal static class StatusEndpoints
           .Append("</div>");
         sb.Append(BuildUptimeSpan(l, uptime));
         sb.Append(BuildResponseTimeChart(store, target.Id, basePath));
-        sb.Append(BuildHistoryBar(store, target.Id, basePath, ResponseChartDays, degradedBelowPercent));
+        sb.Append(BuildHistoryBar(store, target.Id, basePath, historyDays, degradedBelowPercent));
         sb.Append("</li>");
     }
 

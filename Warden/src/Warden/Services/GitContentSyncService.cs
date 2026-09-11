@@ -111,12 +111,18 @@ public sealed class GitContentSyncService(GitSyncOptions options, string content
             foreach (var arg in args)
                 startInfo.ArgumentList.Add(arg);
 
+            // volume may be owned by another uid than the one running git
+            var config = new List<(string Key, string Value)> { ("safe.directory", contentRoot) };
             if (!string.IsNullOrEmpty(options.Password))
             {
                 var basicAuth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{options.Username}:{options.Password}"));
-                startInfo.Environment["GIT_CONFIG_COUNT"] = "1";
-                startInfo.Environment["GIT_CONFIG_KEY_0"] = "http.extraheader";
-                startInfo.Environment["GIT_CONFIG_VALUE_0"] = $"AUTHORIZATION: basic {basicAuth}";
+                config.Add(("http.extraheader", $"AUTHORIZATION: basic {basicAuth}"));
+            }
+            startInfo.Environment["GIT_CONFIG_COUNT"] = config.Count.ToString();
+            for (var i = 0; i < config.Count; i++)
+            {
+                startInfo.Environment[$"GIT_CONFIG_KEY_{i}"] = config[i].Key;
+                startInfo.Environment[$"GIT_CONFIG_VALUE_{i}"] = config[i].Value;
             }
 
             process = new Process { StartInfo = startInfo };

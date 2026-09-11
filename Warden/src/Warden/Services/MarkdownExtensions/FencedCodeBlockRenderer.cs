@@ -71,7 +71,7 @@ public sealed class FencedCodeBlockRenderer(ISyntaxHighlighter syntaxHighlighter
         }
         catch
         {
-            // A tokenizer must never break rendering -- fall back to plain escaped text.
+            // A tokenizer must never break rendering -- fall back to simple escaped text.
             tokenizedLines = notated.Lines
                 .Select(line => (IReadOnlyList<SyntaxToken>)[new SyntaxToken(line, null, null)])
                 .ToList();

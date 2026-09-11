@@ -1144,7 +1144,7 @@ public static partial class LayoutProvider
                 }});
             }}
 
-            // Custom date + time picker. The field still posts ""yyyy-MM-dd HH:mm"" as plain text,
+            // Custom date + time picker. The field still posts ""yyyy-MM-dd HH:mm"" as simple text,
             // so with scripting off it stays a typable input the server parses the same way.
             Array.prototype.forEach.call(document.querySelectorAll('[data-datetime]'), function(wrap) {{
                 var input = wrap.querySelector('.admin-datetime-input');

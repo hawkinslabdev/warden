@@ -304,7 +304,7 @@ internal static class AdminPage
         sb.Append("></label>");
     }
 
-    /// <summary>Posts a plain "yyyy-MM-dd HH:mm" string, which DateTimeOffset.TryParse reads the same
+    /// <summary>Posts a simple "yyyy-MM-dd HH:mm" string, which DateTimeOffset.TryParse reads the same
     /// way in every culture. The popover is built by the script; without it this stays a typable field.</summary>
     private static void AppendDateTime(StringBuilder sb, string name, string label, bool required)
     {

@@ -1,6 +1,6 @@
 ---
 title: Markdown Reference
-description: Every container, code block, image, and map option Warden adds on top of plain Markdown.
+description: Every container, code block, image, and map option Warden adds on top of simple Markdown.
 page-prev: /examples/
 page-next: /examples/frontmatter/
 ---
@@ -9,24 +9,24 @@ Your pages are Markdown, with more on top of the basics. This page is the syntax
 
 ## Callout containers
 
-Callouts read a little softer than a plain quote, and they come in several tones:
+Callouts stand out more than a simple quote and come in several tones:
 
 ::: note
-A note container suits context you would like readers to notice without alarm.
+A note container is for context readers should notice.
 :::
 
 ::: warning
-A warning container fits the rare moment when a detail could really trip someone up.
+A warning container is for a detail that could trip someone up.
 :::
 
 ::: danger
-A danger container is reserved for the few cases where a mistake is costly.
+A danger container is for a mistake that is costly.
 :::
 
 You can fold a longer aside behind a summary to keep the page scannable:
 
 ::: details A longer aside, folded away
-Content inside a `details` container stays hidden until a reader opens it, which keeps supporting detail close by without crowding the main thread.
+Content inside a `details` container stays hidden until a reader opens it.
 :::
 
 Small inline labels help with versions or status <Badge type="tip">v1.0+</Badge>. Always pair it with a closing tag, since `<Badge .../>` would swallow the rest of the paragraph.
@@ -111,7 +111,7 @@ Definitions can sit anywhere in the file, so most writers keep them at the botto
 
 ## Definition lists, footnotes, and links
 
-Definition lists keep paired ideas tidy:
+Definition lists:
 
 Status page
 :   The live root page, rendered from what Warden has checked.
@@ -119,7 +119,7 @@ Status page
 Incident report
 :   A hand-written page under `content/incidents/`, linked to a monitor by id.
 
-And when a thought needs a source, a footnote tucks it out of the way.[^1]
+Footnotes work too.[^1]
 
 External links can open in a new tab with a small attribute, as standardized in [the Markdig reference](https://github.com/xoofx/markdig){target="_blank" rel="noopener"}, written as `{target="_blank" rel="noopener"}`.
 

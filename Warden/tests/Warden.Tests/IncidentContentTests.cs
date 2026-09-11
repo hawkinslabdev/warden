@@ -141,9 +141,44 @@ public sealed class IncidentContentTests
             Page("incidents/resolved-linked.md", now.AddHours(-2), end: now.AddHours(-1), monitors: ["codeberg"]),
         };
 
-        var ids = IncidentContent.ActiveIncidentMonitorIds(pages, ["forgejo", "codeberg"]);
+        var ids = IncidentContent.ActiveIncidentMonitorIds(pages, DateTimeOffset.UtcNow, ["forgejo", "codeberg"]);
 
         Assert.Equal(new Dictionary<string, MonitorStatus> { ["forgejo"] = MonitorStatus.Down }, ids);
+    }
+
+    [Fact]
+    public void ActiveIncidentMonitorIds_IgnoresIncidentDatedInTheFuture()
+    {
+        var now = DateTime.UtcNow;
+        var pages = new[] { Page("incidents/prewritten.md", now.AddHours(1), monitors: ["forgejo"]) };
+
+        Assert.Empty(IncidentContent.ActiveIncidentMonitorIds(pages, DateTimeOffset.UtcNow, ["forgejo"]));
+    }
+
+    [Fact]
+    public void ActiveMaintenanceMonitorIds_IgnoresWindowWithoutEnd()
+    {
+        var now = DateTime.UtcNow;
+        var pages = new[] { Page("incidents/open-ended.md", now.AddHours(-1), monitors: ["forgejo"], maintenance: true) };
+
+        Assert.Empty(IncidentContent.ActiveMaintenanceMonitorIds(pages, DateTimeOffset.UtcNow, ["forgejo"]));
+    }
+
+    [Theory]
+    [InlineData(DateTimeKind.Utc)]
+    [InlineData(DateTimeKind.Local)]
+    [InlineData(DateTimeKind.Unspecified)]
+    public void ToInstant_KeepsTheSameMomentForEveryYamlKind(DateTimeKind kind)
+    {
+        var utc = new DateTime(2026, 8, 18, 7, 20, 0, DateTimeKind.Utc);
+        var value = kind switch
+        {
+            DateTimeKind.Utc => utc,
+            DateTimeKind.Local => utc.ToLocalTime(),
+            _ => DateTime.SpecifyKind(utc.ToLocalTime(), DateTimeKind.Unspecified),
+        };
+
+        Assert.Equal(new DateTimeOffset(utc), IncidentContent.ToInstant(value));
     }
 
     [Fact]
@@ -152,7 +187,7 @@ public sealed class IncidentContentTests
         var now = DateTime.UtcNow;
         var pages = new[] { Page("incidents/system-wide.md", now.AddHours(-1), monitors: ["all"]) };
 
-        var ids = IncidentContent.ActiveIncidentMonitorIds(pages, ["forgejo", "codeberg", "blog"]);
+        var ids = IncidentContent.ActiveIncidentMonitorIds(pages, DateTimeOffset.UtcNow, ["forgejo", "codeberg", "blog"]);
 
         Assert.Equal(new Dictionary<string, MonitorStatus>
         {
@@ -175,7 +210,7 @@ public sealed class IncidentContentTests
             Page("incidents/both-b.md", now.AddHours(-1), monitors: ["blog"]),
         };
 
-        var ids = IncidentContent.ActiveIncidentMonitorIds(pages, ["forgejo", "codeberg", "blog"]);
+        var ids = IncidentContent.ActiveIncidentMonitorIds(pages, DateTimeOffset.UtcNow, ["forgejo", "codeberg", "blog"]);
 
         Assert.Equal(MonitorStatus.Degraded, ids["forgejo"]);
         Assert.Equal(MonitorStatus.Down, ids["codeberg"]);

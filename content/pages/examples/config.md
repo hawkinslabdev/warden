@@ -80,7 +80,7 @@ A config using most of them at once:
 | --- | --- |
 | `menu` | Topbar links: `[{ "title": "...", "path": "..." }]`. An entry with `items` renders as a dropdown instead of a link. `external: true` opens it in a new tab. |
 | `footerMenu` | Same shape, rendered in the footer. |
-| `footer` | Markdown for the footer note. Tokens: `{year}`, `{author}`, `{title}`. Falls back to a plain copyright line built from `title`. |
+| `footer` | Markdown for the footer note. Tokens: `{year}`, `{author}`, `{title}`. Falls back to a simple copyright line built from `title`. |
 | `socialLinks` | Icon links in the topbar: `[{ "icon": "github", "url": "...", "title": "..." }]`. |
 | `head` | Raw tags injected into `<head>`: `[{ "tag": "meta", "attrs": { "name": "...", "content": "..." }, "content": "..." }]`. |
 

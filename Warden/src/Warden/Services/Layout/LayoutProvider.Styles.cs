@@ -1661,7 +1661,7 @@ public static partial class LayoutProvider
             border-bottom: 1px solid var(--border);
             text-decoration: none;
         }}
-        .post-card.post-card-plain {{
+        .post-card.post-card-simple {{
             grid-template-columns: 1fr;
         }}
         .post-card-body {{
@@ -2696,8 +2696,8 @@ public static partial class LayoutProvider
         }}
         .content.reading img.plain,
         .content.reading p > img.plain:only-child,
-        .content.reading p.plain > img:only-child,
-        .content.reading figure.image-figure img.plain {{
+        .content.reading p.simple > img:only-child,
+        .content.reading figure.image-figure img.simple {{
             border: none;
             background: none;
             border-radius: 0;

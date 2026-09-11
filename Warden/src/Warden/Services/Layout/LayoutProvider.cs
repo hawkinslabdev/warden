@@ -391,7 +391,7 @@ public static partial class LayoutProvider
         if (string.IsNullOrWhiteSpace(brandImage))
             return string.Empty;
 
-        // Emoji or plain text mark; not a URL or path
+        // Emoji or simple text mark; not a URL or path
         if (!brandImage.StartsWith('/')
             && !brandImage.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
             && !brandImage.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
@@ -407,7 +407,7 @@ public static partial class LayoutProvider
         if (string.IsNullOrWhiteSpace(favicon))
             return string.Empty;
 
-        // Emoji or plain text fallback; not a URL or path
+        // Emoji or simple text fallback; not a URL or path
         if (!favicon.StartsWith('/')
             && !favicon.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
             && !favicon.StartsWith("https://", StringComparison.OrdinalIgnoreCase))

@@ -41,7 +41,7 @@ internal static class ApiEndpoints
         DateTimeOffset? ToLocalOrNull(DateTimeOffset? dto) => dto is { } d ? ToLocal(d) : null;
 
         var allMonitorIds = targets.Select(t => t.Id).ToList();
-        var incidentMonitorIds = IncidentContent.ActiveIncidentMonitorIds(pages, allMonitorIds);
+        var incidentMonitorIds = IncidentContent.ActiveIncidentMonitorIds(pages, now, allMonitorIds);
         var maintainedIds = IncidentContent.ActiveMaintenanceMonitorIds(pages, now, allMonitorIds);
         var monitors = targets.Select(t =>
         {

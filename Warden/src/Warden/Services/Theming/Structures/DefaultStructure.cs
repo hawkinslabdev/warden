@@ -1,6 +1,6 @@
 namespace Warden.Services.Theming.Structures;
 
-/// <summary>Dashboard's status-page header (overall uptime line, pinned ongoing-incidents panel) on top of the plain flat monitor list - everything else renders exactly like "clean".</summary>
+/// <summary>Dashboard's status-page header (overall uptime line, pinned ongoing-incidents panel) on top of the simple flat monitor list - everything else renders exactly like "clean".</summary>
 public sealed class DefaultStructure : IWardenStructure
 {
     public string Name => "default";

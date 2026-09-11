@@ -16,7 +16,7 @@ public interface IWardenStructure
 
     /// <summary>
     /// True renders monitors as a card grid with response-time charts; false (the default for every other
-    /// structure) renders the plain flat monitor list. Grouping is orthogonal - it comes from
+    /// structure) renders the simple flat monitor list. Grouping is orthogonal - it comes from
     /// <c>monitoring.group</c> and applies to both layouts. The one deliberate exception to "page shape only,
     /// never markup" above: a card grid is different DOM, not a CSS reskin of the list, so it can't be
     /// expressed as ComponentCss alone.

@@ -5,7 +5,7 @@ page-prev: /deploy/
 page-next: /examples/
 ---
 
-The container image is the fastest path: everything's bundled. A ready-to-run build ships with every release for Windows.
+Docker is the quickest way to run it. Every release also includes a ready-to-run Windows build.
 
 ## Docker
 
@@ -26,9 +26,11 @@ services:
 Mount your own `content/` folder (`.md` files and an optional `config.json`), and `data/` so the SQLite heartbeat history survives container recreates. Then bring it up:
 
 ```bash
-mkdir -p data
+mkdir -p data && chown -R 1654:1654 data
 docker compose up -d
 ```
+
+The container runs as UID `1654`, not root, so `data/` must be writable by that user. On a host with SELinux (Fedora, RHEL), add `:Z` to the `data` volume line as well.
 
 The status page is now at `http://localhost:8080`. For running it as a long-lived service, the [Docker Compose notes](/deploy/containers/) go further.
 
@@ -40,6 +42,6 @@ The status page is now at `http://localhost:8080`. For running it as a long-live
 4. Install the [.NET 11 Hosting Bundle](https://dotnet.microsoft.com/download/dotnet/11.0){target="_blank" rel="noopener"}.
 5. Start the site and browse to it.
 
-The zip includes a `web.config` wired for in-process hosting, no manual edits needed. A `*-Linux_x64.zip` build ships with each release too; that installation path isn't documented yet.
+The zip includes a `web.config` set up for in-process hosting, no edits needed. Each release also includes a `*-Linux_x64.zip`; that install path isn't documented yet.
 
 To change the port, hide drafts, or keep an API key out of your content folder, see [environment variables](/deploy/environment/).

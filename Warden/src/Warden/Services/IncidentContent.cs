@@ -12,12 +12,17 @@ internal static class IncidentContent
     public const int DefaultMaintenanceWindowDays = 14;
     public const int DefaultMaintenanceMaxShown = 10;
 
-    // Date represents the incident/maintenance start; YAML gives it Kind=Unspecified for a bare "Z" timestamp, so pin it to Utc before it becomes a DateTimeOffset
-    public static DateTimeOffset StartOf(DocumentationPage page) =>
-        new(DateTime.SpecifyKind(page.Date ?? default, DateTimeKind.Utc));
+    public static DateTimeOffset StartOf(DocumentationPage page) => ToInstant(page.Date ?? default);
 
-    public static DateTimeOffset? EndOf(DocumentationPage page) =>
-        page.End is { } end ? new DateTimeOffset(DateTime.SpecifyKind(end, DateTimeKind.Utc)) : null;
+    public static DateTimeOffset? EndOf(DocumentationPage page) => page.End is { } end ? ToInstant(end) : null;
+
+    // yaml hands back utc for Z, local for an explicit offset, unspecified for none; unspecified means server tz
+    internal static DateTimeOffset ToInstant(DateTime value) => value.Kind switch
+    {
+        DateTimeKind.Utc => new DateTimeOffset(value),
+        DateTimeKind.Local => new DateTimeOffset(value).ToUniversalTime(),
+        _ => new DateTimeOffset(value, TimeZoneInfo.Local.GetUtcOffset(value)).ToUniversalTime(),
+    };
 
     private static IEnumerable<DocumentationPage> InFolder(IReadOnlyList<DocumentationPage> pages, bool maintenance) =>
         pages.Where(p => p.OriginalRelativePath?.StartsWith(FolderPrefix, StringComparison.Ordinal) == true
@@ -65,7 +70,7 @@ internal static class IncidentContent
         var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var page in InFolder(pages, maintenance: true))
         {
-            if (page.Monitors is not { Count: > 0 } monitors || MaintenanceBadgeClass(page, now) != "active")
+            if (page.Monitors is not { Count: > 0 } monitors || page.End is null || MaintenanceBadgeClass(page, now) != "active")
                 continue;
             foreach (var id in ExpandMonitors(monitors, allMonitorIds))
                 ids.Add(id);
@@ -76,12 +81,12 @@ internal static class IncidentContent
     // same idea, for an unresolved incident's `monitors:` list; a declared incident is more authoritative than
     // the raw heartbeat (it covers what a simple up/down ping can't, like "API responses degraded"), so this
     // wins over both the heartbeat and an active maintenance window on the same monitor - see StatusOverride
-    public static Dictionary<string, MonitorStatus> ActiveIncidentMonitorIds(IReadOnlyList<DocumentationPage> pages, IReadOnlyList<string> allMonitorIds)
+    public static Dictionary<string, MonitorStatus> ActiveIncidentMonitorIds(IReadOnlyList<DocumentationPage> pages, DateTimeOffset now, IReadOnlyList<string> allMonitorIds)
     {
         var ids = new Dictionary<string, MonitorStatus>(StringComparer.Ordinal);
         foreach (var page in InFolder(pages, maintenance: false))
         {
-            if (page.Monitors is not { Count: > 0 } monitors || page.End is not null)
+            if (page.Monitors is not { Count: > 0 } monitors || page.End is not null || StartOf(page) > now)
                 continue;
             var status = IncidentStatus(page);
             foreach (var id in ExpandMonitors(monitors, allMonitorIds))

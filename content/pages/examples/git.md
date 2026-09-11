@@ -24,7 +24,9 @@ GIT_PASSWORD=your-token
 GIT_CRON=*/5 * * * *
 ```
 
-Off by default. If `content/` isn't already a checkout, Warden clones `GIT_URL` into it on startup; either way it then runs `git pull --ff-only` on the `GIT_CRON` schedule (standard 5-field cron expression), picked up by the existing file watcher. A failed clone or pull logs a warning and never takes the site down. Needs write access to `content/`, no `:ro`.
+Off by default. If `content/` isn't already a checkout, Warden clones `GIT_URL` into it on startup. Either way it then runs `git pull --ff-only` on the `GIT_CRON` schedule (standard 5-field cron expression) and the file watcher picks up the changes. A failed clone or pull logs a warning and never takes the site down. Needs write access to `content/`, so no `:ro`.
+
+Don't quote the cron value in a compose `environment:` list; `- GIT_CRON="*/5 * * * *"` passes the quotes through. Use `- GIT_CRON=*/5 * * * *`.
 
 `GIT_USERNAME`/`GIT_PASSWORD` are sent as an HTTP Basic auth header per git invocation, never written into the remote URL or `.git/config`. For a token-only host (e.g. GitHub PAT), set `GIT_PASSWORD` to the token and leave `GIT_USERNAME` as any non-empty value.
 

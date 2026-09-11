@@ -1,6 +1,6 @@
 namespace Warden.Services.MarkdownExtensions;
 
-/// <summary>Tokenizes whole blocks; must never throw -- return one plain <see cref="SyntaxToken"/> per line instead.</summary>
+/// <summary>Tokenizes whole blocks; must never throw -- return one simple <see cref="SyntaxToken"/> per line instead.</summary>
 public interface ISyntaxHighlighter
 {
     /// <summary>One-time setup (e.g. loading grammars/themes), called once at startup.</summary>

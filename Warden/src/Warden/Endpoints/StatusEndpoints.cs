@@ -75,7 +75,7 @@ internal static class StatusEndpoints
         var l = Localization.Current;
         var allMonitorIds = targets.Select(t => t.Id).ToList();
         // the banner always reads live health, even while a past day is filtered - only the monitor badges below travel back in time
-        var liveIncidentMonitorIds = IncidentContent.ActiveIncidentMonitorIds(pages, allMonitorIds);
+        var liveIncidentMonitorIds = IncidentContent.ActiveIncidentMonitorIds(pages, DateTimeOffset.UtcNow, allMonitorIds);
         var liveMaintainedIds = IncidentContent.ActiveMaintenanceMonitorIds(pages, DateTimeOffset.UtcNow, allMonitorIds);
         var anyDown = targets.Any(t =>
             (IncidentContent.StatusOverride(t.Id, liveIncidentMonitorIds, liveMaintainedIds) ?? LatestStatus(store, t.Id))

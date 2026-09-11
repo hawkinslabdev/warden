@@ -1,6 +1,6 @@
 ---
 title: Running Warden with Docker
-description: A take on deploying Warden as a container.
+description: Deploying Warden as a container.
 page-prev: /deploy/
 page-next: /examples/
 ---
@@ -22,9 +22,11 @@ services:
 Mount `content/` so your pages stay editable from the host, and `data/` so the SQLite heartbeat history survives container recreates. Then bring it up:
 
 ```bash
-mkdir -p data
+mkdir -p data && chown -R 1654:1654 data
 docker compose up -d
 ```
+
+The container runs as UID `1654`, so `data/` must be writable by that user. Otherwise startup fails with `SQLite Error 8: attempt to write a readonly database`.
 
 The status page is now at `http://localhost:8080`.
 

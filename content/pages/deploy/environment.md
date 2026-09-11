@@ -15,23 +15,24 @@ An environment variable overrides the matching `appsettings.json` value. Nested 
 | --- | --- | --- |
 | `ASPNETCORE_URLS` | `http://localhost:5000` | Address and port. The Docker image sets `http://+:8080`. |
 | `ASPNETCORE_ENVIRONMENT` | `Production` | `Development` logs more. |
-| `TZ` | `UTC` | Server's local time zone (IANA name, e.g. `Europe/Amsterdam`). Reported in `/api`'s `tz` field and used for cron/log timestamps. Heartbeat history stays UTC regardless. |
-
+| `TZ` | `UTC` | Server time zone (IANA name, e.g. `Europe/Amsterdam`). Used for log and cron timestamps, for incident dates written without an offset, and reported in `/api`'s `tz` field. Heartbeat history is always stored in UTC. |
+| `PublicBaseUrl` | none | The origin readers use, e.g. `https://status.example.com`. Used for canonical URLs, feeds and `robots.txt`. Without it, the request's `Host` header is used. |
+| `AllowedHosts` | `*` | Hostnames the server accepts. Set it to the same host as `PublicBaseUrl`. |
 | `Proxy__Trusted__0` | none | A proxy IP or CIDR network allowed to set `X-Forwarded-For`. |
-| `Proxy__TrustAny` | `false` | Honours the forwarded header from any caller. |
+| `Proxy__TrustAny` | `false` | Trusts the forwarded header from any caller. |
 
 ### Behind a reverse proxy
 
-Rate limits are counted per reader IP. Behind nginx, Caddy, or a container ingress, every request arrives from the proxy instead, so the API budget of thirty per minute ends up shared by everyone, and a single bot can close it out for the whole site.
+Rate limits are counted per reader IP. Behind nginx, Caddy, or a container ingress, every request has the proxy's IP, so all readers share one limit and a single bot can lock everyone out.
 
-Listing your proxy fixes it. Loopback is trusted already, so a proxy on the same host needs nothing:
+List your proxy to fix that. Loopback is trusted already, so a proxy on the same host needs nothing:
 
 ```bash
 Proxy__Trusted__0=10.0.0.0/8
 Proxy__Trusted__1=172.18.0.5
 ```
 
-`Proxy__TrustAny=true` skips the list entirely, useful when your ingress has no fixed address. It also means any caller who can reach the port may claim any IP, so it suits a container that only its proxy can talk to, and little else. Warden logs the choice at startup.
+`Proxy__TrustAny=true` skips the list, useful when your ingress has no fixed address. Anyone who can reach the port can then claim any IP, so only use it when nothing but the proxy can reach the container. Warden logs the choice at startup.
 
 ## Monitoring
 
@@ -73,11 +74,11 @@ What to check, and how often, lives in `content/config.json`, not here; see the 
 { "status": "ok", "buildVersion": 17, "pages": 42, "uptimeSeconds": 3600 }
 ```
 
-It answers `503` with `"status": "empty"` when no content has been built. That's the signal an external uptime monitor watching this deployment should watch for. The route carries no rate limit, so polling it every few seconds is fine.
+It answers `503` with `"status": "empty"` when no content has been built. Point an external uptime monitor at this route; it has no rate limit, so polling every few seconds is fine.
 
 ## Bot protection
 
-Gates every page behind a self-hosted [ALTCHA](https://altcha.org) proof-of-work challenge - an alternative to fronting Warden with something like Cloudflare's JS-fingerprinting "Just a moment..." screen. Off by default; `/health` and `/api` stay reachable either way.
+Puts every page behind a self-hosted [ALTCHA](https://altcha.org) proof-of-work challenge, similar to Cloudflare's "Just a moment..." screen but without fingerprinting. Off by default. `/health` and `/api` stay reachable either way.
 
 ```json [appsettings.json]
 {
@@ -94,9 +95,7 @@ Gates every page behind a self-hosted [ALTCHA](https://altcha.org) proof-of-work
 
 ## Admin panel
 
-Off by default, though you can enable the `/admin` route when configured with your identity provider.
-
-This path allows you to either toggle and reorder monitors, and configure notifications by using webhooks. 
+Off by default. Set the OIDC variables below to enable `/admin`, where you can toggle and reorder monitors and configure webhook notifications.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
@@ -113,11 +112,13 @@ Register `https://your-site/auth/callback` as the redirect URI. Warden asks for 
 
 Behind a reverse proxy, list it under `Proxy__Trusted__0` as well. Without it Warden cannot tell the request arrived over https, so the session cookie goes out without its `Secure` flag.
 
+Session and antiforgery keys are stored in `data/keys/`, next to the database. Mount `data/`, or every container recreate logs everyone out.
+
 ## Logs
 
-Warnings and errors go to `logs/warden-<date>.log` beside the binary, rolling daily and keeping a fortnight. Everything at `Information` stays on the console only, so the file itself stays small.
+Warnings and errors go to `logs/warden-<date>.log` beside the binary, one file per day, 14 days kept. `Information` messages go to the console only, so the file stays small.
 
-The `Serilog` section of `appsettings.json` holds these settings, so pointing `path` at a mounted volume or lowering `restrictedToMinimumLevel` are both single-line changes. Setting `Serilog__WriteTo__1__Args__path` in the environment works too.
+These settings live in the `Serilog` section of `appsettings.json`: change `path` to write to a mounted volume, or lower `restrictedToMinimumLevel` to log more. `Serilog__WriteTo__1__Args__path` in the environment works too.
 
 ## In a container
 
@@ -132,7 +133,7 @@ services:
       - ./data:/app/data
 ```
 
-Mount `data/` too. That's where the SQLite database lives, and without a volume the check history resets on every container recreate.
+Mount `data/` too. That's where the SQLite database and the session keys live; without a volume both reset on every container recreate. The container runs as UID `1654`, so the folder must be writable by that user: `chown -R 1654:1654 data`.
 
 ::: Warning
 If a setting seems ignored, check for a single underscore where a double belongs. `Docs_PageSize` is nothing at all; `Docs__PageSize` is the setting you meant.

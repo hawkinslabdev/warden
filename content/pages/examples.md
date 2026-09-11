@@ -9,5 +9,5 @@ Reference pages for the fields and syntax Warden accepts:
 
 1. [Markdown reference](/examples/markdown/) lists every option for your Markdown files.
 2. [Front matter](/examples/frontmatter/) covers every field a page or incident can set.
-3. [Settings](/examples/config/) reference document for setting up your `config.json`.
+3. [Settings](/examples/config/) lists every `config.json` field.
 4. [Git sync](/examples/git/) covers keeping `content/` up to date from a remote, and authenticating a private one.

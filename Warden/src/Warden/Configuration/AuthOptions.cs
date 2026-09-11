@@ -12,6 +12,8 @@ public sealed record AuthOptions
 
     public string AuthPath { get; init; } = "/auth";
 
+    public string AdminPath { get; init; } = "/admin";
+
     public string Branch { get; init; } = "main";
 
     public string? NewFileUrl { get; init; }
@@ -66,6 +68,7 @@ public sealed record AuthOptions
         AllowedSubjects = (Env("OIDC_ALLOWED_SUBJECTS") ?? "")
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
         AuthPath = "/" + (Env("AUTH_PATH") ?? "auth").Trim('/'),
+        AdminPath = "/" + (Env("ADMIN_PATH") ?? "admin").Trim('/'),
         Branch = Env("GIT_BRANCH") ?? "main",
         NewFileUrl = Env("GIT_NEW_FILE_URL"),
         RepoUrl = Env("GIT_URL"),

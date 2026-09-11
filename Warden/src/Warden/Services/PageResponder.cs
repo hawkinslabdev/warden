@@ -175,7 +175,7 @@ public sealed class PageResponder
             theme: activeTheme,
             structure: activeStructure,
             authButtonHtml: _auth.AdminEnabled
-                ? LayoutProvider.BuildAuthButton(context.User.Identity?.IsAuthenticated == true, _auth.AuthPath, basePath)
+                ? LayoutProvider.BuildAuthButton(context.User.Identity?.IsAuthenticated == true, _auth.AuthPath, _auth.AdminPath, basePath)
                 : null);
 
         context.Response.ContentType = "text/html; charset=utf-8";

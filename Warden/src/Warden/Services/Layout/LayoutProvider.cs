@@ -350,12 +350,12 @@ public static partial class LayoutProvider
     </div>";
     }
 
-    public static string BuildAuthButton(bool signedIn, string authPath, string basePath)
+    public static string BuildAuthButton(bool signedIn, string authPath, string adminPath, string basePath)
     {
         var l = Localization.Current;
         var prefix = basePath.TrimEnd('/');
         var label = HtmlEncode(signedIn ? l.AuthAdminPanel : l.AuthSignIn);
-        var href = signedIn ? $"{prefix}/admin" : $"{prefix}{authPath}/login";
+        var href = signedIn ? $"{prefix}{adminPath}" : $"{prefix}{authPath}/login";
         var icon = signedIn
             ? @"<line x1=""21"" x2=""14"" y1=""4"" y2=""4""/><line x1=""10"" x2=""3"" y1=""4"" y2=""4""/><line x1=""21"" x2=""12"" y1=""12"" y2=""12""/><line x1=""8"" x2=""3"" y1=""12"" y2=""12""/><line x1=""21"" x2=""16"" y1=""20"" y2=""20""/><line x1=""12"" x2=""3"" y1=""20"" y2=""20""/><line x1=""14"" x2=""14"" y1=""2"" y2=""6""/><line x1=""8"" x2=""8"" y1=""10"" y2=""14""/><line x1=""16"" x2=""16"" y1=""18"" y2=""22""/>"
             : @"<path d=""M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4""/><polyline points=""10 17 15 12 10 7""/><line x1=""15"" x2=""3"" y1=""12"" y2=""12""/>";

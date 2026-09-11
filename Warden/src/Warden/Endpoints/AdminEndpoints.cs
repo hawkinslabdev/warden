@@ -18,7 +18,7 @@ internal static class AdminEndpoints
 
     public static IEndpointRouteBuilder MapAdminEndpoints(this IEndpointRouteBuilder app, AuthOptions auth)
     {
-        var admin = app.MapGroup("/admin")
+        var admin = app.MapGroup(auth.AdminPath)
             .RequireAuthorization(AuthEndpoints.AdminPolicy)
             .RequireRateLimiting(RateLimitPolicies.Admin);
 
@@ -66,7 +66,7 @@ internal static class AdminEndpoints
         await responder.WriteAsync(ctx, new PageView(
             Title: Localization.Current.AdminTitle,
             ContentHtml: html,
-            CanonicalPath: "admin",
+            CanonicalPath: auth.AdminPath.TrimStart('/'),
             // a settings surface, not an article: no 680px reading measure or 1.125rem/1.7 prose rhythm
             Prose: false,
             NoIndex: true,
@@ -284,8 +284,11 @@ internal static class AdminEndpoints
         return Results.Empty;
     }
 
-    private static IResult Back(HttpContext ctx, string flash) =>
-        Results.Redirect($"{ctx.Request.PathBase}/admin?flash={flash}");
+    private static IResult Back(HttpContext ctx, string flash)
+    {
+        var adminPath = ctx.RequestServices.GetRequiredService<AuthOptions>().AdminPath;
+        return Results.Redirect($"{ctx.Request.PathBase}{adminPath}?flash={flash}");
+    }
 
     private static string? Subject(HttpContext ctx) =>
         ctx.User.FindFirst(AuthEndpoints.SubjectClaim)?.Value

@@ -38,7 +38,7 @@ internal static class AuthEndpoints
             }
             catch (AntiforgeryValidationException)
             {
-                return Results.Redirect($"{ctx.Request.PathBase}/admin?flash=stale-form");
+                return Results.Redirect($"{ctx.Request.PathBase}{options.AdminPath}?flash=stale-form");
             }
 
             return Results.SignOut(

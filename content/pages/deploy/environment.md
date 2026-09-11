@@ -94,7 +94,7 @@ Gates every page behind a self-hosted [ALTCHA](https://altcha.org) proof-of-work
 
 ## Admin panel
 
-Off by default, though you can enable  the `/admin` route when configured with your identity provider.
+Off by default, though you can enable the `/admin` route when configured with your identity provider.
 
 This path allows you to either toggle and reorder monitors, and configure notifications by using webhooks. 
 
@@ -105,6 +105,7 @@ This path allows you to either toggle and reorder monitors, and configure notifi
 | `OIDC_CLIENT_SECRET` | none | That client's secret. |
 | `OIDC_ALLOWED_SUBJECTS` | none | Comma-separated `sub` claims allowed in. |
 | `AUTH_PATH` | `auth` | Prefix for the sign-in routes. |
+| `ADMIN_PATH` | `admin` | Path for the panel itself. |
 
 Register `https://your-site/auth/callback` as the redirect URI. Warden asks for the `openid` scope only, uses PKCE, and stores no tokens.
 

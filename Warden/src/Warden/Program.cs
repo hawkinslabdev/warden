@@ -337,7 +337,7 @@ try
     }
 
     if (altchaOptions.Enabled && exportDir is null) // export crawl is first-party, not public traffic to gate
-        app.UseAltchaGate(adminEnabled ? authOptions.AuthPath : null);
+        app.UseAltchaGate(adminEnabled ? authOptions.AuthPath : null, adminEnabled ? authOptions.AdminPath : null);
 
     app.UseRouting();
 

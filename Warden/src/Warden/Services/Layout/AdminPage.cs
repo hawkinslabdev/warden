@@ -32,7 +32,7 @@ internal static class AdminPage
         if (!string.IsNullOrEmpty(draft))
             AppendDraft(sb, draft);
 
-        sb.Append("<form method=\"post\" action=\"").Append(prefix).Append("/admin/settings\" id=\"")
+        sb.Append("<form method=\"post\" action=\"").Append(prefix).Append(auth.AdminPath).Append("/settings\" id=\"")
           .Append(SettingsFormId).Append("\" data-dirty-form>");
         AppendToken(sb, tokens);
         // empty when scripting is off, which the server reads as "leave the order alone"
@@ -44,7 +44,7 @@ internal static class AdminPage
         sb.Append("</form>");
 
         AppendIncident(sb, prefix, targets, auth, tokens);
-        AppendResetForm(sb, prefix, tokens);
+        AppendResetForm(sb, prefix, auth, tokens);
         AppendResetDialog(sb, l);
         AppendToasts(sb, flash);
         return sb.ToString();
@@ -180,7 +180,7 @@ internal static class AdminPage
           .Append("</p>");
 
         // only the forge path leaves the panel; the in-place path must not open a second copy of it
-        sb.Append("<form method=\"post\" action=\"").Append(prefix).Append("/admin/incident\"")
+        sb.Append("<form method=\"post\" action=\"").Append(prefix).Append(auth.AdminPath).Append("/incident\"")
           .Append(hasForge ? " target=\"_blank\" rel=\"noopener\"" : "")
           .Append(" class=\"admin-card admin-incident\">");
         AppendToken(sb, tokens);
@@ -217,9 +217,9 @@ internal static class AdminPage
         sb.Append("</form></section>");
     }
 
-    private static void AppendResetForm(StringBuilder sb, string prefix, AntiforgeryTokenSet tokens)
+    private static void AppendResetForm(StringBuilder sb, string prefix, AuthOptions auth, AntiforgeryTokenSet tokens)
     {
-        sb.Append("<form method=\"post\" action=\"").Append(prefix).Append("/admin/reset\" id=\"reset-form\" hidden>");
+        sb.Append("<form method=\"post\" action=\"").Append(prefix).Append(auth.AdminPath).Append("/reset\" id=\"reset-form\" hidden>");
         AppendToken(sb, tokens);
         sb.Append("<input type=\"hidden\" name=\"id\" id=\"reset-id\"></form>");
     }

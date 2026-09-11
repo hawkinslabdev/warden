@@ -136,6 +136,30 @@ internal static class IncidentContent
         return ids;
     }
 
+    // per monitor, every day a declared incident overlapped, for the history bar; an outage beats a degraded note
+    public static Dictionary<string, Dictionary<DateOnly, MonitorStatus>> IncidentDays(IReadOnlyList<DocumentationPage> pages, DateOnly from, DateOnly to, IReadOnlyList<string> allMonitorIds)
+    {
+        var result = new Dictionary<string, Dictionary<DateOnly, MonitorStatus>>(StringComparer.Ordinal);
+        foreach (var page in InFolder(pages, maintenance: false))
+        {
+            if (page.Monitors is not { Count: > 0 } monitors || IsNotice(page))
+                continue;
+            var status = IncidentStatus(page);
+            var first = DateOnly.FromDateTime(StartOf(page).UtcDateTime);
+            var last = DateOnly.FromDateTime((EndOf(page) ?? DateTimeOffset.UtcNow).UtcDateTime);
+            if (first < from) first = from;
+            if (last > to) last = to;
+            for (var day = first; day <= last; day = day.AddDays(1))
+                foreach (var id in ExpandMonitors(monitors, allMonitorIds))
+                {
+                    var days = result.TryGetValue(id, out var d) ? d : result[id] = [];
+                    if (!days.TryGetValue(day, out var existing) || existing != MonitorStatus.Down)
+                        days[day] = status;
+                }
+        }
+        return result;
+    }
+
     // precedence: an active incident beats an active maintenance window beats the real heartbeat
     public static MonitorStatus? StatusOverride(string monitorId, IReadOnlyDictionary<string, MonitorStatus> incidentMonitorIds, HashSet<string> maintenanceMonitorIds) =>
         incidentMonitorIds.TryGetValue(monitorId, out var declared) ? declared

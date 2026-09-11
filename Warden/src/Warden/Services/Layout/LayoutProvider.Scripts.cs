@@ -1204,28 +1204,59 @@ public static partial class LayoutProvider
                     b.addEventListener('click', function() {{ view.setMonth(view.getMonth() + step); paint(); }});
                     return b;
                 }}
-                function actionButton(text, primary, fn) {{
+                var icons = {{
+                    now: '<circle cx=""12"" cy=""12"" r=""9""/><polyline points=""12 7 12 12 15 14""/>',
+                    clear: '<line x1=""6"" y1=""6"" x2=""18"" y2=""18""/><line x1=""18"" y1=""6"" x2=""6"" y2=""18""/>',
+                    done: '<polyline points=""4 12.5 9.5 18 20 6.5""/>'
+                }};
+                function actionButton(text, icon, primary, fn) {{
                     var b = document.createElement('button');
                     b.type = 'button';
                     b.className = 'admin-datetime-btn' + (primary ? ' admin-datetime-btn--go' : '');
-                    b.textContent = text;
+                    b.setAttribute('aria-label', text);
+                    b.title = text;
+                    b.innerHTML = '<svg viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" aria-hidden=""true"">' + icons[icon] + '</svg>';
                     b.addEventListener('click', fn);
                     return b;
                 }}
+                // text input with our own stepper: native number spinners cannot be themed
                 function timePart(max, text) {{
+                    var box = document.createElement('div');
+                    box.className = 'admin-datetime-part';
                     var i = document.createElement('input');
-                    i.type = 'number';
-                    i.min = '0';
-                    i.max = String(max);
-                    i.className = 'admin-datetime-part';
+                    i.type = 'text';
+                    i.inputMode = 'numeric';
+                    i.maxLength = 2;
+                    i.className = 'admin-datetime-part-input';
                     i.setAttribute('aria-label', text);
-                    i.addEventListener('change', function() {{
+                    function apply() {{
                         var d = parse(input.value) || new Date();
                         d.setHours(clamp(hourEl.value, 23), clamp(minEl.value, 59), 0, 0);
                         commit(d);
                         paint();
+                    }}
+                    function step(delta) {{
+                        i.value = pad((clamp(i.value, max) + delta + max + 1) % (max + 1));
+                        apply();
+                    }}
+                    i.addEventListener('change', apply);
+                    i.addEventListener('keydown', function(e) {{
+                        if (e.key === 'ArrowUp') {{ e.preventDefault(); step(1); }}
+                        else if (e.key === 'ArrowDown') {{ e.preventDefault(); step(-1); }}
                     }});
-                    return i;
+                    var up = document.createElement('button');
+                    up.type = 'button'; up.tabIndex = -1; up.className = 'admin-datetime-step admin-datetime-step--up';
+                    up.setAttribute('aria-hidden', 'true');
+                    up.addEventListener('click', function() {{ step(1); }});
+                    var down = document.createElement('button');
+                    down.type = 'button'; down.tabIndex = -1; down.className = 'admin-datetime-step admin-datetime-step--down';
+                    down.setAttribute('aria-hidden', 'true');
+                    down.addEventListener('click', function() {{ step(-1); }});
+                    box.appendChild(i);
+                    box.appendChild(up);
+                    box.appendChild(down);
+                    box.input = i;
+                    return box;
                 }}
 
                 function build() {{
@@ -1241,32 +1272,34 @@ public static partial class LayoutProvider
                     grid = document.createElement('div');
                     grid.className = 'admin-datetime-grid';
 
-                    hourEl = timePart(23, label('data-hours', 'Hours'));
-                    minEl = timePart(59, label('data-minutes', 'Minutes'));
+                    var hourBox = timePart(23, label('data-hours', 'Hours'));
+                    var minBox = timePart(59, label('data-minutes', 'Minutes'));
+                    hourEl = hourBox.input;
+                    minEl = minBox.input;
                     var colon = document.createElement('span');
                     colon.className = 'admin-datetime-colon';
                     colon.textContent = ':';
 
                     var acts = document.createElement('div');
                     acts.className = 'admin-datetime-actions';
-                    acts.appendChild(actionButton(label('data-now', 'Now'), false, function() {{
+                    acts.appendChild(actionButton(label('data-now', 'Now'), 'now', false, function() {{
                         var n = new Date();
                         view = new Date(n.getFullYear(), n.getMonth(), 1);
                         commit(n);
                         paint();
                     }}));
-                    acts.appendChild(actionButton(label('data-clear', 'Clear'), false, function() {{
+                    acts.appendChild(actionButton(label('data-clear', 'Clear'), 'clear', false, function() {{
                         input.value = '';
                         input.dispatchEvent(new Event('input', {{ bubbles: true }}));
                         paint();
                     }}));
-                    acts.appendChild(actionButton(label('data-done', 'Done'), true, close));
+                    acts.appendChild(actionButton(label('data-done', 'Done'), 'done', true, close));
 
                     var time = document.createElement('div');
                     time.className = 'admin-datetime-time';
-                    time.appendChild(hourEl);
+                    time.appendChild(hourBox);
                     time.appendChild(colon);
-                    time.appendChild(minEl);
+                    time.appendChild(minBox);
                     time.appendChild(acts);
 
                     pop.appendChild(head);
@@ -1324,6 +1357,12 @@ public static partial class LayoutProvider
                 function open() {{
                     if (!pop.firstChild) build();
                     view = null;
+                    // empty field: start from the client clock plus the field's own offset
+                    if (!parse(input.value)) {{
+                        var d = new Date();
+                        d.setMinutes(d.getMinutes() + (parseInt(wrap.getAttribute('data-default-offset'), 10) || 0), 0, 0);
+                        commit(d);
+                    }}
                     paint();
                     pop.hidden = false;
                     input.setAttribute('aria-expanded', 'true');

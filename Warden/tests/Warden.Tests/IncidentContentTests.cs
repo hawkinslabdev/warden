@@ -210,6 +210,25 @@ public sealed class IncidentContentTests
     }
 
     [Fact]
+    public void IncidentDays_MarksEveryOverlappedDayAndKeepsTheHarsherStatus()
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var d0 = today.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var pages = new[]
+        {
+            Page("incidents/blip.md", d0.AddDays(-3).AddHours(12), end: d0.AddDays(-3).AddHours(12).AddMinutes(5), monitors: ["forgejo"], status: "degraded"),
+            Page("incidents/outage.md", d0.AddDays(-3).AddHours(20), end: d0.AddDays(-2).AddHours(2), monitors: ["forgejo"]),
+            Page("incidents/note.md", d0.AddDays(-1), monitors: ["forgejo"], status: "notice"),
+        };
+
+        var days = IncidentContent.IncidentDays(pages, today.AddDays(-6), today, ["forgejo"])["forgejo"];
+
+        Assert.Equal(MonitorStatus.Down, days[today.AddDays(-3)]);     // 5-minute degraded blip, then an outage: outage wins
+        Assert.Equal(MonitorStatus.Down, days[today.AddDays(-2)]);     // outage ran past midnight
+        Assert.False(days.ContainsKey(today.AddDays(-1)));             // notice never marks a day
+    }
+
+    [Fact]
     public void ActiveIncidentMonitorIds_ExpandsAllToEveryConfiguredMonitor()
     {
         var now = DateTime.UtcNow;

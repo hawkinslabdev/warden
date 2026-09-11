@@ -187,7 +187,7 @@ internal static class AdminPage
 
         sb.Append("<div class=\"admin-card-controls\">");
         AppendText(sb, "title", l.AdminIncidentTitle, null, l.AdminIncidentTitlePlaceholder, "text", "admin-field--full", required: true, maxLength: 200);
-        AppendDateTime(sb, "start", l.AdminIncidentStart, required: true);
+        AppendDateTime(sb, "start", l.AdminIncidentStart, required: true, defaultOffsetMinutes: -60);
         AppendDateTime(sb, "end", l.AdminIncidentEnd, required: false);
         AppendText(sb, "description", l.AdminIncidentDescription, null, l.AdminIncidentDescriptionPlaceholder, "text", "admin-field--full", maxLength: 300);
         sb.Append("</div>");
@@ -306,7 +306,7 @@ internal static class AdminPage
 
     /// <summary>Posts a simple "yyyy-MM-dd HH:mm" string, which DateTimeOffset.TryParse reads the same
     /// way in every culture. The popover is built by the script; without it this stays a typable field.</summary>
-    private static void AppendDateTime(StringBuilder sb, string name, string label, bool required)
+    private static void AppendDateTime(StringBuilder sb, string name, string label, bool required, int defaultOffsetMinutes = 0)
     {
         var l = Localization.Current;
         var id = "dt-" + name;
@@ -319,6 +319,7 @@ internal static class AdminPage
           .Append("\" data-done=\"").Append(E(l.AdminPickerDone))
           .Append("\" data-hours=\"").Append(E(l.AdminPickerHours))
           .Append("\" data-minutes=\"").Append(E(l.AdminPickerMinutes))
+          .Append("\" data-default-offset=\"").Append(defaultOffsetMinutes)
           .Append("\">");
 
         sb.Append("<label class=\"admin-field-label\" for=\"").Append(id).Append("\">").Append(E(label)).Append("</label>");

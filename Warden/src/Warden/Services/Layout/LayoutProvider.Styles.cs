@@ -356,24 +356,43 @@ public static partial class LayoutProvider
             margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);
         }}
         .admin-datetime-part {{
-            width: 3.2rem; text-align: center; font-variant-numeric: tabular-nums;
-            font-family: var(--font-sans); font-size: 0.85rem;
-            color: var(--text-color); background: var(--bg-color);
-            border: 1px solid var(--border); border-radius: 7px; padding: 0.35rem 0.3rem;
+            position: relative; width: 3.6rem;
+            border: 1px solid var(--border); border-radius: 7px; background: var(--bg-color);
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }}
-        .admin-datetime-part:focus-visible {{
-            outline: none; border-color: var(--accent);
+        .admin-datetime-part:focus-within {{
+            border-color: var(--accent);
             box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
         }}
+        .admin-datetime-part-input {{
+            width: 100%; padding: 0.35rem 1.1rem 0.35rem 0.3rem; text-align: center;
+            font-family: var(--font-sans); font-size: 0.85rem; font-variant-numeric: tabular-nums;
+            color: var(--text-color); background: transparent; border: none; outline: none;
+        }}
+        .admin-datetime-step {{
+            position: absolute; right: 0; width: 1.1rem; height: 50%; padding: 0;
+            border: none; background: transparent; color: var(--text-muted); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }}
+        .admin-datetime-step::before {{
+            content: ''; width: 0; height: 0;
+            border-left: 3.5px solid transparent; border-right: 3.5px solid transparent;
+        }}
+        .admin-datetime-step--up {{ top: 0; }}
+        .admin-datetime-step--up::before {{ border-bottom: 4px solid currentColor; }}
+        .admin-datetime-step--down {{ bottom: 0; }}
+        .admin-datetime-step--down::before {{ border-top: 4px solid currentColor; }}
+        .admin-datetime-step:hover {{ color: var(--accent); }}
         .admin-datetime-colon {{ color: var(--text-muted); }}
         .admin-datetime-actions {{ display: flex; gap: 0.4rem; margin-left: auto; }}
         .admin-datetime-btn {{
-            font-family: var(--font-sans); font-size: 0.78rem; font-weight: 500;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 1.85rem; height: 1.85rem; padding: 0; flex-shrink: 0;
             color: var(--text-muted); background: transparent;
-            border: 1px solid var(--border); border-radius: 7px;
-            padding: 0.35rem 0.6rem; cursor: pointer; white-space: nowrap;
+            border: 1px solid var(--border); border-radius: 7px; cursor: pointer;
             transition: color 0.15s ease, border-color 0.15s ease;
         }}
+        .admin-datetime-btn svg {{ width: 14px; height: 14px; }}
         .admin-datetime-btn:hover {{ color: var(--accent); border-color: var(--accent); }}
         .admin-datetime-btn:focus-visible {{ outline: 2px solid var(--accent); outline-offset: 2px; }}
         .admin-datetime-btn--go {{ color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }}

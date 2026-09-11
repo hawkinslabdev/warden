@@ -23,7 +23,7 @@ The status page is the site's root ("/") and isn't authored as Markdown: it chec
 }
 ```
 
-`id` is a short slug you choose. History is stored under it, so don't rename it later. Changes to this block take effect on the next check, no restart needed. Every check result goes into a local SQLite database; there is no external service to sign up for.
+`id` is a short slug you choose. History is stored under it, so don't rename it later. Changes to this block take effect on the next check without a restart. Every check result goes into a local SQLite database; there is no external service to sign up for.
 
 A target defaults to `"type": "http"` (a simple GET, checking for a successful status code). Set `type` for anything else: `ping`, `tcp`, `dns`, `ssl` (certificate expiry), `ftp`, `sftp`, `database` (TCP reachability), or `service_backend` (an HTTP health check with a JSON body assertion via `expectedJsonPath`/`expectedValue`). Non-HTTP types take `host`/`port` instead of `url`:
 
@@ -44,7 +44,7 @@ Everything besides the status page is a simple Markdown file under `content/page
 ```md [content/pages/about.md]
 ---
 title: About
-description: What this status page covers.
+description: Which services this status page reports on.
 ---
 
 Incidents and maintenance windows are reported here as they happen.
@@ -54,7 +54,7 @@ Only `title` is required. Callouts, folded asides, titled/highlighted code block
 
 ### Incidents and maintenance
 
-Automated checks can't tell you *why* something's down, so incidents and planned maintenance are hand-written pages under `content/incidents/`, with a few extra front matter fields:
+Automated checks only report up or down. The *why* is written by you: incidents and planned maintenance are Markdown files under `content/incidents/`, with a few extra front matter fields:
 
 ```md [content/incidents/database-upgrade.md]
 ---
@@ -78,14 +78,14 @@ We're upgrading the database behind Forgejo. Expect brief interruptions.
 | Maintenance window | `start` and `end` | **Planned** before `start`, **Active** until `end`, then gone from the status page |
 | Incident | `start` | **Down** until you add `end`, then **Resolved**. Add `status: degraded` for a partial outage, or `status: notice` for an announcement that affects nothing. |
 
-Both stay under **Incidents** for a while after they end, and keep their own URL forever. Add `pinned: true` to keep one on the page regardless of age, sorted first. Every incident and window is also in the Atom feed at `/incidents/feed.xml`.
+A resolved incident stays under **Incidents** for `incidentWindowDays` (7 by default). Both keep their own URL permanently. Add `pinned: true` to keep one on the page regardless of age, sorted first. Every incident and window is also in the Atom feed at `/incidents/feed.xml`.
 
 The URL is the file path: `content/incidents/database-upgrade.md` becomes `/incidents/database-upgrade/`. Folders work too, so `content/incidents/2026/database-upgrade.md` becomes `/incidents/2026/database-upgrade/`.
 
 `monitors: [forgejo]` (or `monitors: forgejo` for one) links it to monitor ids from `content/config.json`. Use `monitors: all` for everything. What that does:
 
 - Active maintenance window: the monitor shows **Maintenance** instead of Up/Down, and doesn't count toward the "some systems are experiencing issues" banner.
-- Unresolved incident: the monitor shows **Down**, or **Degraded** with `status: degraded`, whatever the automated check says. A `notice` changes nothing on the monitor or the banner. Useful when the ping succeeds but the service is slow or half-broken: uptime stays the measured number, the badge tells the truth.
+- Unresolved incident: the monitor shows **Down**, or **Degraded** with `status: degraded`, regardless of the automated check. Useful when the ping succeeds but the service is slow or partly broken: uptime stays the measured number, the badge shows the declared state. A `notice` changes nothing on the monitor or the banner.
 - Both on one monitor: the incident takes precedence. Two incidents: the more severe one takes precedence.
 
 ```md [content/incidents/api-latency.md]
@@ -162,7 +162,7 @@ Every theme adapts to a full light and dark palette, so the toggle behaves the s
 
 | Name | Shape |
 |---|---|
-| `clean` | The default. A simple monitor list, full 90-day history bars, centered narrow column: the same shape every other page on the site uses. |
+| `clean` | The default. A simple monitor list, full 90-day history bars, in the same centered narrow column as every other page. |
 | `dashboard` | Monitors as a card grid (status dot, badge, uptime, response-time chart, history bar), a pinned "ongoing incidents" panel above the grid, and a wider column to fit it. Only the status page changes; every other page still renders like `clean`. |
 
 `dashboard` looks like Upptime or Kener: a grid instead of a list.
@@ -188,9 +188,9 @@ To pin one mode instead of following the reader's system, add `dark` or `light` 
 }
 ```
 
-A pinned mode removes the toggle, so readers can't switch. `"dark"` or `"light"` on its own pins the mode and keeps the `default` theme. Palette and mode resolve separately, so `Docs:Themes:Name` can pin the palette per deployment while `config.json` keeps the mode.
+A pinned mode removes the toggle, so readers can't switch. `"dark"` or `"light"` alone pins the mode and keeps the `default` theme. Palette and mode resolve separately, so `Docs:Themes:Name` can pin the palette per deployment while `config.json` keeps the mode.
 
-Custom styles live in `wwwroot/theme/custom.css`, picked up at startup. The whole theme runs on CSS variables, so overriding a handful on `:root` restyles the entire site and stays correct in dark mode:
+Custom styles go in `wwwroot/theme/custom.css`, loaded at startup. The theme is built on CSS variables, so overriding a few on `:root` restyles the whole site, dark mode included:
 
 ```css [wwwroot/theme/custom.css]
 :root {

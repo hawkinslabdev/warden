@@ -23,16 +23,16 @@ services:
       - ./data:/app/data
 ```
 
-Mount your own `content/` folder (`.md` files and an optional `config.json`), and `data/` so the SQLite heartbeat history survives container recreates. Then bring it up:
+`content/` is your `.md` files and an optional `config.json`. `data/` is `warden.db` (check history) and `keys/` (admin session keys). Both are bind mounts, so recreating the container does not delete them. Start it:
 
 ```bash
 mkdir -p data && chown -R 1654:1654 data
 docker compose up -d
 ```
 
-The container runs as UID `1654`, not root. If `data/` is not writable by that user, startup stops and prints the `chown` to run. On a host with SELinux (Fedora, RHEL), add `:Z` to the `data` volume line as well.
+The container runs as user `1654`. If `data/` is not writable by that user, startup exits with the exact `chown` command to run. On a host with SELinux (Fedora, RHEL), add `:Z` to the `data` volume line as well.
 
-The status page is now at `http://localhost:8080`. For running it as a long-lived service, the [Docker Compose notes](/deploy/containers/) go further.
+The status page is now at `http://localhost:8080`. See [Docker Compose notes](/deploy/containers/) for reverse proxy and base path settings.
 
 ## Windows and IIS
 
@@ -42,6 +42,6 @@ The status page is now at `http://localhost:8080`. For running it as a long-live
 4. Install the [.NET 11 Hosting Bundle](https://dotnet.microsoft.com/download/dotnet/11.0){target="_blank" rel="noopener"}.
 5. Start the site and browse to it.
 
-The zip includes a `web.config` set up for in-process hosting, no edits needed. Each release also includes a `*-Linux_x64.zip`; that install path isn't documented yet.
+The zip includes a `web.config` for in-process hosting. No edits are needed. Each release also includes a `*-Linux_x64.zip`; that install path isn't documented yet.
 
 To change the port, hide drafts, or keep an API key out of your content folder, see [environment variables](/deploy/environment/).

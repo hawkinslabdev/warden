@@ -14,7 +14,7 @@ Warden is a self-contained status page. It checks your sites on a timer, keeps t
 
 ## How it works
 
-Your content lives in a `content/` folder:
+Your content is a `content/` folder:
 
 ```
 content/
@@ -29,13 +29,13 @@ The status page is the site's root (`/`). It is not a Markdown file: Warden chec
 ```markdown
 ---
 title: About
-description: What this status page covers.
+description: Which services this status page reports on.
 ---
 
 Outages are reported here as they happen.
 ```
 
-Save a page and it appears right away. Warden watches the files and rebuilds in memory; there is nothing to compile.
+Save a page and it is served right away. Warden detects the file change and rebuilds the site in memory. There is no compile step.
 
 ## Installation
 
@@ -51,7 +51,7 @@ docker compose up -d
 
 Open `http://localhost:8080`. Edit `content/config.json` to change what is checked; it hot-reloads.
 
-`content/` holds your pages and config, `data/` holds the history and session keys. Both are volumes, so they survive container recreates. The container runs as UID `1654`; if `data/` is not writable by that user, startup stops and tells you the `chown` to run. On SELinux hosts add `:Z` to the `data` volume line.
+`content/` contains your pages and `config.json`. `data/` contains `warden.db` (the check history) and `keys/` (admin session keys). Both are bind mounts, so recreating the container does not delete them. The container runs as user `1654`. If `data/` is not writable by that user, startup exits with the exact `chown` command to run. On SELinux hosts add `:Z` to the `data` volume line.
 
 For a public host, set `PublicBaseUrl` and `AllowedHosts` in `docker-compose.yml` to your origin. Everything else, including the admin panel, is in [Environment variables](content/pages/deploy/environment.md).
 
@@ -78,7 +78,7 @@ The zip includes a `web.config` set up for in-process hosting, so no edits are n
 
 Incident `start` and `end` dates are ISO 8601. `2026-09-01T02:00:00Z` is UTC, `2026-09-01T04:00:00+02:00` uses that offset, and a plain `2026-09-01 04:00` is local time in the container's `TZ`.
 
-Incidents and standalone pages go through the same Markdig pipeline, so diagrams, math and footnotes work in both. The [Markdown examples page](content/pages/examples/markdown.md) shows each syntax next to its output; the [Markdown Guide](https://www.markdownguide.org/) covers the basics.
+Incidents and standalone pages use the same Markdown renderer, so diagrams, math and footnotes work in both. The [Markdown examples page](content/pages/examples/markdown.md) shows each syntax next to its output; the [Markdown Guide](https://www.markdownguide.org/) covers the basics.
 
 ## Configuring your site
 

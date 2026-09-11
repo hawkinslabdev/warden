@@ -36,7 +36,7 @@ Proxy__Trusted__1=172.18.0.5
 
 ## Monitoring
 
-What to check, and how often, lives in `content/config.json`, not here; see the [guide](/guide/#get-your-first-monitor-running) for the `monitoring` block. The database file's location is the one deployment concern:
+Targets and check interval are set in `content/config.json`; see the [guide](/guide/#get-your-first-monitor-running) for the `monitoring` block. The only environment setting is the database location:
 
 ```json [appsettings.json]
 {
@@ -51,7 +51,7 @@ What to check, and how often, lives in `content/config.json`, not here; see the 
 | `Monitoring__DatabasePath` | `data/warden.db` | Where the SQLite heartbeat history lives, relative to the app unless rooted. |
 | `DatabasePath` | none | A shorter name for the same setting, simpler to type in a `docker-compose.yml` `environment:` block. Takes priority over `Monitoring__DatabasePath` when both are set. |
 
-To move history between hosts, `dotnet Warden.dll --export-db backup.db` writes a consistent copy while the app can keep running, and `--import-db backup.db` merges one in, skipping rows already present. Startup logs how much history the database holds.
+To move history between hosts: `dotnet Warden.dll --export-db backup.db` writes a copy of the database (safe while Warden is running), and `--import-db backup.db` inserts its rows into the current database, skipping rows that already exist. At startup Warden logs the number of monitors, heartbeats, and the oldest date in the database.
 
 ## Content
 
@@ -66,7 +66,7 @@ To move history between hosts, `dotnet Warden.dll --export-db backup.db` writes 
 
 `Docs__BasePath` prefixes every internal link. Give a static export the same value with `--base-path` so the two agree.
 
-`Docs__Themes__Name` suits a deployment that wants a different look than the one in version control. It outranks `theme` in `config.json`, and `--theme <name>` on the command line outranks both.
+`Docs__Themes__Name` sets a theme per deployment. It takes precedence over `theme` in `config.json`, and `--theme <name>` on the command line takes precedence over both.
 
 ## Health checks
 
@@ -112,7 +112,7 @@ Register `https://your-site/auth/callback` as the redirect URI. Warden asks for 
 
 `OIDC_ALLOWED_SUBJECTS` requires the `sub` claim. Your provider's user admin should include this value, Keycloak as the user ID, Authentik as `sub`.
 
-Behind a reverse proxy, list it under `Proxy__Trusted__0` as well. Without it Warden cannot tell the request arrived over https, so the session cookie goes out without its `Secure` flag.
+Behind a reverse proxy, list it under `Proxy__Trusted__0` as well. Without it Warden cannot tell the request arrived over https, so the session cookie is sent without the `Secure` flag.
 
 Session and antiforgery keys are stored in `data/keys/`, next to the database. Mount `data/`, or every container recreate logs everyone out.
 
@@ -120,7 +120,7 @@ Session and antiforgery keys are stored in `data/keys/`, next to the database. M
 
 Warnings and errors go to `logs/warden-<date>.log` beside the binary, one file per day, 14 days kept. `Information` messages go to the console only, so the file stays small.
 
-These settings live in the `Serilog` section of `appsettings.json`: change `path` to write to a mounted volume, or lower `restrictedToMinimumLevel` to log more. `Serilog__WriteTo__1__Args__path` in the environment works too.
+These settings are in the `Serilog` section of `appsettings.json`: change `path` to write to a mounted volume, or lower `restrictedToMinimumLevel` to log more. `Serilog__WriteTo__1__Args__path` in the environment works too.
 
 ## In a container
 

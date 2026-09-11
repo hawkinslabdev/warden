@@ -71,7 +71,7 @@ For a row of images side by side, wrap them in a gallery:
 
 ## Maps
 
-To place points on a map, use a `map` block. Each pin needs `coords` and can carry a name, a phone number, a contact address, a website, and a line of text. The pins show as markers, and a click opens their details:
+To place points on a map, use a `map` block. Each pin needs `coords` and can have a name, a phone number, a contact address, a website, and a line of text. The pins show as markers, and a click opens their details:
 
 ```map
 zoom: 8
@@ -91,7 +91,7 @@ Leave `zoom` and `center` out and the map frames every pin for you. Maps use [Op
 
 ## Abbreviations
 
-Define a term once and every mention of it on the page picks up the explanation:
+Define a term once and every mention of it on the page gets the explanation:
 
 ````md
 The HTML spec is written by the WHATWG and rendered here over HTTP.

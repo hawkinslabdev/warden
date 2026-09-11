@@ -19,7 +19,7 @@ services:
       - ./data:/app/data
 ```
 
-Mount `content/` so your pages stay editable from the host, and `data/` so the SQLite heartbeat history survives container recreates. Then bring it up:
+`content/` is your pages and config. `data/` is `warden.db` (check history) and `keys/` (admin session keys). Both are bind mounts, so recreating the container doesn't delete them. Start it:
 
 ```bash
 mkdir -p data && chown -R 1654:1654 data
@@ -31,7 +31,7 @@ The container runs as UID `1654`, so `data/` must be writable by that user. Othe
 The status page is now at `http://localhost:8080`.
 
 ::: tip
-`content/` is a volume, so a new Markdown file is picked up as soon as it's saved, no restart.
+`content/` is a volume. A new Markdown file appears as soon as it is saved, without a restart.
 :::
 
 Behind a reverse proxy, set `Docs:BasePath` (or `--base-path` for a static export) so internal links resolve under your chosen path. The [installation guide](/deploy/install/) covers first-time setup, and [environment variables](/deploy/environment/) lists what the compose file accepts.

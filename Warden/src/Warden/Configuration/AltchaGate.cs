@@ -37,7 +37,9 @@ public static class AltchaGate
         {
             var path = context.Request.Path;
             // challenge mid-redirect breaks oidc callback.
+            // feed readers cannot solve a challenge
             if (path.StartsWithSegments("/altcha") || path.StartsWithSegments("/health") || path.StartsWithSegments("/api")
+                || path.Equals("/incidents/feed.xml", StringComparison.OrdinalIgnoreCase)
                 || (adminPath is not null && path.StartsWithSegments(adminPath))
                 || (authPath is not null && path.StartsWithSegments(authPath)))
             {

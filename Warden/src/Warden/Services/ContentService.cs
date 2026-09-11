@@ -322,7 +322,8 @@ public sealed partial class ContentService : IHostedService, IDisposable
                 Maintenance: parsed.Maintenance,
                 End: parsed.End,
                 Monitors: parsed.Monitors,
-                Status: parsed.Status
+                Status: parsed.Status,
+                Pinned: parsed.Pinned
             );
 
             pageMap[pagePath] = page;

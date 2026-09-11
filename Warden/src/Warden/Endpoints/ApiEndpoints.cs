@@ -61,7 +61,7 @@ internal static class ApiEndpoints
 
         var incidents = IncidentContent
             .RecentIncidents(pages, now, monitoring?.IncidentWindowDays ?? IncidentContent.DefaultIncidentWindowDays, monitoring?.IncidentMaxShown ?? IncidentContent.DefaultIncidentMaxShown)
-            .Select(p => new ApiIncident(p.Path, p.Title, p.Description, ToLocal(IncidentContent.StartOf(p)), ToLocalOrNull(IncidentContent.EndOf(p)), IncidentContent.IncidentBadgeClass(p)))
+            .Select(p => new ApiIncident(p.Path, p.Title, p.Description, ToLocal(IncidentContent.StartOf(p)), ToLocalOrNull(IncidentContent.EndOf(p)), IncidentContent.IncidentBadgeClass(p), p.Pinned))
             .ToList();
 
         var maintenance = IncidentContent

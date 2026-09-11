@@ -188,6 +188,12 @@ public sealed class IntegrationTests : IClassFixture<WardenWebApplicationFactory
         var sitemap = await client.GetStringAsync("/sitemap.xml");
         Assert.Contains("<urlset", sitemap);
         Assert.Contains("priority>1.0", sitemap);
+
+        var feed = await client.GetAsync("/incidents/feed.xml");
+        Assert.Equal("application/atom+xml", feed.Content.Headers.ContentType!.MediaType);
+        var atom = await feed.Content.ReadAsStringAsync();
+        System.Xml.Linq.XDocument.Parse(atom); // well-formed
+        Assert.Contains("<feed xmlns=\"http://www.w3.org/2005/Atom\"", atom);
     }
 }
 

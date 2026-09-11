@@ -123,10 +123,11 @@ internal static class StatusEndpoints
         return sb.ToString();
     }
 
-    private static string BuildUptimeSpan(Localization l, (double Percent, TimeSpan Span)? uptime) =>
+    // no history at all means the first check has not run yet; a filtered day with nothing is plain no data
+    private static string BuildUptimeSpan(Localization l, (double Percent, TimeSpan Span)? uptime, bool firstRun = false) =>
         uptime is { } u
             ? $"<span class=\"status-monitor-uptime select-none\">{LayoutProvider.HtmlEncode(l.StatusUptimeLabel(u.Percent, FormatDuration(u.Span)))}</span>"
-            : $"<span class=\"status-monitor-uptime select-none\">{LayoutProvider.HtmlEncode(l.StatusNoData)}</span>";
+            : $"<span class=\"status-monitor-uptime select-none\">{LayoutProvider.HtmlEncode(firstRun ? l.StatusFirstCheck : l.StatusNoData)}</span>";
 
     private static string BuildMonitorNameSpan(Localization l, MonitorTarget target)
     {
@@ -148,7 +149,7 @@ internal static class StatusEndpoints
         var sb = new System.Text.StringBuilder("<li class=\"status-monitor status-monitor--").Append(StatusClass(status)).Append("\">")
           .Append(BuildMonitorNameSpan(l, target))
           .Append(BuildStatusBadge(l, status, linked, basePath));
-        sb.Append(BuildUptimeSpan(l, uptime));
+        sb.Append(BuildUptimeSpan(l, uptime, firstRun: filterDay is null));
         sb.Append(BuildHistoryBar(store, target.Id, basePath, historyDays, degradedBelowPercent));
         sb.Append("</li>");
         return sb.ToString();
@@ -245,7 +246,7 @@ internal static class StatusEndpoints
           .Append(BuildMonitorNameSpan(l, target))
           .Append(BuildStatusBadge(l, status, linked, basePath))
           .Append("</div>");
-        sb.Append(BuildUptimeSpan(l, uptime));
+        sb.Append(BuildUptimeSpan(l, uptime, firstRun: filterDay is null));
         sb.Append(BuildResponseTimeChart(store, target.Id, basePath));
         sb.Append(BuildHistoryBar(store, target.Id, basePath, historyDays, degradedBelowPercent));
         sb.Append("</li>");
@@ -298,17 +299,20 @@ internal static class StatusEndpoints
     {
         var resolved = page.End is not null;
         var badgeClass = IncidentContent.IncidentBadgeClass(page);
+        var notice = IncidentContent.IsNotice(page);
         var degraded = IncidentContent.IncidentStatus(page) == MonitorStatus.Degraded;
+        var start = IncidentContent.TimeHtml(IncidentContent.StartOf(page));
         var content = resolved
-            ? l.StatusOutagePeriod(IncidentContent.TimeHtml(IncidentContent.StartOf(page)), IncidentContent.TimeHtml(IncidentContent.EndOf(page)!.Value))
-            : degraded
-                ? l.StatusDegradedSince(IncidentContent.TimeHtml(IncidentContent.StartOf(page)))
-                : l.StatusDownSince(IncidentContent.TimeHtml(IncidentContent.StartOf(page)));
+            ? l.StatusOutagePeriod(start, IncidentContent.TimeHtml(IncidentContent.EndOf(page)!.Value))
+            : notice ? l.StatusPostedOn(start)
+            : degraded ? l.StatusDegradedSince(start)
+            : l.StatusDownSince(start);
+        var badge = resolved ? l.StatusResolved : notice ? l.StatusNotice : degraded ? l.StatusDegraded : l.StatusDown;
         sb.Append("<article class=\"status-incident\"><div class=\"status-incident-head\"><h3 class=\"status-incident-title\"><a href=\"")
           .Append(UrlPaths.Href(basePath, page.Path)).Append("\">")
           .Append(LayoutProvider.HtmlEncode(page.Title)).Append("</a></h3>")
           .Append("<span class=\"status-incident-badge status-incident-badge--").Append(badgeClass).Append("\">")
-          .Append(LayoutProvider.HtmlEncode(resolved ? l.StatusResolved : degraded ? l.StatusDegraded : l.StatusDown)).Append("</span>")
+          .Append(LayoutProvider.HtmlEncode(badge)).Append("</span>")
           .Append("</div><div class=\"status-incident-content\">")
           .Append(content)
           .Append("</div></article>");
@@ -372,10 +376,16 @@ internal static class StatusEndpoints
                 MonitorStatus.Degraded => $"{l.StatusDegraded} ({day.UpPercent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%)",
                 _ => l.StatusNoData,
             };
-            var tip = $"{label} · {DateFormatter.Current.Medium(day.Day.ToDateTime(TimeOnly.MinValue))}";
+            var tip = LayoutProvider.HtmlEncode($"{label} · {DateFormatter.Current.Medium(day.Day.ToDateTime(TimeOnly.MinValue))}");
+            // a day without data has nothing to open
+            if (day.Status == MonitorStatus.Unknown)
+            {
+                sb.Append("<span class=\"status-tick status-tick--unknown\" data-tip=\"").Append(tip).Append("\" aria-label=\"").Append(tip).Append("\"></span>");
+                continue;
+            }
             sb.Append("<a href=\"").Append(basePath).Append("/?on=").Append(day.Day.ToString("yyyy-MM-dd"))
               .Append("#status-incidents\" class=\"status-tick status-tick--").Append(cls).Append("\" data-tip=\"")
-              .Append(LayoutProvider.HtmlEncode(tip)).Append("\"></a>");
+              .Append(tip).Append("\" aria-label=\"").Append(tip).Append("\"></a>");
         }
 
         sb.Append("</div>");

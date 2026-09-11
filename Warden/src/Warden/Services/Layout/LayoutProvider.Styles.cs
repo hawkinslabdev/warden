@@ -2230,7 +2230,7 @@ public static partial class LayoutProvider
             color: var(--alert-warning);
             font-weight: 600;
         }}
-        .status-maintenance-badge--active {{
+        .status-maintenance-badge--active, .status-incident-badge--notice {{
             color: var(--alert-note);
             font-weight: 600;
         }}

@@ -5,8 +5,8 @@ namespace Warden.Tests;
 
 public sealed class IncidentContentTests
 {
-    private static DocumentationPage Page(string relativePath, DateTime start, bool maintenance = false, DateTime? end = null, IReadOnlyList<string>? monitors = null, string? status = null) =>
-        new("incidents/x", "Title", "<p>body</p>", OriginalRelativePath: relativePath, Date: start, Maintenance: maintenance, End: end, Monitors: monitors, Status: status);
+    private static DocumentationPage Page(string relativePath, DateTime start, bool maintenance = false, DateTime? end = null, IReadOnlyList<string>? monitors = null, string? status = null, bool pinned = false) =>
+        new("incidents/x", "Title", "<p>body</p>", OriginalRelativePath: relativePath, Date: start, Maintenance: maintenance, End: end, Monitors: monitors, Status: status, Pinned: pinned);
 
     [Fact]
     public void RecentIncidents_IncludesOngoingRegardlessOfWindowButAgesOutResolved()
@@ -179,6 +179,34 @@ public sealed class IncidentContentTests
         };
 
         Assert.Equal(new DateTimeOffset(utc), IncidentContent.ToInstant(value));
+    }
+
+    [Fact]
+    public void Notice_IsListedButNeverOverridesAMonitor()
+    {
+        var now = DateTime.UtcNow;
+        var pages = new[] { Page("incidents/heads-up.md", now.AddHours(-1), monitors: ["forgejo"], status: "notice") };
+
+        Assert.Empty(IncidentContent.ActiveIncidentMonitorIds(pages, DateTimeOffset.UtcNow, ["forgejo"]));
+        Assert.Empty(IncidentContent.IncidentMonitorIdsOnDay(pages, DateOnly.FromDateTime(now), ["forgejo"]));
+        Assert.Single(IncidentContent.RecentIncidents(pages, DateTimeOffset.UtcNow, 7, 10));
+        Assert.Equal("notice", IncidentContent.IncidentBadgeClass(pages[0]));
+    }
+
+    [Fact]
+    public void Pinned_StaysPastTheWindowAndSortsFirst()
+    {
+        var now = DateTime.UtcNow;
+        var pages = new[]
+        {
+            Page("incidents/fresh.md", now.AddHours(-1)),
+            Page("incidents/old-pinned.md", now.AddDays(-60), end: now.AddDays(-59), pinned: true),
+            Page("incidents/old.md", now.AddDays(-60), end: now.AddDays(-59)),
+        };
+
+        var shown = IncidentContent.RecentIncidents(pages, DateTimeOffset.UtcNow, 7, 10);
+
+        Assert.Equal(["incidents/old-pinned.md", "incidents/fresh.md"], shown.Select(p => p.OriginalRelativePath));
     }
 
     [Fact]

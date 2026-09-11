@@ -83,7 +83,7 @@ public sealed record HeartbeatRecord(string Id, string MonitorId, DateTimeOffset
 // /api/status response shapes - "up"/"down"/"unknown"/"active"/"planned" are a stable machine contract, not localized UI text
 // no monitor Id: it's a server-side slug (e.g. an internal hostname), not for public consumption
 public sealed record ApiMonitorStatus(string Name, string Status, double? UptimePercent24h, DateTimeOffset? LastCheckedAt);
-public sealed record ApiIncident(string Slug, string Title, string? Description, DateTimeOffset Start, DateTimeOffset? End, string Status);
+public sealed record ApiIncident(string Slug, string Title, string? Description, DateTimeOffset Start, DateTimeOffset? End, string Status, bool Pinned = false);
 public sealed record ApiMaintenanceWindow(string Slug, string Title, DateTimeOffset Start, DateTimeOffset End, string? Description, string Status);
 // timestamps in this payload are converted to the zone named by Tz (the TZ env var); stored history stays UTC
 public sealed record StatusApiResponse(List<ApiMonitorStatus> Monitors, List<ApiIncident> Incidents, List<ApiMaintenanceWindow> Maintenance, string Tz);

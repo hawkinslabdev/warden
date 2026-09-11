@@ -28,11 +28,12 @@ internal static class IncidentContent
         pages.Where(p => p.OriginalRelativePath?.StartsWith(FolderPrefix, StringComparison.Ordinal) == true
                           && p.Maintenance == maintenance);
 
-    // an ongoing incident always shows regardless of window; a resolved one ages out after windowDays, newest first
+    // ongoing and pinned always show; a resolved one ages out after windowDays; pinned first, then newest
     public static List<DocumentationPage> RecentIncidents(IReadOnlyList<DocumentationPage> pages, DateTimeOffset now, int windowDays, int maxShown) =>
         [.. InFolder(pages, maintenance: false)
-              .Where(p => EndOf(p) is not { } end || end >= now.AddDays(-windowDays))
-              .OrderByDescending(StartOf)
+              .Where(p => p.Pinned || EndOf(p) is not { } end || end >= now.AddDays(-windowDays))
+              .OrderByDescending(p => p.Pinned)
+              .ThenByDescending(StartOf)
               .Take(maxShown)];
 
     // an active window always shows; a planned one ages in once it's within windowDays of starting
@@ -86,7 +87,7 @@ internal static class IncidentContent
         var ids = new Dictionary<string, MonitorStatus>(StringComparer.Ordinal);
         foreach (var page in InFolder(pages, maintenance: false))
         {
-            if (page.Monitors is not { Count: > 0 } monitors || page.End is not null || StartOf(page) > now)
+            if (page.Monitors is not { Count: > 0 } monitors || page.End is not null || StartOf(page) > now || IsNotice(page))
                 continue;
             var status = IncidentStatus(page);
             foreach (var id in ExpandMonitors(monitors, allMonitorIds))
@@ -101,13 +102,17 @@ internal static class IncidentContent
     public static MonitorStatus IncidentStatus(DocumentationPage page) =>
         string.Equals(page.Status, "degraded", StringComparison.OrdinalIgnoreCase) ? MonitorStatus.Degraded : MonitorStatus.Down;
 
+    // informational: listed, never changes a monitor or the banner
+    public static bool IsNotice(DocumentationPage page) =>
+        string.Equals(page.Status, "notice", StringComparison.OrdinalIgnoreCase);
+
     // day-filtered counterpart of ActiveIncidentMonitorIds: "active" becomes "overlapped that calendar day"
     public static Dictionary<string, MonitorStatus> IncidentMonitorIdsOnDay(IReadOnlyList<DocumentationPage> pages, DateOnly day, IReadOnlyList<string> allMonitorIds)
     {
         var ids = new Dictionary<string, MonitorStatus>(StringComparer.Ordinal);
         foreach (var page in InFolder(pages, maintenance: false))
         {
-            if (page.Monitors is not { Count: > 0 } monitors || !OverlapsDay(StartOf(page), EndOf(page) ?? DateTimeOffset.UtcNow, day))
+            if (page.Monitors is not { Count: > 0 } monitors || !OverlapsDay(StartOf(page), EndOf(page) ?? DateTimeOffset.UtcNow, day) || IsNotice(page))
                 continue;
             var status = IncidentStatus(page);
             foreach (var id in ExpandMonitors(monitors, allMonitorIds))
@@ -139,6 +144,7 @@ internal static class IncidentContent
 
     public static string IncidentBadgeClass(DocumentationPage page) =>
         page.End is not null ? "resolved"
+        : IsNotice(page) ? "notice"
         : IncidentStatus(page) == MonitorStatus.Degraded ? "degraded"
         : "down";
 

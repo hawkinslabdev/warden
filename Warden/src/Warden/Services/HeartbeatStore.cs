@@ -39,8 +39,49 @@ public sealed class HeartbeatStore
                 data TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_heartbeats_monitor_time ON heartbeats(monitor_id, timestamp);
+            CREATE INDEX IF NOT EXISTS idx_heartbeats_time ON heartbeats(timestamp);
             """;
         create.ExecuteNonQuery();
+
+        var (monitors, rows, oldest) = Summary(connection);
+        _logger.LogInformation("History: {Monitors} monitors, {Rows} heartbeats, oldest {Oldest}", monitors, rows, oldest ?? "none");
+    }
+
+    private static (int Monitors, long Rows, string? Oldest) Summary(SqliteConnection connection)
+    {
+        using var summary = connection.CreateCommand();
+        summary.CommandText = "SELECT count(DISTINCT monitor_id), count(*), substr(min(timestamp), 1, 10) FROM heartbeats;";
+        using var reader = summary.ExecuteReader();
+        reader.Read();
+        return (reader.GetInt32(0), reader.GetInt64(1), reader.IsDBNull(2) ? null : reader.GetString(2));
+    }
+
+    // consistent single-file copy, safe while the app is running
+    public void ExportTo(string path)
+    {
+        if (File.Exists(path)) File.Delete(path);
+        using var connection = Open();
+        using var vacuum = connection.CreateCommand();
+        vacuum.CommandText = "VACUUM INTO $path;";
+        vacuum.Parameters.AddWithValue("$path", Path.GetFullPath(path));
+        vacuum.ExecuteNonQuery();
+    }
+
+    // merges another warden.db; existing ids are kept, returns rows added
+    public long ImportFrom(string path)
+    {
+        using var connection = Open();
+        using var attach = connection.CreateCommand();
+        attach.CommandText = "ATTACH DATABASE $path AS other;";
+        attach.Parameters.AddWithValue("$path", Path.GetFullPath(path));
+        attach.ExecuteNonQuery();
+        using var insert = connection.CreateCommand();
+        insert.CommandText = "INSERT OR IGNORE INTO heartbeats SELECT id, monitor_id, timestamp, data FROM other.heartbeats;";
+        var added = insert.ExecuteNonQuery();
+        using var detach = connection.CreateCommand();
+        detach.CommandText = "DETACH DATABASE other;";
+        detach.ExecuteNonQuery();
+        return added;
     }
 
     // auto_vacuum only takes effect on an empty database, so migrating an existing file needs a one-time VACUUM; idempotent since later startups see mode already INCREMENTAL
@@ -217,7 +258,7 @@ public sealed class HeartbeatStore
         var removed = delete.ExecuteNonQuery();
         if (removed > 0)
         {
-            _logger.LogDebug("Pruned {Count} heartbeats older than {Retention}", removed, retention);
+            _logger.LogInformation("Pruned {Count} heartbeats older than {Days} days", removed, retention.TotalDays);
             // reclaims the pages the delete just freed, without a full VACUUM's whole-file rewrite
             using var incrementalVacuum = connection.CreateCommand();
             incrementalVacuum.CommandText = "PRAGMA incremental_vacuum;";

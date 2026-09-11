@@ -21,7 +21,8 @@ public sealed record MarkdownParseResult(
     bool Maintenance = false,
     DateTime? End = null,
     IReadOnlyList<string>? Monitors = null,
-    string? Status = null)
+    string? Status = null,
+    bool Pinned = false)
 {
     public void Deconstruct(out string html, out string? title, out string? description, out List<HeadingInfo> headings)
     {

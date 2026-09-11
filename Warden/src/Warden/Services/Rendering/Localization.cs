@@ -46,6 +46,8 @@ public sealed class Localization
         ["statusNoIncidents"] = "No incidents.",
         ["statusDownSince"] = "Down since {0}",
         ["statusDegradedSince"] = "Degraded since {0}",
+        ["statusNotice"] = "Notice",
+        ["statusPostedOn"] = "Posted {0}",
         ["statusOutagePeriod"] = "Down {0} – {1}",
         ["statusResolved"] = "Resolved",
         ["statusIncidentEnded"] = "Ended",
@@ -56,6 +58,7 @@ public sealed class Localization
         ["statusFilterClear"] = "Clear filter",
         ["statusUnavailable"] = "Status data is temporarily unavailable.",
         ["statusNoData"] = "No data",
+        ["statusFirstCheck"] = "Waiting for first check",
         ["statusMaintenanceHeading"] = "Maintenance",
         ["statusMaintenancePlanned"] = "Planned",
         ["statusMaintenanceActive"] = "Active",
@@ -213,6 +216,8 @@ public sealed class Localization
     public string StatusNoIncidents => this["statusNoIncidents"];
     public string StatusDownSince(string when) => Format("statusDownSince", when);
     public string StatusDegradedSince(string when) => Format("statusDegradedSince", when);
+    public string StatusNotice => this["statusNotice"];
+    public string StatusPostedOn(string when) => Format("statusPostedOn", when);
     public string StatusOutagePeriod(string start, string end) => Format("statusOutagePeriod", start, end);
     public string StatusResolved => this["statusResolved"];
     public string StatusIncidentEnded => this["statusIncidentEnded"];
@@ -223,6 +228,7 @@ public sealed class Localization
     public string StatusFilterClear => this["statusFilterClear"];
     public string StatusUnavailable => this["statusUnavailable"];
     public string StatusNoData => this["statusNoData"];
+    public string StatusFirstCheck => this["statusFirstCheck"];
     public string StatusMaintenanceHeading => this["statusMaintenanceHeading"];
     public string StatusMaintenancePlanned => this["statusMaintenancePlanned"];
     public string StatusMaintenanceActive => this["statusMaintenanceActive"];

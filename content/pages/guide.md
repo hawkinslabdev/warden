@@ -76,16 +76,16 @@ We're upgrading the database behind Forgejo. Expect brief interruptions.
 | | Needs | Badge |
 |---|---|---|
 | Maintenance window | `start` and `end` | **Planned** before `start`, **Active** until `end`, then gone from the status page |
-| Incident | `start` | **Down** until you add `end`, then **Resolved**. Add `status: degraded` for a partial outage. |
+| Incident | `start` | **Down** until you add `end`, then **Resolved**. Add `status: degraded` for a partial outage, or `status: notice` for an announcement that affects nothing. |
 
-Both stay under **Incidents** for a while after they end, and keep their own URL forever.
+Both stay under **Incidents** for a while after they end, and keep their own URL forever. Add `pinned: true` to keep one on the page regardless of age, sorted first. Every incident and window is also in the Atom feed at `/incidents/feed.xml`.
 
 The URL is the file path: `content/incidents/database-upgrade.md` becomes `/incidents/database-upgrade/`. Folders work too, so `content/incidents/2026/database-upgrade.md` becomes `/incidents/2026/database-upgrade/`.
 
 `monitors: [forgejo]` (or `monitors: forgejo` for one) links it to monitor ids from `content/config.json`. Use `monitors: all` for everything. What that does:
 
 - Active maintenance window: the monitor shows **Maintenance** instead of Up/Down, and doesn't count toward the "some systems are experiencing issues" banner.
-- Unresolved incident: the monitor shows **Down**, or **Degraded** with `status: degraded`, whatever the automated check says. Useful when the ping succeeds but the service is slow or half-broken: uptime stays the measured number, the badge tells the truth.
+- Unresolved incident: the monitor shows **Down**, or **Degraded** with `status: degraded`, whatever the automated check says. A `notice` changes nothing on the monitor or the banner. Useful when the ping succeeds but the service is slow or half-broken: uptime stays the measured number, the badge tells the truth.
 - Both on one monitor: the incident takes precedence. Two incidents: the more severe one takes precedence.
 
 ```md [content/incidents/api-latency.md]

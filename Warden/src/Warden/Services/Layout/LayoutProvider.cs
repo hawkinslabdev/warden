@@ -108,6 +108,7 @@ public static partial class LayoutProvider
         var canonicalLink = canonicalUrl is { Length: > 0 }
             ? $"<link rel=\"canonical\" href=\"{HtmlEncode(canonicalUrl)}\">"
             : string.Empty;
+        canonicalLink += $"<link rel=\"alternate\" type=\"application/atom+xml\" title=\"Incidents\" href=\"{basePath}/incidents/feed.xml\">";
 
         return CollapseBlankLines($@"
 <!DOCTYPE html>

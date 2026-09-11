@@ -23,7 +23,8 @@ public sealed record DocumentationPage(
     bool Maintenance = false,
     DateTime? End = null,
     IReadOnlyList<string>? Monitors = null,
-    string? Status = null
+    string? Status = null,
+    bool Pinned = false
 )
 {
     public DocumentationPage(

@@ -80,6 +80,15 @@ try
         builder.Services.AddHostedService(sp => new GitContentSyncService(
             gitSyncOptions, gitRoot, sp.GetRequiredService<ILogger<GitContentSyncService>>()));
 
+    // fail early with the fix, not a stack trace
+    foreach (var dir in new[] { dbDir, gitSyncOptions.Enabled && !isExport ? gitRoot : null })
+    {
+        if (dir is null || IsWritable(dir)) continue;
+        Log.Fatal("{Dir} is not writable by this process. Run: chown -R 1654:1654 {Name}   (SELinux hosts: also add :Z to the volume)", dir, Path.GetFileName(dir.TrimEnd('/')));
+        Environment.ExitCode = 1;
+        return;
+    }
+
     // admin
     var authOptions = AuthOptions.FromEnvironment() with
     {
@@ -89,7 +98,7 @@ try
     builder.Services.AddSingleton(authOptions);
 
     if (!string.IsNullOrEmpty(authOptions.Issuer) && !authOptions.Enabled)
-        Log.Warning("OIDC_ISSUER is set but the admin panel stays off: the issuer must be an absolute https URL (or http on loopback), both OIDC_CLIENT_ID and OIDC_CLIENT_SECRET must be present, and OIDC_ALLOWED_SUBJECTS must list at least one subject (an empty allowlist would admit every account the issuer serves)");
+        Log.Warning("Admin panel off: OIDC_ISSUER is set but the config is incomplete. Needs an https issuer (http only on loopback), OIDC_CLIENT_ID, OIDC_CLIENT_SECRET and at least one OIDC_ALLOWED_SUBJECTS");
 
     var adminEnabled = authOptions.AdminEnabled;
     if (adminEnabled)
@@ -139,7 +148,7 @@ try
     builder.Services.Configure<ForwardedHeadersOptions>(options => ForwardedHeaderSetup.Configure(options, proxyOptions));
 
     if (adminEnabled && !proxyOptions.TrustAny && proxyOptions.Trusted.Length == 0 && !authOptions.IsLoopbackIssuer)
-        Log.Warning("The admin panel is on but no Proxy:Trusted entry is configured. If TLS terminates at a reverse proxy, Warden cannot see that the request was https, so the admin session cookie ships without the Secure flag and no HSTS header is sent. Set Proxy:Trusted to your proxy's address or CIDR, or terminate TLS in Warden itself");
+        Log.Warning("Admin panel is on but no proxy is trusted, so https is not detected behind a reverse proxy and the session cookie is sent without Secure. Set Proxy__Trusted__0 to your proxy's IP or CIDR");
 
     // altcha
     var altchaOptions = config.GetSection("Altcha").Get<AltchaOptions>() ?? new AltchaOptions();
@@ -221,8 +230,21 @@ try
 
     var app = builder.Build();
 
+    if (cliArgs.ExportDb is { } exportDb)
+    {
+        app.Services.GetRequiredService<HeartbeatStore>().ExportTo(exportDb);
+        Log.Information("History exported to {Path}", exportDb);
+        return;
+    }
+    if (cliArgs.ImportDb is { } importDb)
+    {
+        var added = app.Services.GetRequiredService<HeartbeatStore>().ImportFrom(importDb);
+        Log.Information("Imported {Count} heartbeats from {Path}", added, importDb);
+        return;
+    }
+
     if (!app.Environment.IsDevelopment() && app.Services.GetRequiredService<PageRequestSettings>().PublicBaseUrl is null)
-        Log.Warning("Docs:PublicBaseUrl is not set; canonical URLs, feeds and robots.txt are built from the caller's Host header. Set it in production.");
+        Log.Warning("PublicBaseUrl is not set; canonical URLs and robots.txt use the request's Host header. Set PublicBaseUrl=https://your-host in production");
 
     // before content service renders
     await app.Services.GetRequiredService<ISyntaxHighlighter>().InitializeAsync(CancellationToken.None);
@@ -355,6 +377,22 @@ catch (Exception ex)
 finally
 {
     Log.CloseAndFlush();
+}
+
+static bool IsWritable(string dir)
+{
+    try
+    {
+        Directory.CreateDirectory(dir);
+        var probe = Path.Combine(dir, ".write-test");
+        File.WriteAllText(probe, "");
+        File.Delete(probe);
+        return true;
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+    {
+        return false;
+    }
 }
 
 static void ConfigureMonitorClient(HttpClient client)

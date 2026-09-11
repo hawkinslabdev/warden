@@ -30,7 +30,7 @@ mkdir -p data && chown -R 1654:1654 data
 docker compose up -d
 ```
 
-The container runs as UID `1654`, not root, so `data/` must be writable by that user. On a host with SELinux (Fedora, RHEL), add `:Z` to the `data` volume line as well.
+The container runs as UID `1654`, not root. If `data/` is not writable by that user, startup stops and prints the `chown` to run. On a host with SELinux (Fedora, RHEL), add `:Z` to the `data` volume line as well.
 
 The status page is now at `http://localhost:8080`. For running it as a long-lived service, the [Docker Compose notes](/deploy/containers/) go further.
 

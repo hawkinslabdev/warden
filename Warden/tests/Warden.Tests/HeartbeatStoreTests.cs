@@ -24,6 +24,30 @@ public sealed class HeartbeatStoreTests : IDisposable
     }
 
     [Fact]
+    public void ExportThenImport_RoundTripsWithoutDuplicates()
+    {
+        var copy = Path.Combine(Path.GetTempPath(), $"warden-test-{Guid.NewGuid():N}.db");
+        try
+        {
+            _store.Record("site", DateTimeOffset.UtcNow.AddMinutes(-2), true, 40);
+            _store.Record("site", DateTimeOffset.UtcNow.AddMinutes(-1), false, null, "boom");
+            _store.ExportTo(copy);
+
+            Assert.True(File.Exists(copy));
+            Assert.Equal(0, _store.ImportFrom(copy)); // same ids, nothing new
+
+            _store.DeleteFor("site");
+            Assert.Equal(2, _store.ImportFrom(copy));
+            Assert.False(_store.GetLatest("site")!.Data.Up);
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            if (File.Exists(copy)) File.Delete(copy);
+        }
+    }
+
+    [Fact]
     public void Construction_EnablesIncrementalAutoVacuum()
     {
         Assert.Equal(2, ReadAutoVacuumMode(_dbPath));

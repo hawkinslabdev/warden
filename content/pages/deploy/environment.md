@@ -51,6 +51,8 @@ What to check, and how often, lives in `content/config.json`, not here; see the 
 | `Monitoring__DatabasePath` | `data/warden.db` | Where the SQLite heartbeat history lives, relative to the app unless rooted. |
 | `DatabasePath` | none | A shorter name for the same setting, simpler to type in a `docker-compose.yml` `environment:` block. Takes priority over `Monitoring__DatabasePath` when both are set. |
 
+To move history between hosts, `dotnet Warden.dll --export-db backup.db` writes a consistent copy while the app can keep running, and `--import-db backup.db` merges one in, skipping rows already present. Startup logs how much history the database holds.
+
 ## Content
 
 | Variable | Default | What it does |

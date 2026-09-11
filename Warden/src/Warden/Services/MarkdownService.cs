@@ -144,7 +144,8 @@ public sealed partial class MarkdownService
             frontMatter?.Maintenance ?? false,
             frontMatter?.End,
             frontMatter?.Monitors is { Count: > 0 } mons ? mons.AsReadOnly() : null,
-            frontMatter?.Status);
+            frontMatter?.Status,
+            frontMatter?.Pinned ?? false);
     }
 
     // Attributes `{...}` may set. Anything added here is contributor-writable: no handlers, no href/src.

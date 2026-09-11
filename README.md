@@ -39,30 +39,21 @@ Save a page and it appears right away. Warden watches the files and rebuilds in 
 
 ## Installation
 
-The quickest way to run Warden is the container image.
-
 ### Docker
 
 ```bash
-mkdir -p warden/content/incidents warden/content/pages warden/content/locale warden/data
-cd warden
+mkdir -p warden/content warden/data && cd warden
 curl -O https://raw.githubusercontent.com/hawkinslabdev/warden/main/docker-compose.yml
 curl -o content/config.json https://raw.githubusercontent.com/hawkinslabdev/warden/main/content/config.example.json
 chown -R 1654:1654 data
-
 docker compose up -d
 ```
 
-Two folders are mounted from the host:
+Open `http://localhost:8080`. Edit `content/config.json` to change what is checked; it hot-reloads.
 
-- `content/`: your `.md` pages and `config.json`. What to check is set here; see [Configuring your site](#configuring-your-site).
-- `data/`: the SQLite heartbeat history and, under `data/keys/`, the session keys for the admin panel. Without this volume, both reset on every container recreate.
+`content/` holds your pages and config, `data/` holds the history and session keys. Both are volumes, so they survive container recreates. The container runs as UID `1654`; if `data/` is not writable by that user, startup stops and tells you the `chown` to run. On SELinux hosts add `:Z` to the `data` volume line.
 
-The container runs as UID `1654`, not root, so `data/` must be writable by that user (`chown -R 1654:1654 data`). On a host with SELinux, add `:Z` to the `data` volume line. If either is missing, startup fails with `SQLite Error 8: attempt to write a readonly database`.
-
-In `docker-compose.yml`, `PublicBaseUrl` is the origin you serve from and `AllowedHosts` should match it. Running on localhost only? Leave both out. Absolute URLs in the sitemap then use the request's `Host` header, which is fine locally. On a public host, set them: the `Host` header comes from the caller, and these two settings pin the URLs to your own origin.
-
-Your status page is now at `http://localhost:8080`. The commented `OIDC_` lines in `docker-compose.yml` enable the admin panel at `/admin`; see [Environment variables](content/pages/deploy/environment.md#admin-panel).
+For a public host, set `PublicBaseUrl` and `AllowedHosts` in `docker-compose.yml` to your origin. Everything else, including the admin panel, is in [Environment variables](content/pages/deploy/environment.md).
 
 ### Windows and IIS
 
@@ -81,6 +72,7 @@ The zip includes a `web.config` set up for in-process hosting, so no edits are n
 - A live status page at the root: per-monitor up/down badges, a history bar (90 days by default), 24h uptime, and incidents and maintenance windows from `content/incidents/`, each a Markdown file with its own page
 - Standalone pages under `content/pages/` (About, Guide, a status policy) for anything that is not a monitor or an incident, rendered with the site's theme
 - `/sitemap.xml` and `/robots.txt` covering your pages and the status page
+- An Atom feed of incidents and maintenance at `/incidents/feed.xml`
 - A JSON status endpoint at `/api/status` for your own tooling
 - Light and dark themes
 

@@ -116,8 +116,7 @@ internal static class AdminEndpoints
         {
             foreach (var edit in edits)
             {
-                if (AdminConfigWriter.FindTarget(monitoring, edit.Id) is not { } target)
-                    continue;
+                var target = AdminConfigWriter.GetOrAddTarget(monitoring, edit.Id);
                 AdminConfigWriter.SetFlag(target, "enabled", edit.Enabled, omitWhen: true);
                 AdminConfigWriter.SetFlag(target, "hidden", edit.Hidden, omitWhen: false);
                 AdminConfigWriter.SetInt(target, "retries", edit.Retries is > 0 ? edit.Retries : null);
@@ -198,7 +197,8 @@ internal static class AdminEndpoints
         var existing = ExistingHeaders(monitoring);
         if (webhooks.Count == 0)
         {
-            monitoring.Remove("webhooks");
+            // Empty array, not removed key.
+            monitoring["webhooks"] = new JsonArray();
             return;
         }
 

@@ -55,13 +55,13 @@ internal static class AdminPage
         var l = Localization.Current;
         var who = l.AdminSignedInAs(subject ?? l.AdminUnnamedOperator);
 
-        sb.Append("<header class=\"page-header admin-header\"><h1 class=\"page-title\">")
+        sb.Append("<header class=\"admin-header\"><h1 class=\"list-heading\">")
           .Append(E(l.AdminTitle)).Append("</h1>");
         sb.Append("<form method=\"post\" action=\"").Append(prefix).Append(E(auth.AuthPath))
           .Append("/logout\" class=\"admin-identity\">");
         AppendToken(sb, tokens);
-        sb.Append("<span class=\"admin-identity-who select-none\">").Append(E(who)).Append("</span>");
-        sb.Append("<button type=\"submit\" class=\"admin-btn\">").Append(E(l.AdminSignOut)).Append("</button>");
+        sb.Append("<button type=\"submit\" class=\"admin-btn\" data-tip=\"").Append(E(who)).Append("\">")
+          .Append(E(l.AdminSignOut)).Append("</button>");
         sb.Append("</form></header>");
     }
 

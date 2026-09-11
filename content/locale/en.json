@@ -46,7 +46,7 @@
   "statusResponseTimeChartLabel": "Response time, last {0} days",
   "statusTimezoneAriaLabel": "Change displayed timezone",
   "statusTimezoneSearchPlaceholder": "Search timezone…",
-  "adminTitle": "Admin",
+  "adminTitle": "Settings",
   "adminSignOut": "Sign out",
   "adminSignedInAs": "Signed in as {0}",
   "adminUnnamedOperator": "an operator",

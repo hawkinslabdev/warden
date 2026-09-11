@@ -91,10 +91,6 @@ public static partial class LayoutProvider
         .timezone-toggle {{
             position: relative;
         }}
-        /* ---- Admin: the settings surface, same room as the status page ---- */
-        .main-container:has([data-page=""admin""]) {{
-            max-width: 1080px;
-        }}
         [data-page=""admin""] .status-group-heading {{
             font-family: var(--font-display);
             font-size: 1.1rem; font-weight: 600; letter-spacing: -0.01em;
@@ -105,13 +101,13 @@ public static partial class LayoutProvider
         }}
         .admin-header {{
             display: flex; align-items: flex-end; justify-content: space-between;
-            gap: 1rem 1.5rem; flex-wrap: wrap;
+            gap: 1rem 1.5rem; flex-wrap: wrap; margin: 0 0 2rem;
+        }}
+        .admin-header .list-heading {{
+            margin: 0;
         }}
         .admin-identity {{
             display: flex; align-items: center; gap: 0.75rem; padding-bottom: 0.4rem;
-        }}
-        .admin-identity-who {{
-            font-size: 0.85rem; color: var(--text-muted);
         }}
         .content .admin-note {{
             font-size: 0.9rem; line-height: 1.6; color: var(--text-muted);
@@ -418,6 +414,7 @@ public static partial class LayoutProvider
             to {{ opacity: 1; transform: none; }}
         }}
         .admin-dialog {{
+            margin: auto;
             border: 1px solid var(--border); border-radius: 12px;
             padding: 1.5rem; max-width: 28rem; width: calc(100vw - 2rem);
             color: var(--text-color); background: var(--bg-color);
@@ -435,6 +432,12 @@ public static partial class LayoutProvider
         .admin-dialog::backdrop {{
             background: rgba(0, 0, 0, 0.45);
             backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+        }}
+        .admin-dialog.is-cancelling {{
+            animation: admin-dialog-cancel 0.16s ease both;
+        }}
+        @keyframes admin-dialog-cancel {{
+            to {{ opacity: 0; transform: scale(0.96); }}
         }}
         .toast-stack {{
             position: fixed; z-index: 1200;
@@ -829,7 +832,7 @@ public static partial class LayoutProvider
             border-radius: 6px; padding: 0.25rem 0.6rem; margin-left: -0.6rem;
             scroll-margin-top: calc(var(--topbar-height) + 1rem);
         }}
-        .prose abbr[data-tip], .status-tick[data-tip], .icon-btn[data-tip] {{
+        .prose abbr[data-tip], .status-tick[data-tip], .icon-btn[data-tip], .admin-btn[data-tip] {{
             position: relative;
             -webkit-tap-highlight-color: transparent;
         }}
@@ -838,13 +841,13 @@ public static partial class LayoutProvider
             text-decoration: underline dotted var(--text-muted);
             text-decoration-thickness: 1px; text-underline-offset: 0.2em;
         }}
-        .prose abbr[data-tip]:focus, .status-tick[data-tip]:focus, .icon-btn[data-tip]:focus {{
+        .prose abbr[data-tip]:focus, .status-tick[data-tip]:focus, .icon-btn[data-tip]:focus, .admin-btn[data-tip]:focus {{
             outline: none;
         }}
-        .prose abbr[data-tip]:focus-visible, .status-tick[data-tip]:focus-visible, .icon-btn[data-tip]:focus-visible {{
+        .prose abbr[data-tip]:focus-visible, .status-tick[data-tip]:focus-visible, .icon-btn[data-tip]:focus-visible, .admin-btn[data-tip]:focus-visible {{
             outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px;
         }}
-        .prose abbr[data-tip]::after, .status-tick[data-tip]::after, .icon-btn[data-tip]::after {{
+        .prose abbr[data-tip]::after, .status-tick[data-tip]::after, .icon-btn[data-tip]::after, .admin-btn[data-tip]::after {{
             content: attr(data-tip);
             position: absolute; left: 50%; bottom: calc(100% + 0.45rem);
             transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(0.2rem); z-index: 20;
@@ -858,7 +861,7 @@ public static partial class LayoutProvider
             opacity: 0; visibility: hidden; pointer-events: none;
             transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s;
         }}
-        .icon-btn[data-tip]::after {{
+        .icon-btn[data-tip]::after, .admin-btn[data-tip]::after {{
             bottom: auto; top: calc(100% + 0.45rem);
             transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(-0.2rem);
         }}
@@ -866,14 +869,15 @@ public static partial class LayoutProvider
         .status-tick[data-tip]:hover::after, .status-tick[data-tip]:focus::after {{
             opacity: 1; visibility: visible; transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(0);
         }}
-        .icon-btn[data-tip]:hover::after, .icon-btn[data-tip]:focus::after {{
+        .icon-btn[data-tip]:hover::after, .icon-btn[data-tip]:focus::after,
+        .admin-btn[data-tip]:hover::after, .admin-btn[data-tip]:focus::after {{
             opacity: 1; visibility: visible; transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(0);
         }}
         .icon-btn[aria-expanded=""true""]::after {{
             display: none;
         }}
         @media (prefers-reduced-motion: reduce) {{
-            .prose abbr[data-tip]::after, .status-tick[data-tip]::after, .icon-btn[data-tip]::after {{
+            .prose abbr[data-tip]::after, .status-tick[data-tip]::after, .icon-btn[data-tip]::after, .admin-btn[data-tip]::after {{
                 transition: none;
             }}
         }}

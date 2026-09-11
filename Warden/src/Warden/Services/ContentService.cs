@@ -2,10 +2,12 @@ using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using Warden.Configuration;
 using Warden.Models;
+using Warden.Services.Admin;
 using Warden.Services.Rendering;
 
 namespace Warden.Services;
@@ -15,6 +17,7 @@ public sealed partial class ContentService : IHostedService, IDisposable
     private readonly DocsOptions _options;
     private readonly MarkdownService _markdown;
     private readonly ILogger<ContentService> _logger;
+    private readonly AdminOverrideStore? _overrides;
     private readonly string _basePathSegment;
     private FileSystemWatcher? _watcher;
     private FileSystemWatcher? _configWatcher;
@@ -45,11 +48,13 @@ public sealed partial class ContentService : IHostedService, IDisposable
     public ContentService(
         DocsOptions options,
         MarkdownService markdown,
-        ILogger<ContentService> logger)
+        ILogger<ContentService> logger,
+        AdminOverrideStore? overrides = null)
     {
         _options = options;
         _markdown = markdown;
         _logger = logger;
+        _overrides = overrides;
         _basePathSegment = _options.BasePath?.Trim('/').ToLowerInvariant() ?? "";
     }
 
@@ -245,6 +250,8 @@ public sealed partial class ContentService : IHostedService, IDisposable
         }
 
         var config = LoadConfig(docsPath, _logger);
+        if (config is not null)
+            ApplyAdminOverrides(config, _overrides);
 
         DateFormatter.Current = DateFormatter.From(Config.ResolveLocale(config));
         Localization.Current = Localization.From(docsPath, config, _logger);
@@ -515,6 +522,57 @@ public sealed partial class ContentService : IHostedService, IDisposable
         {
             return false;
         }
+    }
+
+    private static readonly JsonSerializerOptions AdminOverrideJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
+    };
+
+    // Admin-saved fields win; git fills gaps.
+    private static void ApplyAdminOverrides(Config config, AdminOverrideStore? overrides)
+    {
+        if (overrides?.GetMonitoring() is not { } blob || config.Monitoring is not { } monitoring)
+            return;
+
+        var targets = monitoring.Targets;
+        if (targets is not null && blob["targets"] is JsonArray blobTargets)
+        {
+            var byId = targets.ToDictionary(t => t.Id, StringComparer.Ordinal);
+            var orderedIds = new List<string>();
+            foreach (var node in blobTargets.OfType<JsonObject>())
+            {
+                if ((string?)node["id"] is not { } id || !byId.TryGetValue(id, out var target))
+                    continue;
+                orderedIds.Add(id);
+                byId[id] = target with
+                {
+                    Enabled = (bool?)node["enabled"],
+                    Hidden = (bool?)node["hidden"],
+                    Retries = (int?)node["retries"],
+                };
+            }
+
+            // Untouched git targets append after saved order.
+            var seen = orderedIds.ToHashSet(StringComparer.Ordinal);
+            var leftoverIds = targets.Select(t => t.Id).Where(id => !seen.Contains(id));
+            targets = orderedIds.Concat(leftoverIds).Select(id => byId[id]).ToList();
+        }
+
+        // Empty list still means cleared; check key.
+        var webhooks = blob.ContainsKey("webhooks")
+            ? blob["webhooks"]?.Deserialize<List<WebhookTarget>>(AdminOverrideJsonOptions)
+            : monitoring.Webhooks;
+
+        config.Monitoring = monitoring with
+        {
+            Targets = targets,
+            Webhooks = webhooks,
+            IntervalSeconds = (int?)blob["intervalSeconds"] ?? monitoring.IntervalSeconds,
+            RetentionDays = (int?)blob["retentionDays"] ?? monitoring.RetentionDays,
+            WebhookCooldownMinutes = (int?)blob["webhookCooldownMinutes"] ?? monitoring.WebhookCooldownMinutes,
+        };
     }
 
     private static Config? LoadConfig(string docsPath, ILogger logger)

@@ -34,13 +34,16 @@ public class WardenWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("Docs:RootPath", ContentDir);
         builder.UseSetting("Docs:EnableHotReload", "false");
         builder.UseSetting("Altcha:Enabled", "false");
+        // Own sqlite file; keeps fixtures apart.
+        builder.UseSetting("Monitoring:DatabasePath", Path.Combine(ContentDir, "warden.db"));
     }
 
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         if (Directory.Exists(ContentDir))
-            Directory.Delete(ContentDir, true);
+            try { Directory.Delete(ContentDir, true); } catch (IOException) { }
     }
 }
 

@@ -1,54 +1,26 @@
-using System.Text.Json;
 using System.Text.Json.Nodes;
-using Warden.Configuration;
 
 namespace Warden.Services.Admin;
 
-// edits the monitoring block as a JsonNode tree; round-tripping Config would drop unmodelled keys
-public sealed class AdminConfigWriter(DocsOptions docs, ILogger<AdminConfigWriter> logger)
+// Edits stored overrides as raw JSON.
+public sealed class AdminConfigWriter(AdminOverrideStore store, ILogger<AdminConfigWriter> logger)
 {
-    private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
-
-    // ponytail: one process-wide lock; per-file locks if this ever serves more than one operator
+    // ponytail: single lock; per-operator locks if needed.
     private readonly SemaphoreSlim _gate = new(1, 1);
-
-    public string ConfigPath => ContentService.ResolveJsonFile(Path.GetFullPath(docs.RootPath), "config.json");
 
     public async Task<bool> UpdateMonitoringAsync(Action<JsonObject> mutate, CancellationToken ct)
     {
         await _gate.WaitAsync(ct);
         try
         {
-            var path = ConfigPath;
-            JsonObject root;
-            try
-            {
-                root = File.Exists(path)
-                    ? JsonNode.Parse(await File.ReadAllTextAsync(path, ct)) as JsonObject ?? []
-                    : [];
-            }
-            catch (JsonException ex)
-            {
-                logger.LogError(ex, "Refusing to write {ConfigPath}: it does not parse as JSON", path);
-                return false;
-            }
-
-            if (root["monitoring"] is not JsonObject monitoring)
-            {
-                monitoring = [];
-                root["monitoring"] = monitoring;
-            }
-
+            var monitoring = store.GetMonitoring() ?? [];
             mutate(monitoring);
-
-            var temp = path + ".tmp";
-            await File.WriteAllTextAsync(temp, root.ToJsonString(WriteOptions) + "\n", ct);
-            File.Move(temp, path, overwrite: true);
+            await store.SetMonitoringAsync(monitoring, ct);
             return true;
         }
-        catch (IOException ex)
+        catch (Exception ex)
         {
-            logger.LogError(ex, "Could not write the admin config change");
+            logger.LogError(ex, "Could not save the admin config change");
             return false;
         }
         finally
@@ -62,7 +34,20 @@ public sealed class AdminConfigWriter(DocsOptions docs, ILogger<AdminConfigWrite
             ? targets.OfType<JsonObject>().FirstOrDefault(t => (string?)t["id"] == id)
             : null;
 
-    // removes the key at its default rather than writing "hidden": false
+    // Creates a bare row if none saved yet.
+    public static JsonObject GetOrAddTarget(JsonObject monitoring, string id)
+    {
+        if (monitoring["targets"] is not JsonArray targets)
+            monitoring["targets"] = targets = [];
+        if (FindTarget(monitoring, id) is { } existing)
+            return existing;
+
+        var created = new JsonObject { ["id"] = id };
+        targets.Add(created);
+        return created;
+    }
+
+    // Omits key when value is default.
     public static void SetFlag(JsonObject target, string key, bool value, bool omitWhen)
     {
         if (value == omitWhen)

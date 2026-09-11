@@ -70,7 +70,7 @@ public sealed class Localization
         ["adminSignedInAs"] = "Signed in as {0}",
         ["adminUnnamedOperator"] = "an operator",
         ["adminMonitorsHeading"] = "Monitors",
-        ["adminMonitorsNote"] = "Disabled stops the checks. Hidden keeps checking, but does not show the result on the public page. To change the order on the public page, drag a row by its handle, or select a handle and use the arrow keys.",
+        ["adminMonitorsNote"] = "Disabled skips checks entirely. Hidden keeps checking but hides the result from the public page. Drag a handle to reorder, or focus one and use the arrow keys.",
         ["adminMonitorsEmptyTitle"] = "No monitors yet",
         ["adminMonitorsEmptyNote"] = "Add an entry to <code>monitoring.targets</code> in <code>config.json</code>. It will then show up here.",
         ["adminStateOperational"] = "Operational",

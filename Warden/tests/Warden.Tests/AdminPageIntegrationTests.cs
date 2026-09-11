@@ -9,6 +9,9 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Warden.Models;
+using Warden.Services;
+using Warden.Services.Admin;
 
 namespace Warden.Tests;
 
@@ -73,6 +76,15 @@ public sealed class AdminWebApplicationFactory : WardenWebApplicationFactory
 
     public JsonObject ReadConfig() =>
         (JsonObject)JsonNode.Parse(File.ReadAllText(Path.Combine(ContentDir, "config.json")))!;
+
+    public JsonObject? ReadOverrides() =>
+        Services.GetRequiredService<AdminOverrideStore>().GetMonitoring();
+
+    // Effective merged state, same as the app sees.
+    public MonitoringConfig Monitoring() =>
+        Services.GetRequiredService<ContentService>().SiteConfig!.Monitoring!;
+
+    public IReadOnlyList<MonitorTarget> Targets() => Monitoring().Targets ?? [];
 
     protected override void Dispose(bool disposing)
     {
@@ -141,7 +153,7 @@ public sealed class AdminPageIntegrationTests : IClassFixture<AdminWebApplicatio
     }
 
     [Fact]
-    public async Task SavingTimingWritesConfigAndLeavesUnmodelledKeysAlone()
+    public async Task SavingTimingWritesOverridesAndLeavesConfigJsonAlone()
     {
         using var client = _factory.SignedInClient();
         var token = await AntiforgeryToken(client);
@@ -155,12 +167,15 @@ public sealed class AdminPageIntegrationTests : IClassFixture<AdminWebApplicatio
 
         Assert.Contains("flash=saved", response.Headers.Location!.ToString(), StringComparison.Ordinal);
 
+        var monitoring = _factory.Monitoring();
+        Assert.Equal(120, monitoring.IntervalSeconds);
+        Assert.Equal(45, monitoring.RetentionDays);
+        Assert.Equal(15, monitoring.WebhookCooldownMinutes);
+
         var config = _factory.ReadConfig();
-        Assert.Equal(120, (int?)config["monitoring"]!["intervalSeconds"]);
-        Assert.Equal(45, (int?)config["monitoring"]!["retentionDays"]);
-        Assert.Equal(15, (int?)config["monitoring"]!["webhookCooldownMinutes"]);
         Assert.True((bool?)config["keepThisUnmodelledKey"]);
         Assert.Equal("Test Blog", (string?)config["title"]);
+        Assert.Equal(60, (int?)config["monitoring"]!["intervalSeconds"]);
     }
 
     [Fact]
@@ -175,9 +190,9 @@ public sealed class AdminPageIntegrationTests : IClassFixture<AdminWebApplicatio
             new("retentionDays", "999999999"),
         ]), CancellationToken.None);
 
-        var monitoring = _factory.ReadConfig()["monitoring"]!;
-        Assert.Equal(5, (int?)monitoring["intervalSeconds"]);
-        Assert.Equal(3650, (int?)monitoring["retentionDays"]);
+        var monitoring = _factory.Monitoring();
+        Assert.Equal(5, monitoring.IntervalSeconds);
+        Assert.Equal(3650, monitoring.RetentionDays);
     }
 
     [Fact]
@@ -192,10 +207,9 @@ public sealed class AdminPageIntegrationTests : IClassFixture<AdminWebApplicatio
             new("retries:alpha", "2"),
         ]), CancellationToken.None);
 
-        var alpha = ((JsonArray)_factory.ReadConfig()["monitoring"]!["targets"]!)
-            .OfType<JsonObject>().First(t => (string?)t["id"] == "alpha");
-        Assert.False((bool?)alpha["enabled"]);
-        Assert.Equal(2, (int?)alpha["retries"]);
+        var alpha = _factory.Targets().First(t => t.Id == "alpha");
+        Assert.Equal(false, alpha.Enabled);
+        Assert.Equal(2, alpha.Retries);
     }
 
     [Fact]
@@ -211,7 +225,7 @@ public sealed class AdminPageIntegrationTests : IClassFixture<AdminWebApplicatio
         ]), CancellationToken.None);
 
         Assert.Contains("flash=unknown-monitor", response.Headers.Location!.ToString(), StringComparison.Ordinal);
-        Assert.Equal(2, ((JsonArray)_factory.ReadConfig()["monitoring"]!["targets"]!).Count);
+        Assert.Equal(2, _factory.Targets().Count);
     }
 
     [Fact]
@@ -242,7 +256,7 @@ public sealed class AdminPageIntegrationTests : IClassFixture<AdminWebApplicatio
         ]), CancellationToken.None);
 
         Assert.Contains("flash=bad-webhook-url", response.Headers.Location!.ToString(), StringComparison.Ordinal);
-        Assert.DoesNotContain("file:///etc/passwd", _factory.ReadConfig().ToJsonString(), StringComparison.Ordinal);
+        Assert.DoesNotContain(_factory.Monitoring().Webhooks ?? [], w => w.Url == "file:///etc/passwd");
     }
 
     [Fact]
@@ -258,8 +272,8 @@ public sealed class AdminPageIntegrationTests : IClassFixture<AdminWebApplicatio
             new("headerValue", "Bearer super-secret-value"),
         ]), CancellationToken.None);
 
-        var stored = (JsonArray)_factory.ReadConfig()["monitoring"]!["webhooks"]!;
-        Assert.Equal("Bearer super-secret-value", (string?)stored[0]!["headers"]!["Authorization"]);
+        var stored = _factory.Monitoring().Webhooks!.First(w => w.Url == "https://hooks.invalid/alert");
+        Assert.Equal("Bearer super-secret-value", stored.Headers!["Authorization"]);
 
         var html = await client.GetStringAsync("/admin", CancellationToken.None);
         Assert.DoesNotContain("super-secret-value", html, StringComparison.Ordinal);
@@ -287,8 +301,8 @@ public sealed class AdminPageIntegrationTests : IClassFixture<AdminWebApplicatio
             new("headerValue", ""),
         ]), CancellationToken.None);
 
-        var stored = (JsonArray)_factory.ReadConfig()["monitoring"]!["webhooks"]!;
-        Assert.Equal("Bearer keep-me", (string?)stored[0]!["headers"]!["Authorization"]);
+        var stored = _factory.Monitoring().Webhooks!.First(w => w.Url == "https://hooks.invalid/keep");
+        Assert.Equal("Bearer keep-me", stored.Headers!["Authorization"]);
     }
 
     [Fact]
@@ -414,15 +428,25 @@ public sealed class AdminReorderTests : IClassFixture<AdminWebApplicationFactory
         return html[start..html.IndexOf('"', start)];
     }
 
-    private string[] Order() =>
-        [.. ((JsonArray)_factory.ReadConfig()["monitoring"]!["targets"]!)
-            .OfType<JsonObject>().Select(t => (string?)t["id"] ?? "")];
+    private string[] Order() => [.. _factory.Targets().Select(t => t.Id)];
 
-    private async Task<HttpResponseMessage> Reorder(HttpClient client, string ids) =>
-        await client.PostAsync("/admin/settings", new FormUrlEncodedContent([
+    // Real form always resends every row.
+    private async Task<HttpResponseMessage> Reorder(HttpClient client, string ids)
+    {
+        var fields = new List<KeyValuePair<string, string>>
+        {
             new("__RequestVerificationToken", await Token(client)),
             new("order", ids),
-        ]), CancellationToken.None);
+        };
+        foreach (var t in _factory.Targets())
+        {
+            fields.Add(new("monitorId", t.Id));
+            if (t.Enabled != false) fields.Add(new($"enabled:{t.Id}", "on"));
+            if (t.Hidden == true) fields.Add(new($"hidden:{t.Id}", "on"));
+            if (t.Retries is > 0) fields.Add(new($"retries:{t.Id}", t.Retries.Value.ToString()));
+        }
+        return await client.PostAsync("/admin/settings", new FormUrlEncodedContent(fields), CancellationToken.None);
+    }
 
     [Fact]
     public async Task EveryMonitorRowCarriesADragHandleAndItsId()
@@ -478,10 +502,9 @@ public sealed class AdminReorderTests : IClassFixture<AdminWebApplicationFactory
 
         await Reorder(client, string.Join(',', Order().Reverse()));
 
-        var beta = ((JsonArray)_factory.ReadConfig()["monitoring"]!["targets"]!)
-            .OfType<JsonObject>().First(t => (string?)t["id"] == "beta");
-        Assert.Equal("Beta", (string?)beta["name"]);
-        Assert.True((bool?)beta["hidden"]);
+        var beta = _factory.Targets().First(t => t.Id == "beta");
+        Assert.Equal("Beta", beta.Name);
+        Assert.True(beta.Hidden);
     }
 
     [Fact]

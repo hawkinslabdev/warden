@@ -47,6 +47,7 @@ try
         monitoringOptions = monitoringOptions with { DatabasePath = databasePathAlias };
     builder.Services.AddSingleton(monitoringOptions);
     builder.Services.AddSingleton<HeartbeatStore>();
+    builder.Services.AddSingleton<AdminOverrideStore>();
     void ConfigureMonitorClient(HttpClient client)
     {
         client.Timeout = TimeSpan.FromSeconds(10);

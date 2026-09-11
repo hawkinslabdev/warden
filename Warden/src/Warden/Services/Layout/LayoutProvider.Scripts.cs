@@ -1134,6 +1134,14 @@ public static partial class LayoutProvider
                 resetDialog.addEventListener('close', function() {{
                     if (resetDialog.returnValue === 'confirm') resetForm.submit();
                 }});
+                resetDialog.addEventListener('mousedown', function(e) {{
+                    if (e.target !== resetDialog || resetDialog.classList.contains('is-cancelling')) return;
+                    resetDialog.classList.add('is-cancelling');
+                    window.setTimeout(function() {{
+                        resetDialog.classList.remove('is-cancelling');
+                        resetDialog.close('cancel');
+                    }}, 160);
+                }});
             }}
 
             // Custom date + time picker. The field still posts ""yyyy-MM-dd HH:mm"" as plain text,

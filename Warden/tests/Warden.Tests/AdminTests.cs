@@ -14,72 +14,70 @@ namespace Warden.Tests;
 
 public sealed class AdminConfigWriterTests : IDisposable
 {
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), "warden-admin-" + Guid.NewGuid().ToString("N")[..8]);
+    private readonly string _dbDir = Path.Combine(Path.GetTempPath(), "warden-admin-" + Guid.NewGuid().ToString("N")[..8]);
+    private readonly AdminOverrideStore _store;
 
-    private AdminConfigWriter Writer()
+    public AdminConfigWriterTests()
     {
-        Directory.CreateDirectory(_dir);
-        return new AdminConfigWriter(new DocsOptions { RootPath = _dir }, NullLogger<AdminConfigWriter>.Instance);
+        Directory.CreateDirectory(_dbDir);
+        _store = new AdminOverrideStore(new MonitoringOptions { DatabasePath = Path.Combine(_dbDir, "warden.db") });
     }
 
-    private void WriteConfig(string json) =>
-        File.WriteAllText(Path.Combine(_dir, "config.json"), json);
-
-    private JsonObject ReadConfig() =>
-        (JsonObject)JsonNode.Parse(File.ReadAllText(Path.Combine(_dir, "config.json")))!;
+    private AdminConfigWriter Writer() => new(_store, NullLogger<AdminConfigWriter>.Instance);
 
     [Fact]
-    public async Task PreservesKeysTheConfigPocoDoesNotModel()
+    public async Task PreservesKeysTheModelDoesNotKnow()
     {
         var writer = Writer();
-        WriteConfig("""
-            {
-              "title": "Status",
-              "somethingWardenNeverParses": { "keep": [1, 2, 3] },
-              "monitoring": { "intervalSeconds": 60, "targets": [ { "id": "a", "name": "A" } ] }
-            }
-            """);
+        await _store.SetMonitoringAsync(
+            (JsonObject)JsonNode.Parse("""{ "intervalSeconds": 60, "somethingWardenNeverParses": { "keep": [1, 2, 3] } }""")!,
+            CancellationToken.None);
 
         Assert.True(await writer.UpdateMonitoringAsync(m => m["intervalSeconds"] = 120, CancellationToken.None));
 
-        var root = ReadConfig();
-        Assert.Equal("Status", (string?)root["title"]);
-        Assert.Equal(3, ((JsonArray)root["somethingWardenNeverParses"]!["keep"]!).Count);
-        Assert.Equal(120, (int?)root["monitoring"]!["intervalSeconds"]);
+        var saved = _store.GetMonitoring()!;
+        Assert.Equal(3, ((JsonArray)saved["somethingWardenNeverParses"]!["keep"]!).Count);
+        Assert.Equal(120, (int?)saved["intervalSeconds"]);
     }
 
     [Fact]
-    public async Task CreatesTheMonitoringBlockWhenTheFileHasNone()
+    public async Task CreatesTheBlobWhenNothingWasEverSaved()
     {
         var writer = Writer();
-        WriteConfig("""{ "title": "Status" }""");
 
         Assert.True(await writer.UpdateMonitoringAsync(m => m["intervalSeconds"] = 30, CancellationToken.None));
-        Assert.Equal(30, (int?)ReadConfig()["monitoring"]!["intervalSeconds"]);
+        Assert.Equal(30, (int?)_store.GetMonitoring()!["intervalSeconds"]);
     }
 
     [Fact]
-    public async Task RefusesToWriteOverAFileThatDoesNotParse()
+    public async Task ARowThatFailsToParseIsTreatedAsEmptyRatherThanCrashing()
     {
-        var writer = Writer();
-        WriteConfig("{ this is not json");
+        await using (var connection = new Microsoft.Data.Sqlite.SqliteConnection(
+            new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = Path.Combine(_dbDir, "warden.db") }.ToString()))
+        {
+            await connection.OpenAsync();
+            var insert = connection.CreateCommand();
+            insert.CommandText = "INSERT INTO admin_overrides (key, json) VALUES ('monitoring', 'not json');";
+            await insert.ExecuteNonQueryAsync();
+        }
 
-        Assert.False(await writer.UpdateMonitoringAsync(m => m["intervalSeconds"] = 5, CancellationToken.None));
-        Assert.Equal("{ this is not json", File.ReadAllText(Path.Combine(_dir, "config.json")));
+        Assert.Null(_store.GetMonitoring());
+        var writer = Writer();
+        Assert.True(await writer.UpdateMonitoringAsync(m => m["intervalSeconds"] = 5, CancellationToken.None));
+        Assert.Equal(5, (int?)_store.GetMonitoring()!["intervalSeconds"]);
     }
 
     [Fact]
     public async Task ConcurrentWritesAllLandAndLeaveValidJson()
     {
         var writer = Writer();
-        WriteConfig("""{ "monitoring": { "targets": [] } }""");
+        await _store.SetMonitoringAsync((JsonObject)JsonNode.Parse("""{ "targets": [] }""")!, CancellationToken.None);
 
         await Task.WhenAll(Enumerable.Range(0, 40).Select(i =>
             writer.UpdateMonitoringAsync(m => m["intervalSeconds"] = 10 + i, CancellationToken.None)));
 
-        var value = (int?)ReadConfig()["monitoring"]!["intervalSeconds"];
+        var value = (int?)_store.GetMonitoring()!["intervalSeconds"];
         Assert.InRange(value!.Value, 10, 49);
-        Assert.False(File.Exists(Path.Combine(_dir, "config.json.tmp")));
     }
 
     [Fact]
@@ -109,10 +107,24 @@ public sealed class AdminConfigWriterTests : IDisposable
         Assert.Null(AdminConfigWriter.FindTarget([], "a"));
     }
 
+    [Fact]
+    public void GetOrAddTargetCreatesABareRowOnlyWhenMissing()
+    {
+        JsonObject monitoring = [];
+
+        var created = AdminConfigWriter.GetOrAddTarget(monitoring, "a");
+        created["hidden"] = true;
+        var again = AdminConfigWriter.GetOrAddTarget(monitoring, "a");
+
+        Assert.Same(created, again);
+        Assert.Single((JsonArray)monitoring["targets"]!);
+    }
+
     public void Dispose()
     {
-        if (Directory.Exists(_dir))
-            Directory.Delete(_dir, recursive: true);
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        if (Directory.Exists(_dbDir))
+            try { Directory.Delete(_dbDir, recursive: true); } catch (IOException) { }
     }
 }
 
@@ -385,62 +397,48 @@ public sealed class MonitorEnablementTests : IDisposable
 
 public sealed class AdminStressTests : IDisposable
 {
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), "warden-stress-" + Guid.NewGuid().ToString("N")[..8]);
+    private readonly string _dbDir = Path.Combine(Path.GetTempPath(), "warden-stress-" + Guid.NewGuid().ToString("N")[..8]);
+    private readonly AdminOverrideStore _store;
 
-    private AdminConfigWriter Writer()
+    public AdminStressTests()
     {
-        Directory.CreateDirectory(_dir);
-        return new AdminConfigWriter(new DocsOptions { RootPath = _dir }, NullLogger<AdminConfigWriter>.Instance);
+        Directory.CreateDirectory(_dbDir);
+        _store = new AdminOverrideStore(new MonitoringOptions { DatabasePath = Path.Combine(_dbDir, "warden.db") });
     }
 
-    private string Path_ => Path.Combine(_dir, "config.json");
+    private AdminConfigWriter Writer() => new(_store, NullLogger<AdminConfigWriter>.Instance);
 
     [Fact]
-    public async Task TwoHundredConcurrentEditsLeaveEveryTargetIntactAndTheFileParseable()
+    public async Task TwoHundredConcurrentEditsLeaveEveryTargetIntactAndTheBlobParseable()
     {
         var writer = Writer();
         var targets = new JsonArray();
         for (var i = 0; i < 20; i++)
-            targets.Add(new JsonObject { ["id"] = $"m{i}", ["name"] = $"Monitor {i}" });
-        File.WriteAllText(Path_, new JsonObject
-        {
-            ["title"] = "Status",
-            ["monitoring"] = new JsonObject { ["targets"] = targets },
-        }.ToJsonString());
+            targets.Add(new JsonObject { ["id"] = $"m{i}" });
+        await _store.SetMonitoringAsync(new JsonObject { ["targets"] = targets }, CancellationToken.None);
 
         await Task.WhenAll(Enumerable.Range(0, 200).Select(i => writer.UpdateMonitoringAsync(m =>
         {
-            if (AdminConfigWriter.FindTarget(m, $"m{i % 20}") is { } t)
-                AdminConfigWriter.SetInt(t, "retries", i % 7);
+            AdminConfigWriter.SetInt(AdminConfigWriter.GetOrAddTarget(m, $"m{i % 20}"), "retries", i % 7);
         }, CancellationToken.None)));
 
-        var root = (JsonObject)JsonNode.Parse(File.ReadAllText(Path_))!;
-        var saved = (JsonArray)root["monitoring"]!["targets"]!;
+        var saved = (JsonArray)_store.GetMonitoring()!["targets"]!;
         Assert.Equal(20, saved.Count);
-        Assert.Equal("Status", (string?)root["title"]);
         Assert.All(saved, node => Assert.NotNull((string?)node!["id"]));
-        Assert.False(File.Exists(Path_ + ".tmp"));
     }
 
     [Fact]
-    public async Task AReaderRacingTheWriterNeverSeesAHalfWrittenFile()
+    public async Task AReaderRacingTheWriterNeverSeesCorruptJson()
     {
         var writer = Writer();
-        File.WriteAllText(Path_, """{ "monitoring": { "targets": [] } }""");
+        await _store.SetMonitoringAsync((JsonObject)JsonNode.Parse("""{ "targets": [] }""")!, CancellationToken.None);
 
         using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         var reader = Task.Run(() =>
         {
             var reads = 0;
             while (!stop.IsCancellationRequested)
-            {
-                try
-                {
-                    // File.Move, so a reader sees the old file or the new one
-                    if (JsonNode.Parse(File.ReadAllText(Path_)) is not null) reads++;
-                }
-                catch (IOException) { }
-            }
+                if (_store.GetMonitoring() is not null) reads++;
             return reads;
         }, CancellationToken.None);
 
@@ -453,8 +451,9 @@ public sealed class AdminStressTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(_dir))
-            Directory.Delete(_dir, recursive: true);
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        if (Directory.Exists(_dbDir))
+            try { Directory.Delete(_dbDir, recursive: true); } catch (IOException) { }
     }
 }
 

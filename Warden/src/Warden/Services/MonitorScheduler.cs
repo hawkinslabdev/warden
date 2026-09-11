@@ -26,6 +26,13 @@ public sealed class MonitorScheduler(
     private const int DefaultRetentionDays = 30;
     private const int CheckTimeoutSeconds = 10;
     private const int MaxConcurrentChecks = 8;
+
+    // never prune what the page renders (e.g. 30 or 90 days)
+    internal static int RetentionDays(MonitoringConfig? monitoring)
+    {
+        var historyDays = Math.Clamp(monitoring?.HistoryDays ?? Endpoints.StatusEndpoints.HistoryDays, 1, Endpoints.StatusEndpoints.MaxHistoryDays);
+        return Math.Max(Math.Max(1, monitoring?.RetentionDays ?? DefaultRetentionDays), historyDays);
+    }
     private const int WebhookTimeoutSeconds = 10;
 
     // in-memory only (resets on restart); a failure short of target.Retries is pending, not recorded, so one blip doesn't flip the public status
@@ -50,7 +57,7 @@ public sealed class MonitorScheduler(
                 try
                 {
                     await CheckAllAsync(targets, monitoring?.Webhooks, WebhookCooldown(monitoring), stoppingToken);
-                    store.PruneOlderThan(TimeSpan.FromDays(Math.Max(1, monitoring?.RetentionDays ?? DefaultRetentionDays)));
+                    store.PruneOlderThan(TimeSpan.FromDays(RetentionDays(monitoring)));
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
                 {

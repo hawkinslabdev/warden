@@ -1,10 +1,23 @@
 using System.Text.Json.Nodes;
+using Warden.Models;
 using Warden.Services;
 
 namespace Warden.Tests;
 
 public sealed class MonitorSchedulerTests
 {
+    [Theory]
+    [InlineData(null, null, 90)]   // defaults: 30 retention, 90 bar -> keep 90
+    [InlineData(1, null, 90)]      // retention shorter than bar -> bar wins
+    [InlineData(0, 7, 7)]          // 0 is not "forever"; still keeps what is drawn
+    [InlineData(120, null, 120)]   // longer retention untouched
+    [InlineData(1, 1000, 365)]     // history clamps to 365
+    public void RetentionDays_NeverBelowDisplayedHistory(int? retention, int? history, int expected)
+    {
+        var config = new MonitoringConfig(null, null, retention, null, null, null, null, history);
+        Assert.Equal(expected, MonitorScheduler.RetentionDays(config));
+    }
+
     [Theory]
     [InlineData("""{"status":"ok"}""", "$.status", "ok")]
     [InlineData("""{"data":{"db":"up"}}""", "$.data.db", "up")]

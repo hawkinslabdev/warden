@@ -99,7 +99,7 @@ A config using most of them at once:
 | Field | Description |
 | --- | --- |
 | `intervalSeconds` | How often every target is checked. Default `60`. |
-| `retentionDays` | How long heartbeat history is kept before it's pruned. Default `30`. |
+| `retentionDays` | How long heartbeat history is kept before it's pruned. Default `30`. This value cannot be lower than `historyDays` to preserve your data. |
 | `group` | `"type"` sections monitors by type, `"custom"` sections them by each target's own `group` field (falling back to its type when unset). Unset renders one ungrouped list or grid. Works with every structure. |
 | `incidentWindowDays`, `incidentMaxShown` | How far back and how many resolved incidents show on the status page. Defaults `7` and `10`. |
 | `historyDays` | Days of ticks in each monitor's history bar. Default `90`. |

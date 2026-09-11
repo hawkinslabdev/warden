@@ -8,11 +8,14 @@ namespace Warden.Endpoints;
 
 internal static class StatusEndpoints
 {
+    // uptime percentage window
     private static readonly TimeSpan UptimeWindow = TimeSpan.FromHours(24);
-    private const int HistoryDays = 90;
+    // ticks in history bar
+    internal const int HistoryDays = 90;
+    // latency chart window
     private const int ResponseChartDays = 30;
-    // config.json is hot-reloaded and operator-edited free-form; an unbounded historyDays (typo'd as days-of-the-decade, or just "give me everything") would render one flex tick per day in an unwrapped row and degrade the page instead of the config
-    private const int MaxHistoryDays = 365;
+    // cap so config typo can't flood page
+    internal const int MaxHistoryDays = 365;
 
     // a type this dictionary doesn't know about (a custom deployment's own check) still gets a readable group heading
     private static readonly Dictionary<string, string> TypeGroupLabels = new(StringComparer.OrdinalIgnoreCase)

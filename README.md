@@ -56,6 +56,8 @@ docker compose up -d
 
 Your own `content/` folder (`.md` pages and `config.json`) mounts from the host, and so does `data/`, where the SQLite heartbeat history lives; without that volume, history resets on every container recreate. `docker-compose.yml`'s `PublicBaseUrl` is the origin you serve from; `AllowedHosts` should match it. What to check lives in `content/config.json`, see [Configuring your site](#configuring-your-site).
 
+> **Note:** The container runs as UID `1654`, not root. If `data/` isn't writable by that UID (`chown -R 1654:1654 data`), or your host enforces SELinux (add `:Z` to the `data` volume line), startup fails with `SQLite Error 8: attempt to write a readonly database`.
+
 Your status page is then waiting at `http://localhost:8080`. The commented `OIDC_` lines in `docker-compose.yml` turn on the admin panel at `/admin`; see [Environment variables](content/pages/deploy/environment.md#admin-panel).
 
 Running locally only? The `PublicBaseUrl`/`AllowedHosts` lines can be left out entirely. Without them, absolute URLs in your sitemap fall back to whatever `Host` header the request carried, which is perfectly fine on localhost.

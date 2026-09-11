@@ -112,7 +112,10 @@ public sealed class PageRequestHandler
         {
             var resolvedAt = IncidentContent.EndOf(page);
             badgeClass = IncidentContent.IncidentBadgeClass(page);
-            badgeText = resolvedAt is null ? l.StatusDown : l.StatusResolved;
+            badgeText = resolvedAt is not null ? l.StatusResolved
+                : IncidentContent.IsNotice(page) ? l.StatusNotice
+                : IncidentContent.IncidentStatus(page) == Models.MonitorStatus.Degraded ? l.StatusDegraded
+                : l.StatusDown;
             AppendMeta(meta, l.StatusIncidentStarted, IncidentContent.TimeHtml(start));
             if (resolvedAt is { } end)
                 AppendMeta(meta, l.StatusIncidentEnded, IncidentContent.TimeHtml(end));
@@ -120,7 +123,9 @@ public sealed class PageRequestHandler
 
         if (page.Monitors is { Count: > 0 } monitors)
         {
-            var names = monitors.Select(id => targets?.FirstOrDefault(t => t.Id == id)?.Name ?? id);
+            var names = monitors.Any(id => string.Equals(id, "all", StringComparison.OrdinalIgnoreCase))
+                ? [l.StatusIncidentAffectedAll]
+                : monitors.Select(id => targets?.FirstOrDefault(t => t.Id == id)?.Name ?? id);
             AppendMeta(meta, l.StatusIncidentAffected, Layout.LayoutProvider.HtmlEncode(string.Join(", ", names)));
         }
 

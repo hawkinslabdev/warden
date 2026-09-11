@@ -47,6 +47,7 @@ public sealed class Localization
         ["statusDownSince"] = "Down since {0}",
         ["statusDegradedSince"] = "Degraded since {0}",
         ["statusNotice"] = "Notice",
+        ["statusIncidentAffectedAll"] = "All services",
         ["statusPostedOn"] = "Posted {0}",
         ["statusOutagePeriod"] = "Down {0} – {1}",
         ["statusResolved"] = "Resolved",
@@ -217,6 +218,7 @@ public sealed class Localization
     public string StatusDownSince(string when) => Format("statusDownSince", when);
     public string StatusDegradedSince(string when) => Format("statusDegradedSince", when);
     public string StatusNotice => this["statusNotice"];
+    public string StatusIncidentAffectedAll => this["statusIncidentAffectedAll"];
     public string StatusPostedOn(string when) => Format("statusPostedOn", when);
     public string StatusOutagePeriod(string start, string end) => Format("statusOutagePeriod", start, end);
     public string StatusResolved => this["statusResolved"];

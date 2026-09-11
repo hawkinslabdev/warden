@@ -375,13 +375,21 @@ internal static class StatusEndpoints
         {
             // measured down never softened
             var day = measured;
+            string? declaredLabel = null;
             if (incidentDays is not null && incidentDays.TryGetValue(measured.Day, out var declared) && measured.Status != MonitorStatus.Down)
             {
-                var percent = Math.Min(measured.Status == MonitorStatus.Unknown ? 100 : measured.UpPercent, declared.UpPercent);
-                day = measured with { Status = declared.Down >= TimeSpan.FromDays(1) ? MonitorStatus.Down : MonitorStatus.Degraded, UpPercent = percent };
+                var fullDay = declared.Down >= TimeSpan.FromDays(1);
+                day = measured with
+                {
+                    Status = fullDay ? MonitorStatus.Down : MonitorStatus.Degraded,
+                    UpPercent = measured.Status == MonitorStatus.Unknown ? 100 : Math.Min(measured.UpPercent, declared.UpPercent),
+                };
+                // no checks that day: say what was declared
+                if (measured.Status == MonitorStatus.Unknown)
+                    declaredLabel = declared.Down > TimeSpan.Zero ? $"{l.StatusDown} {FormatDuration(declared.Down)}" : $"{l.StatusDegraded} {FormatDuration(declared.Degraded)}";
             }
             var cls = day.Status switch { MonitorStatus.Up => "up", MonitorStatus.Down => "down", MonitorStatus.Degraded => "degraded", _ => "unknown" };
-            var label = day.Status switch
+            var label = declaredLabel ?? day.Status switch
             {
                 MonitorStatus.Up => l.StatusOperational,
                 MonitorStatus.Down => l.StatusDown,

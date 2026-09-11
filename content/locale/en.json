@@ -28,6 +28,7 @@
   "statusDownSince": "Down since {0}",
   "statusDegradedSince": "Degraded since {0}",
   "statusNotice": "Notice",
+  "statusIncidentAffectedAll": "All services",
   "statusPostedOn": "Posted {0}",
   "statusOutagePeriod": "Down {0} – {1}",
   "statusResolved": "Resolved",

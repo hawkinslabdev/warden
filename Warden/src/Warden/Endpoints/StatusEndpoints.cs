@@ -39,7 +39,8 @@ internal static class StatusEndpoints
     {
         var l = Localization.Current;
         var monitoring = content.SiteConfig?.Monitoring;
-        var targets = (monitoring?.Targets ?? []).Where(t => t.Hidden != true && t.Enabled != false).ToList();
+        var authenticated = ctx.User.Identity?.IsAuthenticated == true;
+        var targets = (monitoring?.Targets ?? []).Where(t => (authenticated || t.Hidden != true) && t.Enabled != false).ToList();
         var filterDay = ParseFilterDay(ctx.Request.Query["on"]);
         var structure = responder.ResolveStructure();
         var html = targets.Count == 0
@@ -122,12 +123,17 @@ internal static class StatusEndpoints
             ? $"<span class=\"status-monitor-uptime select-none\">{LayoutProvider.HtmlEncode(l.StatusUptimeLabel(u.Percent, FormatDuration(u.Span)))}</span>"
             : $"<span class=\"status-monitor-uptime select-none\">{LayoutProvider.HtmlEncode(l.StatusNoData)}</span>";
 
-    private static string BuildMonitorNameSpan(MonitorTarget target)
+    private static string BuildMonitorNameSpan(Localization l, MonitorTarget target)
     {
         var name = LayoutProvider.HtmlEncode(target.Name);
-        return string.IsNullOrWhiteSpace(target.Name)
+        var nameSpan = string.IsNullOrWhiteSpace(target.Name)
             ? $"<span class=\"status-monitor-name\">{name}</span>"
             : $"<span class=\"status-monitor-name\" tabindex=\"0\"><span class=\"status-monitor-name-tip\" role=\"tooltip\">{name}</span><span class=\"status-monitor-name-text\">{name}</span></span>";
+        if (target.Hidden != true)
+            return nameSpan;
+        return nameSpan + "<svg class=\"status-monitor-hidden-icon\" viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" role=\"img\" aria-label=\""
+            + LayoutProvider.HtmlEncode(l.AdminHidden)
+            + "\"><path d=\"M9.88 9.88a3 3 0 1 0 4.24 4.24\"/><path d=\"M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68\"/><path d=\"M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61\"/><line x1=\"2\" x2=\"22\" y1=\"2\" y2=\"22\"/></svg>";
     }
 
     // fflat list item ("clean", "default", and every structure that is not the card grid)
@@ -135,7 +141,7 @@ internal static class StatusEndpoints
     {
         var uptime = filterDay is { } day ? DayUptime(store, target.Id, day, degradedBelowPercent) : store.GetUptime(target.Id, UptimeWindow, expectedInterval);
         var sb = new System.Text.StringBuilder("<li class=\"status-monitor status-monitor--").Append(StatusClass(status)).Append("\">")
-          .Append(BuildMonitorNameSpan(target))
+          .Append(BuildMonitorNameSpan(l, target))
           .Append(BuildStatusBadge(l, status, linked, basePath));
         sb.Append(BuildUptimeSpan(l, uptime));
         sb.Append(BuildHistoryBar(store, target.Id, basePath, historyDays, degradedBelowPercent));
@@ -231,7 +237,7 @@ internal static class StatusEndpoints
         sb.Append("<li class=\"status-monitor-card status-monitor-card--").Append(StatusClass(status)).Append("\">")
           .Append("<div class=\"status-monitor-card-head\">")
           .Append("<span class=\"status-monitor-dot select-none\" aria-hidden=\"true\"></span>")
-          .Append(BuildMonitorNameSpan(target))
+          .Append(BuildMonitorNameSpan(l, target))
           .Append(BuildStatusBadge(l, status, linked, basePath))
           .Append("</div>");
         sb.Append(BuildUptimeSpan(l, uptime));

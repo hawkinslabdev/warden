@@ -2064,6 +2064,12 @@ public static partial class LayoutProvider
             white-space: nowrap;
             text-overflow: ellipsis;
         }}
+        .status-monitor-hidden-icon {{
+            flex: none;
+            margin-left: 0.35rem;
+            opacity: 0.6;
+            vertical-align: middle;
+        }}
         .status-monitor-name-tip {{
             position: absolute; left: 50%; top: calc(100% + 0.45rem);
             transform: translateX(calc(-50% + var(--tip-shift, 0px)));

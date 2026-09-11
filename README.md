@@ -4,9 +4,7 @@
 [![Last commit](https://img.shields.io/github/last-commit/hawkinslabdev/warden)](https://github.com/hawkinslabdev/warden/commits/main)
 [![Docker](https://img.shields.io/badge/ghcr.io-hawkinslabdev%2Fwarden-blue?logo=docker)](https://github.com/hawkinslabdev/warden/pkgs/container/warden)
 
-Warden is a self-contained status page. It checks your configured sites on a timer, keeps the history in its own local SQLite database, and reports uptime, downtime, and outages from it, no external backend to run or register with.
-
-It's a child project of [Teatime](https://github.com/hawkinslabdev/teatime), and reuses that project's Markdown engine, theming, and page-structure system unchanged. Everything around the status page itself (Markdown content, themes, single-language locale files) works the same way.
+Warden is a self-contained status page. It checks your sites on a timer, keeps the history in a local SQLite database, and reports uptime, downtime and outages from that. There is no external service to run or sign up for.
 
 <div>
       <p align="center"><strong>🔍 <a href="https://hawkinslabdev.github.io/warden/">See it in action!</a></strong></p>
@@ -26,7 +24,7 @@ content/
   locale/en.json    locale overrides (single language)
 ```
 
-The status page itself is the site's root ("/") and isn't authored as Markdown. Warden checks your configured targets on a timer and renders it live from what it's collected, using the same theme and layout as the rest of the site. Everything else (`/about`, `/guide`, any page you add under `content/pages/`) is a simple Markdown file with front matter:
+The status page is the site's root (`/`). It is not a Markdown file: Warden checks your targets on a timer and renders the page from what it has collected, in the same theme and layout as the rest of the site. Everything else (`/about`, `/guide`, anything under `content/pages/`) is a Markdown file with front matter:
 
 ```markdown
 ---
@@ -37,11 +35,11 @@ description: What this status page covers.
 Outages are reported here as they happen.
 ```
 
-Once a page is saved, it appears right away. Warden watches your files and rebuilds in memory, so there is nothing to recompile.
+Save a page and it appears right away. Warden watches the files and rebuilds in memory; there is nothing to compile.
 
 ## Installation
 
-The quickest way to run Warden is the published container image, which has everything bundled and ready.
+The quickest way to run Warden is the container image.
 
 ### Docker
 
@@ -50,45 +48,49 @@ mkdir -p warden/content/incidents warden/content/pages warden/content/locale war
 cd warden
 curl -O https://raw.githubusercontent.com/hawkinslabdev/warden/main/docker-compose.yml
 curl -o content/config.json https://raw.githubusercontent.com/hawkinslabdev/warden/main/content/config.example.json
+chown -R 1654:1654 data
 
 docker compose up -d
 ```
 
-Your own `content/` folder (`.md` pages and `config.json`) mounts from the host, and so does `data/`, where the SQLite heartbeat history lives; without that volume, history resets on every container recreate. `docker-compose.yml`'s `PublicBaseUrl` is the origin you serve from; `AllowedHosts` should match it. What to check lives in `content/config.json`, see [Configuring your site](#configuring-your-site).
+Two folders are mounted from the host:
 
-> **Note:** The container runs as UID `1654`, not root. If `data/` isn't writable by that UID (`chown -R 1654:1654 data`), or your host enforces SELinux (add `:Z` to the `data` volume line), startup fails with `SQLite Error 8: attempt to write a readonly database`.
+- `content/`: your `.md` pages and `config.json`. What to check is set here; see [Configuring your site](#configuring-your-site).
+- `data/`: the SQLite heartbeat history and, under `data/keys/`, the session keys for the admin panel. Without this volume, both reset on every container recreate.
 
-Your status page is then waiting at `http://localhost:8080`. The commented `OIDC_` lines in `docker-compose.yml` turn on the admin panel at `/admin`; see [Environment variables](content/pages/deploy/environment.md#admin-panel).
+The container runs as UID `1654`, not root, so `data/` must be writable by that user (`chown -R 1654:1654 data`). On a host with SELinux, add `:Z` to the `data` volume line. If either is missing, startup fails with `SQLite Error 8: attempt to write a readonly database`.
 
-Running locally only? The `PublicBaseUrl`/`AllowedHosts` lines can be left out entirely. Without them, absolute URLs in your sitemap fall back to whatever `Host` header the request carried, which is perfectly fine on localhost.
+In `docker-compose.yml`, `PublicBaseUrl` is the origin you serve from and `AllowedHosts` should match it. Running on localhost only? Leave both out. Absolute URLs in the sitemap then use the request's `Host` header, which is fine locally. On a public host, set them: the `Host` header comes from the caller, and these two settings pin the URLs to your own origin.
 
-> **Note:** On a public host that fallback is worth avoiding, since the `Host` header is supplied by the caller. Setting `PublicBaseUrl` and `AllowedHosts` keeps those URLs pinned to your own origin.
+Your status page is now at `http://localhost:8080`. The commented `OIDC_` lines in `docker-compose.yml` enable the admin panel at `/admin`; see [Environment variables](content/pages/deploy/environment.md#admin-panel).
 
 ### Windows and IIS
 
-If you would rather host on Windows, each release ships a ready to run build:
+Each release includes a ready-to-run Windows build:
 
 1. Download the latest `*-Windows_x64.zip` from the [Releases](https://github.com/hawkinslabdev/warden/releases) page.
 2. Extract it into your site folder, for example `C:\inetpub\warden`.
 3. Create an IIS site pointed at that folder, with the CLR version set to "No Managed Code".
-4. Make sure the [.NET 11 Hosting Bundle](https://dotnet.microsoft.com/download/dotnet/11.0) is installed.
+4. Install the [.NET 11 Hosting Bundle](https://dotnet.microsoft.com/download/dotnet/11.0).
 5. Start the site and browse to it.
 
-The zip already includes a `web.config` wired for in process hosting, so no manual edits are needed. A `*-Linux_x64.zip` build is attached to each release as well.
+The zip includes a `web.config` set up for in-process hosting, so no edits are needed. Each release also includes a `*-Linux_x64.zip`.
 
 ## Incidents and pages
 
-- A live status page at the root: per-monitor up/down badges, a 90-day history bar, 24h uptime, and incidents/maintenance from `content/incidents/`, each reported as a Markdown file with its own page
-- Standalone pages under `content/pages/` (About, Guide, a status policy) for anything that isn't a monitor or an incident, each rendered with the site's theme
-- `/sitemap.xml` and `/robots.txt` covering your authored pages and the status page
+- A live status page at the root: per-monitor up/down badges, a history bar (90 days by default), 24h uptime, and incidents and maintenance windows from `content/incidents/`, each a Markdown file with its own page
+- Standalone pages under `content/pages/` (About, Guide, a status policy) for anything that is not a monitor or an incident, rendered with the site's theme
+- `/sitemap.xml` and `/robots.txt` covering your pages and the status page
 - A JSON status endpoint at `/api/status` for your own tooling
 - Light and dark themes
 
-Both incidents and standalone pages go through the same Markdig pipeline, so diagrams, math, and footnotes work in either. The [Markdown examples page](content/pages/examples/markdown.md) shows the syntax for each side by side with its output; the [Markdown Guide](https://www.markdownguide.org/) covers the syntax itself if you need a refresher.
+Incident `start` and `end` dates are ISO 8601. `2026-09-01T02:00:00Z` is UTC, `2026-09-01T04:00:00+02:00` uses that offset, and a plain `2026-09-01 04:00` is local time in the container's `TZ`.
+
+Incidents and standalone pages go through the same Markdig pipeline, so diagrams, math and footnotes work in both. The [Markdown examples page](content/pages/examples/markdown.md) shows each syntax next to its output; the [Markdown Guide](https://www.markdownguide.org/) covers the basics.
 
 ## Configuring your site
 
-`content/config.json` is entirely optional. It sets your site title, description, social links, and what to monitor:
+`content/config.json` is optional. It sets the site title, description, social links, and what to monitor:
 
 ```json
 {
@@ -107,11 +109,11 @@ Both incidents and standalone pages go through the same Markdig pipeline, so dia
 }
 ```
 
-The `id` in `monitoring` is a customizable database row key slug; renaming it resets history, though front matter can reference it directly for incidents. The block hot-reloads dynamically along with `config.json`, meaning adding, removing, or rescheduling targets takes effect on the next check cycle without a restart, while unreachable targets render as down rather than throwing an error.
+`id` is the key each monitor's history is stored under, so renaming it starts that history over. Incidents reference the same id in their front matter. `retentionDays` is how long history is kept; it never goes below `historyDays`, so the history bar never loses days to pruning. The `monitoring` block hot-reloads with the rest of `config.json`: add, remove or re-time a target and it takes effect on the next check, no restart. An unreachable target shows as down rather than erroring.
 
-Refer to the [config.json reference](content/pages/examples/config.md) for every monitor field and type. Updating the `lang` setting in `config.json` points frontend translations to `content/locale/en.json`, enabling key-by-key text overrides without touching source code.
+The [config.json reference](content/pages/examples/config.md) lists every monitor field and type. Setting `lang` in `config.json` points the interface text at `content/locale/<lang>.json`, so you can override strings key by key without touching the source.
 
-For details on keeping `content/` in sync with a Git remote and handling private-repo auth, see the [Git sync reference](content/pages/examples/git.md). Warden only ever runs `git pull` inside `content/`, keeping it as your own local host checkout.
+To keep `content/` in sync with a Git remote, including private-repo auth, see the [Git sync reference](content/pages/examples/git.md). Warden only runs `git pull` inside `content/`; it stays your own checkout. One gotcha: in a compose `environment:` list, write `- GIT_CRON=*/5 * * * *` without quotes, or the quotes become part of the value.
 
 ## License
 

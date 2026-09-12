@@ -1,4 +1,5 @@
 using Markdig;
+using Markdig.Extensions.Abbreviations;
 using Markdig.Extensions.Emoji;
 using Markdig.Extensions.Yaml;
 using Markdig.Renderers.Html;
@@ -59,6 +60,7 @@ public sealed partial class MarkdownService
 
         // Generic attributes allow `{onclick="..."}` on any element, which DisableHtml does not cover.
         builder.DocumentProcessed += SanitizeGenericAttributes;
+        builder.DocumentProcessed += UnwrapAbbreviationsInsideLinks;
 
         _pipeline = builder.Build();
 
@@ -161,6 +163,16 @@ public sealed partial class MarkdownService
             if (node.TryGetAttributes() is not { Properties: { Count: > 0 } properties })
                 continue;
             properties.RemoveAll(p => !AllowedAttributes.Contains(p.Key));
+        }
+    }
+
+    // abbr should skip link text
+    private static void UnwrapAbbreviationsInsideLinks(MarkdownObject document)
+    {
+        foreach (var link in document.Descendants<LinkInline>())
+        {
+            foreach (var abbr in link.Descendants<AbbreviationInline>().ToList())
+                abbr.ReplaceBy(new LiteralInline(abbr.Abbreviation.Label ?? string.Empty));
         }
     }
 

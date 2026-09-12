@@ -402,6 +402,17 @@ $$
     }
 
     [Fact]
+    public void Parse_AbbreviationInsideLinkText_RendersPlainLinkWithoutAbbrTag()
+    {
+        var md = "[HTML](/spec) documentation.\n\n*[HTML]: Hyper Text Markup Language\n";
+
+        var result = _service.Parse(md);
+
+        Assert.Contains("<a href=\"/spec\">HTML</a>", result.Html);
+        Assert.DoesNotContain("<abbr", result.Html);
+    }
+
+    [Fact]
     public void ToPlainText_LinkMarkdown_ReturnsLinkText()
     {
         Assert.Equal("Redirects", MarkdownService.ToPlainText("[Redirects](#redirects)"));

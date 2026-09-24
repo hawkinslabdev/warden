@@ -109,7 +109,7 @@ public static class StaticSiteExporter
     {
         if (!Directory.Exists(sourceRoot)) return;
 
-        foreach (var file in Directory.EnumerateFiles(sourceRoot, "*", SearchOption.AllDirectories))
+        foreach (var file in Directory.EnumerateFiles(sourceRoot, "*", ContentLinks.NoLinks))
         {
             if (allow is not null && !allow(file)) continue;
             var relative = Path.GetRelativePath(sourceRoot, file);

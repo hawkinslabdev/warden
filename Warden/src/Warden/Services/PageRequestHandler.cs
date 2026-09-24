@@ -191,6 +191,13 @@ public sealed class PageRequestHandler
         var isAbsolute = target.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
             || target.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
 
+        // Browsers read '\' as '/' and drop tabs/newlines, so "/\evil.example" would leave the origin as a "relative" target.
+        if (!isAbsolute && target.Any(ch => ch == '\\' || char.IsControl(ch) || char.IsWhiteSpace(ch)))
+        {
+            Serilog.Log.Warning("Redirect to {Target} is not a plain site path; the page rendered instead", target);
+            return false;
+        }
+
         if (isAbsolute && !IsAllowedRedirectHost(target, context.Request.Host.Host, config?.RedirectHosts))
         {
             Serilog.Log.Warning(

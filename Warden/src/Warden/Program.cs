@@ -275,14 +275,14 @@ try
         app.UseStaticFiles();
 
     if (usingGitRoot)
-        app.UseStaticFiles(new StaticFileOptions { FileProvider = new PhysicalFileProvider(themeDir), RequestPath = "/theme" });
+        app.UseStaticFiles(new StaticFileOptions { FileProvider = new ContentLinks.NoLinkFileProvider(themeDir), RequestPath = "/theme" });
 
     var assetsDir = Path.Combine(Path.GetFullPath(docsOptions.RootPath), "assets");
     AssetVersioning.Current = new AssetVersioning(assetsDir);
     if (Directory.Exists(assetsDir))
         app.UseStaticFiles(new StaticFileOptions
         {
-            FileProvider = new PhysicalFileProvider(assetsDir),
+            FileProvider = new ContentLinks.NoLinkFileProvider(assetsDir),
             RequestPath = "/assets",
             ContentTypeProvider = AssetContentTypes.Provider(),
             ServeUnknownFileTypes = false,

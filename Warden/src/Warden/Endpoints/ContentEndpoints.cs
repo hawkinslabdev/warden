@@ -31,7 +31,8 @@ internal static class ContentEndpoints
         // Trailing separator matters: a bare prefix compare also accepts a sibling like /srv/content-private
         var docsRoot = Path.GetFullPath(options.RootPath).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         var filePath = Path.GetFullPath(Path.Combine(docsRoot, relPath.Replace('/', Path.DirectorySeparatorChar)));
-        if (!filePath.StartsWith(docsRoot, StringComparison.Ordinal) || !File.Exists(filePath))
+        // the lexical prefix check alone passes a symlink whose target lives outside the docs root
+        if (!filePath.StartsWith(docsRoot, StringComparison.Ordinal) || !File.Exists(filePath) || ContentLinks.HasLink(docsRoot, filePath))
             return Results.NotFound();
 
         var fileInfo = new FileInfo(filePath);

@@ -104,20 +104,32 @@ public sealed partial class MarkdownService
         var frontMatter = ParseFrontMatter(document, filePath);
 
         var headings = new List<HeadingInfo>();
+        var usedIds = document.Descendants<HeadingBlock>().Select(h => h.GetAttributes().Id).OfType<string>().ToHashSet();
         foreach (var block in document.Descendants())
         {
             if (block is HeadingBlock heading)
             {
-                var headingText = ExtractInlineText(heading.Inline);
+                var headingText = UnescapeBraces(ExtractInlineText(heading.Inline));
                 if (string.IsNullOrEmpty(headingText))
                     continue;
 
-                var id = heading.GetAttributes().Id ?? Slugify(headingText);
+                var attributes = heading.GetAttributes();
+                // auto-identifiers ran on the escaped text, so a code span with braces left the placeholder in the id
+                if (attributes.Id is { } autoId && (autoId.Contains("bark_lcb") || autoId.Contains("bark_rcb")))
+                {
+                    var slug = Slugify(headingText);
+                    var unique = slug;
+                    for (var n = 1; usedIds.Contains(unique); n++)
+                        unique = $"{slug}-{n}";
+                    usedIds.Add(unique);
+                    attributes.Id = unique;
+                }
+                var id = attributes.Id ?? Slugify(headingText);
                 headings.Add(new HeadingInfo(headingText, id, heading.Level));
             }
         }
 
-        var html = UnescapeBraces(AddHeadingAnchors(Markdown.ToHtml(markdown, _pipeline)));
+        var html = UnescapeBraces(AddHeadingAnchors(document.ToHtml(_pipeline)));
         html = PrefixBodyContent(html, _basePath);
         html = AddExternalLinkAttributes(html);
         html = RewriteAbbreviations(html);
@@ -198,7 +210,7 @@ public sealed partial class MarkdownService
         if (document.FirstOrDefault() is not YamlFrontMatterBlock yamlBlock)
             return null;
 
-        var yaml = yamlBlock.Lines.ToString().Trim();
+        var yaml = UnescapeBraces(yamlBlock.Lines.ToString().Trim());
         if (string.IsNullOrWhiteSpace(yaml))
             return null;
 

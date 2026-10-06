@@ -57,4 +57,14 @@ public sealed class SyntaxHighlightingTests
 
         Assert.Contains($"class=\"language-{lang}\"", html);
     }
+
+    [Fact]
+    public void Fence_PlainShellArguments_UseDefaultForegroundNotStringColor()
+    {
+        var html = Service.ToHtml("```bash\ncurl --url 'https://x'\n```\n");
+
+        // github-dark colors strings #9ECBFF; only the quoted URL may carry it.
+        Assert.Contains("--shiki-dark:#e1e4e8\">curl --url ", html);
+        Assert.Contains("#9ECBFF\">https://x<", html);
+    }
 }

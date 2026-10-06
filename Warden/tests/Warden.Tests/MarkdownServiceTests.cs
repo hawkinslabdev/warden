@@ -21,6 +21,25 @@ public sealed class MarkdownServiceTests
     private readonly MarkdownService _service = new();
 
     [Fact]
+    public void Heading_WithBracesInCodeSpan_KeepsBracesOutOfTocAndId()
+    {
+        var result = _service.Parse("## `GET /{path}`\n\n## `path`\n");
+
+        Assert.Equal("GET /{path}", result.Headings[0].Text);
+        Assert.DoesNotContain("bark_", result.Headings[0].Id);
+        Assert.Contains($"id=\"{result.Headings[0].Id}\"", result.Html);
+        Assert.Equal(2, result.Headings.Select(h => h.Id).Distinct().Count());
+    }
+
+    [Fact]
+    public void FrontMatter_WithBracesInCodeSpan_KeepsBraces()
+    {
+        var result = _service.Parse("---\ntitle: \"`{a}` title\"\n---\n# H\n");
+
+        Assert.Equal("`{a}` title", result.Title);
+    }
+
+    [Fact]
     public void AllContent_ParseWithoutLeakingRawContainerOrFenceSyntax()
     {
         var contentDir = Path.Combine(AppContext.BaseDirectory, "content");

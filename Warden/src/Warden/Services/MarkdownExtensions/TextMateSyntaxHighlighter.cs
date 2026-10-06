@@ -109,12 +109,36 @@ public sealed class TextMateSyntaxHighlighter : ISyntaxHighlighter
 
     private static string ResolveColor(Theme theme, List<string> scopes, string defaultColor)
     {
-        var rules = theme.Match(scopes);
-        if (rules.Count == 0 || rules[0].foreground <= 0)
+        // Match() selects by leaf scope only; a rule like "string ... source" must not color plain source text.
+        var rule = theme.Match(scopes).FirstOrDefault(r => ParentsMatch(r.parentScopes, scopes));
+        if (rule is null || rule.foreground <= 0)
             return defaultColor;
 
-        return theme.GetColor(rules[0].foreground) ?? defaultColor;
+        return theme.GetColor(rule.foreground) ?? defaultColor;
     }
+
+    // parentScopes is the selector reversed, leaf first; each ancestor must appear above the token in order.
+    internal static bool ParentsMatch(IList<string>? parentScopes, IList<string> scopes)
+    {
+        if (parentScopes is not { Count: > 0 } || scopes.Count == 0)
+            return true;
+
+        var p = ScopeMatches(scopes[^1], parentScopes[0]) ? 1 : 0;
+        var i = scopes.Count - 2;
+        for (; p < parentScopes.Count; p++, i--)
+        {
+            while (i >= 0 && !ScopeMatches(scopes[i], parentScopes[p]))
+                i--;
+            if (i < 0)
+                return false;
+        }
+        return true;
+    }
+
+    private static bool ScopeMatches(string scope, string selector) =>
+        scope.Length >= selector.Length
+        && scope.StartsWith(selector, StringComparison.Ordinal)
+        && (scope.Length == selector.Length || scope[selector.Length] == '.');
 
     private IGrammar? GetGrammar(string lang)
     {

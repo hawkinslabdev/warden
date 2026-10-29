@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM mcr.microsoft.com/dotnet/sdk:11.0-preview AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 WORKDIR /src
 
 # Restore against the Warden build/package props and the project.
@@ -12,7 +12,7 @@ COPY Warden/src/Warden/ Warden/src/Warden/
 COPY content/ content/
 RUN cd Warden && dotnet publish src/Warden/Warden.csproj -c Release -o /app --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:11.0-preview AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS runtime
 WORKDIR /app
 
 # only needed for the opt-in Git:Enabled content sync (see GitContentSyncService)

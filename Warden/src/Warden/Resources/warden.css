@@ -2914,3 +2914,21 @@ a.status-monitor-badge:hover {
         margin-right: calc((100% - var(--measure-wide)) / 2);
     }
 }
+/* labels once, on the first webhook row */
+.admin-rows .admin-grid + .admin-grid .admin-field-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+.admin-input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+.admin-input[type="number"]::-webkit-inner-spin-button,
+.admin-input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}

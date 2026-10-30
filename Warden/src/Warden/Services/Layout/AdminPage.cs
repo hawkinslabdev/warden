@@ -152,10 +152,10 @@ internal static class AdminPage
             var hook = i < webhooks.Count ? webhooks[i] : null;
             var header = hook?.Headers?.FirstOrDefault();
             sb.Append("<div class=\"admin-grid\">");
-            AppendText(sb, "url", l.AdminWebhookUrl, hook?.Url, l.AdminWebhookUrlPlaceholder, "url");
-            AppendText(sb, "headerName", l.AdminWebhookHeaderName, header?.Key, l.AdminWebhookHeaderNamePlaceholder, "text");
+            AppendText(sb, "url", l.AdminWebhookUrl, hook?.Url, null, "url");
+            AppendText(sb, "headerName", l.AdminWebhookHeaderName, header?.Key, null, "text");
             AppendText(sb, "headerValue", l.AdminWebhookHeaderValue, null,
-                header is null ? l.AdminWebhookHeaderValuePlaceholder : l.AdminWebhookSecretKept, "password");
+                header is null ? null : l.AdminWebhookSecretKept, "password");
             sb.Append("</div>");
         }
 
@@ -199,7 +199,7 @@ internal static class AdminPage
         AppendKind(sb, "maintenance", "maintenance", l.AdminIncidentMaintenance, isDefault: false);
         sb.Append("</div>");
 
-        AppendText(sb, "title", l.AdminIncidentTitle, null, l.AdminIncidentTitlePlaceholder, "text", "admin-span", required: true, maxLength: 200);
+        AppendText(sb, "title", l.AdminIncidentTitle, null, null, "text", "admin-span", required: true, maxLength: 200);
 
         if (targets.Count > 0)
         {
@@ -214,11 +214,10 @@ internal static class AdminPage
         // server-local, matching how the post is parsed
         AppendDateTime(sb, "start", l.AdminIncidentStart, required: true, value: DateTime.Now.AddMinutes(-60));
         AppendDateTime(sb, "end", l.AdminIncidentEnd, required: false);
-        AppendText(sb, "description", l.AdminIncidentDescription, null, l.AdminIncidentDescriptionPlaceholder, "text", "admin-span", maxLength: 300);
+        AppendText(sb, "description", l.AdminIncidentDescription, null, null, "text", "admin-span", maxLength: 300);
 
         sb.Append("<label class=\"admin-field admin-span\"><span class=\"admin-field-label\">")
-          .Append(E(l.AdminIncidentBody)).Append("</span><textarea class=\"admin-input\" name=\"body\" rows=\"6\" maxlength=\"20000\" placeholder=\"")
-          .Append(E(l.AdminIncidentBodyPlaceholder)).Append("\"></textarea></label>");
+          .Append(E(l.AdminIncidentBody)).Append("</span><textarea class=\"admin-input\" name=\"body\" rows=\"6\" maxlength=\"20000\"></textarea></label>");
 
         sb.Append("<div class=\"admin-incident-actions admin-span\"><button type=\"submit\" class=\"admin-btn admin-btn--primary\">")
           .Append(E(l.AdminCompose)).Append("</button></div>");

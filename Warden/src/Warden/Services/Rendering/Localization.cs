@@ -94,11 +94,8 @@ public sealed class Localization
         ["adminReorderHint"] = "Drag it, or use the arrow keys",
         ["adminWebhooksHeading"] = "Webhooks",
         ["adminWebhookUrl"] = "URL",
-        ["adminWebhookUrlPlaceholder"] = "https://hooks.example.com/warden",
         ["adminWebhookHeaderName"] = "Header name",
-        ["adminWebhookHeaderNamePlaceholder"] = "Authorization",
         ["adminWebhookHeaderValue"] = "Header value",
-        ["adminWebhookHeaderValuePlaceholder"] = "Bearer \u2026",
         ["adminWebhookSecretKept"] = "Kept unless you replace it",
         ["adminTimingHeading"] = "Timing",
         ["adminInterval"] = "Interval (s)",
@@ -109,11 +106,9 @@ public sealed class Localization
         ["adminSaveChanges"] = "Save changes",
         ["adminIncidentHeading"] = "New incident",
         ["adminIncidentTitle"] = "Title",
-        ["adminIncidentTitlePlaceholder"] = "Slow API responses",
         ["adminIncidentStart"] = "Start",
         ["adminIncidentEnd"] = "End",
         ["adminIncidentDescription"] = "Description",
-        ["adminIncidentDescriptionPlaceholder"] = "One line to show on the status page",
         ["adminIncidentAffected"] = "Affected monitors",
         ["adminIncidentMaintenance"] = "Maintenance",
         ["adminIncidentDegraded"] = "Degraded",
@@ -122,7 +117,6 @@ public sealed class Localization
         ["adminMore"] = "More",
         ["adminMoreFor"] = "More for {0}",
         ["adminIncidentBody"] = "Body",
-        ["adminIncidentBodyPlaceholder"] = "What happened, what you are doing about it, and when you will post the next update.",
         ["adminCompose"] = "Create draft",
         ["adminIncidentFileHeading"] = "Incident file",
         ["adminIncidentFileNote"] = "Save this as <code>content/incidents/&lt;slug&gt;.md</code> in your repository.",
@@ -258,11 +252,8 @@ public sealed class Localization
     public string AdminReorderHint => this["adminReorderHint"];
     public string AdminWebhooksHeading => this["adminWebhooksHeading"];
     public string AdminWebhookUrl => this["adminWebhookUrl"];
-    public string AdminWebhookUrlPlaceholder => this["adminWebhookUrlPlaceholder"];
     public string AdminWebhookHeaderName => this["adminWebhookHeaderName"];
-    public string AdminWebhookHeaderNamePlaceholder => this["adminWebhookHeaderNamePlaceholder"];
     public string AdminWebhookHeaderValue => this["adminWebhookHeaderValue"];
-    public string AdminWebhookHeaderValuePlaceholder => this["adminWebhookHeaderValuePlaceholder"];
     public string AdminWebhookSecretKept => this["adminWebhookSecretKept"];
     public string AdminTimingHeading => this["adminTimingHeading"];
     public string AdminInterval => this["adminInterval"];
@@ -273,11 +264,9 @@ public sealed class Localization
     public string AdminSaveChanges => this["adminSaveChanges"];
     public string AdminIncidentHeading => this["adminIncidentHeading"];
     public string AdminIncidentTitle => this["adminIncidentTitle"];
-    public string AdminIncidentTitlePlaceholder => this["adminIncidentTitlePlaceholder"];
     public string AdminIncidentStart => this["adminIncidentStart"];
     public string AdminIncidentEnd => this["adminIncidentEnd"];
     public string AdminIncidentDescription => this["adminIncidentDescription"];
-    public string AdminIncidentDescriptionPlaceholder => this["adminIncidentDescriptionPlaceholder"];
     public string AdminIncidentAffected => this["adminIncidentAffected"];
     public string AdminIncidentMaintenance => this["adminIncidentMaintenance"];
     public string AdminIncidentDegraded => this["adminIncidentDegraded"];
@@ -286,7 +275,6 @@ public sealed class Localization
     public string AdminMore => this["adminMore"];
     public string AdminMoreFor(string name) => Format("adminMoreFor", name);
     public string AdminIncidentBody => this["adminIncidentBody"];
-    public string AdminIncidentBodyPlaceholder => this["adminIncidentBodyPlaceholder"];
     public string AdminCompose => this["adminCompose"];
     public string AdminIncidentFileHeading => this["adminIncidentFileHeading"];
     public string AdminIncidentFileNote => this["adminIncidentFileNote"];

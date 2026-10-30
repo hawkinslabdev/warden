@@ -9,7 +9,6 @@ namespace Warden.Endpoints;
 internal static class StatusEndpoints
 {
     // uptime percentage window
-    private static readonly TimeSpan UptimeWindow = TimeSpan.FromHours(24);
     // ticks in history bar
     internal const int HistoryDays = 90;
     // latency chart window
@@ -172,7 +171,7 @@ internal static class StatusEndpoints
 
     private static string BuildFlatMonitorItem(Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, bool linked, string basePath, int historyDays, double? degradedBelowPercent, TimeSpan? expectedInterval, DateOnly? filterDay, Dictionary<DateOnly, IncidentContent.IncidentDay>? incidentDays = null)
     {
-        var uptime = filterDay is { } day ? DayUptime(store, target.Id, day, degradedBelowPercent) : store.GetUptime(target.Id, UptimeWindow, expectedInterval);
+        var uptime = filterDay is { } day ? DayUptime(store, target.Id, day, degradedBelowPercent) : store.GetUptime(target.Id, TimeSpan.FromDays(historyDays), expectedInterval);
         var sb = new System.Text.StringBuilder("<li class=\"status-monitor status-monitor--").Append(StatusClass(status)).Append("\">")
           .Append(BuildMonitorNameSpan(l, target))
           .Append(BuildStatusBadge(l, status, linked, basePath));

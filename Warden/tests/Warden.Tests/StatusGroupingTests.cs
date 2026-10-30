@@ -90,6 +90,19 @@ public sealed class StatusGroupingTests : IDisposable
         Assert.Contains("% uptime over the last", sb.ToString());
     }
 
+    // per-monitor uptime spans the history bar, not 24h
+    [Fact]
+    public void MonitorUptime_CoversTheHistoryWindow()
+    {
+        _store.Record("blog", DateTimeOffset.UtcNow.AddDays(-3), up: true, responseMs: 12);
+        _store.Record("blog", DateTimeOffset.UtcNow, up: true, responseMs: 12);
+
+        var sb = new System.Text.StringBuilder();
+        var statuses = Targets.ToDictionary(t => t.Id, _ => MonitorStatus.Up);
+        StatusEndpoints.AppendMonitors(sb, Localization.Current, _store, Targets, statuses, [], "", null, historyDays: 30, expectedInterval: TimeSpan.FromDays(2));
+        Assert.Contains("100% uptime (3d)", sb.ToString());
+    }
+
     [Fact]
     public void Banner_MarksLiveViewForRefresh_OnlyWhenGivenAnInterval()
     {

@@ -174,7 +174,7 @@ public sealed class SecurityAuditFixIntegrationTests : IClassFixture<AdminWebApp
         // the stub scheme challenges with 401 where real OIDC redirects; either way it is not the page
         Assert.NotEqual(HttpStatusCode.OK, response.StatusCode);
         Assert.DoesNotContain("__RequestVerificationToken", body, StringComparison.Ordinal);
-        Assert.DoesNotContain("admin-card", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("admin-row", body, StringComparison.Ordinal);
         Assert.DoesNotContain("Beta", body, StringComparison.Ordinal);
     }
 

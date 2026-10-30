@@ -114,7 +114,7 @@ public sealed class AdminPageIntegrationTests : IClassFixture<AdminWebApplicatio
         Assert.Contains(">Monitors<", html, StringComparison.Ordinal);
         Assert.Contains(">Webhooks<", html, StringComparison.Ordinal);
         Assert.Contains(">Timing<", html, StringComparison.Ordinal);
-        Assert.Contains(">New incident or maintenance<", html, StringComparison.Ordinal);
+        Assert.Contains(">New incident<", html, StringComparison.Ordinal);
         Assert.Contains("id=\"reset-dialog\"", html, StringComparison.Ordinal);
         Assert.Contains("operator-1", html, StringComparison.Ordinal);
         // hidden targets stay operable in the panel
@@ -312,7 +312,7 @@ public sealed class AdminPageIntegrationTests : IClassFixture<AdminWebApplicatio
             new("title", "Database is slow"),
             new("start", "2026-09-08T10:00"),
             new("monitors", "alpha"),
-            new("degraded", "on"),
+            new("kind", "degraded"),
             new("body", "Looking into it."),
         ]), CancellationToken.None);
 
@@ -354,7 +354,7 @@ public sealed class AdminPageIntegrationTests : IClassFixture<AdminWebApplicatio
             new("__RequestVerificationToken", token),
             new("title", "Planned work"),
             new("start", "2026-09-08T10:00"),
-            new("maintenance", "on"),
+            new("kind", "maintenance"),
             new("body", "b"),
         ]), CancellationToken.None);
 

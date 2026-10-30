@@ -53,9 +53,10 @@ internal static class AdminEndpoints
 
     private static async Task WriteAdminAsync(HttpContext ctx, ContentService content, HeartbeatStore store, PageResponder responder, AuthOptions auth, IAntiforgery antiforgery, string? flash, string? draft)
     {
+        var monitoring = content.SiteConfig?.Monitoring;
         var html = AdminPage.Render(
-            content.SiteConfig?.Monitoring,
-            store,
+            monitoring,
+            await LiveStatusesAsync(content, store, monitoring, ctx.RequestAborted),
             auth,
             responder.BasePath,
             antiforgery.GetAndStoreTokens(ctx),
@@ -71,6 +72,19 @@ internal static class AdminEndpoints
             Prose: false,
             NoIndex: true,
             NoStore: true));
+    }
+
+    // same verdict as the public page
+    private static async Task<Dictionary<string, MonitorStatus>> LiveStatusesAsync(ContentService content, HeartbeatStore store, MonitoringConfig? monitoring, CancellationToken ct)
+    {
+        var ids = (monitoring?.Targets ?? []).Select(t => t.Id).ToList();
+        var pages = await content.GetAllPagesAsync(ct);
+        var now = DateTimeOffset.UtcNow;
+        var incidents = IncidentContent.ActiveIncidentMonitorIds(pages, now, ids);
+        var maintained = IncidentContent.ActiveMaintenanceMonitorIds(pages, now, ids);
+        return ids.ToDictionary(id => id, id =>
+            IncidentContent.StatusOverride(id, incidents, maintained)
+            ?? (store.GetLatest(id) is { } beat ? (beat.Data.Up ? MonitorStatus.Up : MonitorStatus.Down) : MonitorStatus.Unknown));
     }
 
     private static async Task<IResult> SaveSettings(HttpContext ctx, AdminConfigWriter writer, ContentService content, CancellationToken ct)
@@ -256,7 +270,8 @@ internal static class AdminEndpoints
             start = DateTimeOffset.UtcNow;
         DateTimeOffset? end = DateTimeOffset.TryParse(form["end"].ToString(), out var parsedEnd) ? parsedEnd : null;
 
-        var maintenance = form["maintenance"] == "on";
+        var kind = form["kind"].ToString();
+        var maintenance = kind == "maintenance";
         if (maintenance && end is null)
             return Back(ctx, "maintenance-needs-end");
         if (end is { } e && e < start)
@@ -272,7 +287,7 @@ internal static class AdminEndpoints
 
         var draft = new IncidentDraft(
             title, start, end, maintenance, monitors,
-            Degraded: form["degraded"] == "on",
+            Degraded: kind == "degraded",
             Description: description,
             Body: body);
 

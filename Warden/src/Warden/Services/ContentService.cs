@@ -588,11 +588,14 @@ public sealed partial class ContentService : IHostedService, IDisposable
         try
         {
             var json = File.ReadAllText(configPath);
-            return JsonSerializer.Deserialize<Config>(json, new JsonSerializerOptions
+            var config = JsonSerializer.Deserialize<Config>(json, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true,
                 NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
             });
+            if (!string.IsNullOrWhiteSpace(config?.Structure))
+                logger.LogWarning("config.json \"structure\" was removed and is ignored; Warden has one layout");
+            return config;
         }
         catch (Exception ex)
         {

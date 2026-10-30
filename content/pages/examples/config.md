@@ -16,8 +16,7 @@ A config using most of them at once:
   "description": "Uptime and incident history for Acme's public services.",
   "lang": "en",
   "culture": "en-GB",
-  "theme": "ocean",
-  "structure": "dashboard",
+  "theme": "midnight",
   "author": "Acme Ops",
   "favicon": "🛡️",
   "scrollIndicator": true,
@@ -70,7 +69,6 @@ A config using most of them at once:
 | Field | Description |
 | --- | --- |
 | `theme` | One of the built-in palettes. See the [guide](/guide/#customize-the-look) for the full list. Add `" dark"` or `" light"` to pin a mode and drop the toggle. |
-| `structure` | `clean` (default, a flat list) or `dashboard` (card grid). Independent of `theme`; any theme pairs with either. |
 | `scrollIndicator` | Set `false` to hide the reading-progress bar at the top of the page. |
 | `showOverallUptime` | Set `false` to hide the status page's overall-uptime line. `/api/status` never included it, so nothing changes there. |
 
@@ -100,7 +98,7 @@ A config using most of them at once:
 | --- | --- |
 | `intervalSeconds` | How often every target is checked. Default `60`. |
 | `retentionDays` | How long heartbeat history is kept before it's pruned. Default `30`. This value cannot be lower than `historyDays` to preserve your data. |
-| `group` | `"type"` sections monitors by type, `"custom"` sections them by each target's own `group` field (falling back to its type when unset). Unset renders one ungrouped list or grid. Works with every structure. |
+| `group` | `"type"` sections monitors by type, `"custom"` sections them by each target's own `group` field (falling back to its type when unset). Unset renders one ungrouped list. |
 | `incidentWindowDays`, `incidentMaxShown` | How far back and how many resolved incidents show on the status page. Defaults `7` and `10`. |
 | `historyDays` | Days of ticks in each monitor's history bar. Default `90`. |
 | `degradedBelowPercent` | A day's tick turns down (not just degraded) when that day's uptime% falls below this. Unset keeps the stricter default: down only when every check that day failed. |

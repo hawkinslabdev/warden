@@ -23,12 +23,12 @@ public sealed class ThemeRegistryTests
     }
 
     [Theory]
-    [InlineData("deep-space")]
-    [InlineData("DEEP-SPACE")]
-    [InlineData("  Deep-Space  ")]
+    [InlineData("midnight")]
+    [InlineData("MIDNIGHT")]
+    [InlineData("  Midnight  ")]
     public void Resolve_IsCaseAndWhitespaceInsensitive(string name)
     {
-        Assert.Equal("deep-space", ThemeRegistry.Resolve(name).Name);
+        Assert.Equal("midnight", ThemeRegistry.Resolve(name).Name);
     }
 
     [Fact]
@@ -40,60 +40,15 @@ public sealed class ThemeRegistryTests
     }
 }
 
-public sealed class StructureRegistryTests
-{
-    [Fact]
-    public void Resolve_NullOrBlank_ReturnsDefault()
-    {
-        Assert.Same(StructureRegistry.Default, StructureRegistry.Resolve(null));
-        Assert.Same(StructureRegistry.Default, StructureRegistry.Resolve("   "));
-    }
-
-    [Fact]
-    public void Resolve_UnknownName_FallsBackToDefaultWithoutThrowing()
-    {
-        Assert.Same(StructureRegistry.Default, StructureRegistry.Resolve("no-such-structure"));
-    }
-
-    [Theory]
-    [InlineData("clean")]
-    [InlineData("CLEAN")]
-    [InlineData("  Clean  ")]
-    public void Resolve_IsCaseAndWhitespaceInsensitive(string name)
-    {
-        Assert.Equal("clean", StructureRegistry.Resolve(name).Name);
-    }
-
-    [Fact]
-    public void CleanIsFirstAndDefault() =>
-        Assert.Equal("clean", StructureRegistry.Default.Name);
-
-    [Fact]
-    public void OnlyDashboardUsesTheGroupedStatusLayout()
-    {
-        Assert.False(StructureRegistry.Resolve("clean").UseCardStatusLayout);
-        Assert.False(StructureRegistry.Resolve("default").UseCardStatusLayout);
-        Assert.True(StructureRegistry.Resolve("dashboard").UseCardStatusLayout);
-    }
-
-    [Fact]
-    public void OnlyCleanHidesTheStatusHeader()
-    {
-        Assert.False(StructureRegistry.Resolve("clean").ShowStatusHeader);
-        Assert.True(StructureRegistry.Resolve("default").ShowStatusHeader);
-        Assert.True(StructureRegistry.Resolve("dashboard").ShowStatusHeader);
-    }
-}
-
 public sealed class ThemeSelectionTests
 {
     [Theory]
     [InlineData("dark", "default", ThemeMode.Dark)]
     [InlineData("light", "default", ThemeMode.Light)]
-    [InlineData("ocean dark", "ocean", ThemeMode.Dark)]
-    [InlineData("dark ocean", "ocean", ThemeMode.Dark)]
-    [InlineData("  Ocean   LIGHT ", "ocean", ThemeMode.Light)]
-    [InlineData("ocean", "ocean", ThemeMode.Auto)]
+    [InlineData("midnight dark", "midnight", ThemeMode.Dark)]
+    [InlineData("dark midnight", "midnight", ThemeMode.Dark)]
+    [InlineData("  Midnight   LIGHT ", "midnight", ThemeMode.Light)]
+    [InlineData("midnight", "midnight", ThemeMode.Auto)]
     public void ConfigValue_CarriesBothPaletteAndMode(string value, string expectedName, ThemeMode expectedMode)
     {
         var selection = ThemeSelection.Resolve(new ThemeOptions(), cliTheme: null, configTheme: value);
@@ -123,18 +78,18 @@ public sealed class ThemeSelectionTests
     [Fact]
     public void ThemesModeSettingStillAppliesWhenNoValueCarriesOne()
     {
-        var selection = ThemeSelection.Resolve(new ThemeOptions { Mode = "dark" }, null, "ocean");
+        var selection = ThemeSelection.Resolve(new ThemeOptions { Mode = "dark" }, null, "midnight");
 
-        Assert.Equal("ocean", selection.Theme.Name);
+        Assert.Equal("midnight", selection.Theme.Name);
         Assert.Equal(ThemeMode.Dark, selection.Mode);
     }
 
     [Fact]
     public void CliThemeOutranksLowerSources()
     {
-        var selection = ThemeSelection.Resolve(new ThemeOptions { Name = "solarized" }, "laserwave light", "ocean dark");
+        var selection = ThemeSelection.Resolve(new ThemeOptions { Name = "solarized" }, "default light", "midnight dark");
 
-        Assert.Equal("laserwave", selection.Theme.Name);
+        Assert.Equal("default", selection.Theme.Name);
         Assert.Equal(ThemeMode.Light, selection.Mode);
     }
 
@@ -406,13 +361,13 @@ public sealed class ThemeResolutionTests
     [Fact]
     public async Task ConfigJsonTheme_ReachesTheServedPage()
     {
-        using var factory = new ThemedSiteFactory { ConfigTheme = "ocean" };
+        using var factory = new ThemedSiteFactory { ConfigTheme = "midnight" };
         var client = factory.CreateClient();
         var html = await client.GetStringAsync("/");
         var css = await client.GetStringAsync("/warden.css");
 
-        Assert.Contains("class=\"theme-ocean\"", html, StringComparison.Ordinal);
-        Assert.Contains("--bg-color: #f6fafc;", css, StringComparison.Ordinal);
+        Assert.Contains("class=\"theme-midnight\"", html, StringComparison.Ordinal);
+        Assert.Contains("--bg-color: #FFFFFF;", css, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -427,7 +382,7 @@ public sealed class ThemeResolutionTests
     [Fact]
     public async Task ThemeOptionsName_OutranksConfigJson()
     {
-        using var factory = new ThemedSiteFactory { ConfigTheme = "ocean", OptionsTheme = "solarized" };
+        using var factory = new ThemedSiteFactory { ConfigTheme = "midnight", OptionsTheme = "solarized" };
         var html = await factory.CreateClient().GetStringAsync("/");
 
         Assert.Contains("class=\"theme-solarized\"", html, StringComparison.Ordinal);

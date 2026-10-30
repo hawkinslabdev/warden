@@ -8,13 +8,7 @@ public static class ThemeRegistry
     public static IReadOnlyList<IWardenTheme> All { get; } =
     [
         new DefaultTheme(),
-        new CasperTheme(),
-        new OceanTheme(),
-        new DeepSpaceTheme(),
         new SolarizedTheme(),
-        new LaserwaveTheme(),
-        new SignalDarkTheme(),
-        new LimelightTheme(),
         new MidnightTheme(),
         new OledTheme()
     ];

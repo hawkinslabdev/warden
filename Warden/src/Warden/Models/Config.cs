@@ -25,9 +25,6 @@ public class Config
     /// <summary>Theme name; unknown names use default.</summary>
     public string? Theme { get; set; }
 
-    /// <summary>Removed; ignored with a warning.</summary>
-    public string? Structure { get; set; }
-
     public string? Brand { get; set; }
     public string? BrandImage { get; set; }
     public string? Image { get; set; }

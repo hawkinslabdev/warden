@@ -19,7 +19,6 @@ public sealed record CliArguments(string? ExportDir, string? ExportBaseUrl, stri
                 case "--base-url" when i + 1 < args.Length: exportBaseUrl = args[++i]; break;
                 case "--base-path" when i + 1 < args.Length: basePath = args[++i]; break;
                 case "--theme" when i + 1 < args.Length: theme = args[++i]; break;
-                case "--structure" when i + 1 < args.Length: i++; Serilog.Log.Warning("--structure was removed; Warden has one layout"); break;
                 case "--export-db" when i + 1 < args.Length: exportDb = args[++i]; break;
                 case "--import-db" when i + 1 < args.Length: importDb = args[++i]; break;
             }

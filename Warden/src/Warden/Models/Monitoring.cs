@@ -26,7 +26,7 @@ public sealed record MonitorTarget(
     string? DnsServer = null,
     // dns type only: "ipv4" or "ipv6" to query only that record type; unset queries both
     string? Family = null,
-    // dashboard structure, monitoring.group: "custom" only: this target's own group heading; falls back to its type's label when unset
+    // heading for "custom" grouping
     string? Group = null,
     // still scheduled and checked normally; just excluded from the status page and /api/status, for a backend you track but don't publish
     bool? Hidden = null,

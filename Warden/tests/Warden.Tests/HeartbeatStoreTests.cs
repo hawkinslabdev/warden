@@ -142,7 +142,7 @@ public sealed class HeartbeatStoreTests : IDisposable
 
         Assert.Equal(100.0, uptime!.Value.Percent, 0);
     }
-    
+
     [Fact]
     public void GetUptime_ReportsActualSpan_WhenLessThanWindow()
     {

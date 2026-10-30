@@ -17,7 +17,7 @@ public static class HeadTagHtmlRenderer
 
         // Lets pre-allocate capacity to avoid array resizing
         var sb = new StringBuilder(512);
-        
+
         using var writer = new StringWriter(sb);
 
         foreach (var tag in tags)
@@ -33,7 +33,7 @@ public static class HeadTagHtmlRenderer
                     sb.Append(' ').Append(key).Append("=\"");
 
                     HtmlEncoder.Default.Encode(writer, value);
-                    
+
                     sb.Append('"');
                 }
             }
@@ -65,7 +65,7 @@ public static class HeadTagHtmlRenderer
 
     private static bool IsRawElement(string tag)
     {
-        return tag.Equals("script", StringComparison.OrdinalIgnoreCase) || 
+        return tag.Equals("script", StringComparison.OrdinalIgnoreCase) ||
                tag.Equals("style", StringComparison.OrdinalIgnoreCase);
     }
 }

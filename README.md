@@ -4,7 +4,7 @@
 [![Last commit](https://img.shields.io/github/last-commit/hawkinslabdev/warden)](https://github.com/hawkinslabdev/warden/commits/main)
 [![Docker](https://img.shields.io/badge/ghcr.io-hawkinslabdev%2Fwarden-blue?logo=docker)](https://github.com/hawkinslabdev/warden/pkgs/container/warden)
 
-Warden is a self-contained status page. It checks your sites on a timer, keeps the history in a local SQLite database, and reports uptime, downtime and outages from that. There is no external service to run or sign up for.
+Warden is a self-hosted status page. It checks each target on a fixed interval and stores the results in a local database. The status page reports uptime, downtime and incidents from that database. Warden requires no external service.
 
 <div>
       <p align="center"><strong>🔍 <a href="https://hawkinslabdev.github.io/warden/">See it in action!</a></strong></p>
@@ -14,7 +14,7 @@ Warden is a self-contained status page. It checks your sites on a timer, keeps t
 
 ## How it works
 
-Your content is a `content/` folder:
+Your site content is defined in `content/`:
 
 ```
 content/
@@ -24,7 +24,7 @@ content/
   locale/en.json    locale overrides (single language)
 ```
 
-The status page is the site's root (`/`). It is not a Markdown file: Warden checks your targets on a timer and renders the page from what it has collected, in the same theme and layout as the rest of the site. Everything else (`/about`, `/guide`, anything under `content/pages/`) is a Markdown file with front matter:
+The status page is served at `/` and is rendered from the check history. Every other page (`/about`, `/guide`, anything in `content/pages/`) is a Markdown file with front matter:
 
 ```markdown
 ---
@@ -35,7 +35,7 @@ description: Which services this status page reports on.
 Outages are reported here as they happen.
 ```
 
-Save a page and it is served right away. Warden detects the file change and rebuilds the site in memory. There is no compile step.
+Warden watches `content/` and rebuilds the site in memory on every file change. Saved pages are served without a restart or build step.
 
 ## Installation
 
@@ -49,11 +49,11 @@ chown -R 1654:1654 data
 docker compose up -d
 ```
 
-Open `http://localhost:8080`. Edit `content/config.json` to change what is checked; it hot-reloads.
+The site is served at `http://localhost:8080`. `content/config.json` defines the checked targets and reloads on save.
 
-`content/` contains your pages and `config.json`. `data/` contains `warden.db` (the check history) and `keys/` (admin session keys). Both are bind mounts, so recreating the container does not delete them. The container runs as user `1654`. If `data/` is not writable by that user, startup exits with the exact `chown` command to run. On SELinux hosts add `:Z` to the `data` volume line.
+`content/` contains the pages and `config.json`. `data/` contains the check history and admin session keys. Both directories are bind mounts and persist across container rebuilds. The container runs as user `1654`. If `data/` is not writable by user `1654`: startup exits and prints the required `chown` command. SELinux hosts require `:Z` on the `data` volume.
 
-For a public host, set `PublicBaseUrl` and `AllowedHosts` in `docker-compose.yml` to your origin. Everything else, including the admin panel, is in [Environment variables](content/pages/deploy/environment.md).
+A public host requires `PublicBaseUrl` and `AllowedHosts` in `docker-compose.yml`, set to the public origin. [Environment variables](content/pages/deploy/environment.md) lists all other settings, including the admin panel.
 
 ### Windows and IIS
 
@@ -65,24 +65,25 @@ Each release includes a ready-to-run Windows build:
 4. Install the [.NET 11 Hosting Bundle](https://dotnet.microsoft.com/download/dotnet/11.0).
 5. Start the site and browse to it.
 
-The zip includes a `web.config` set up for in-process hosting, so no edits are needed. Each release also includes a `*-Linux_x64.zip`.
+The zip includes a `web.config` for in-process hosting. Each release also includes a `*-Linux_x64.zip`.
 
 ## Incidents and pages
 
-- A live status page at the root: per-monitor up/down badges, a history bar (90 days by default), 24h uptime, and incidents and maintenance windows from `content/incidents/`, each a Markdown file with its own page
-- Standalone pages under `content/pages/` (About, Guide, a status policy) for anything that is not a monitor or an incident, rendered with the site's theme
-- `/sitemap.xml` and `/robots.txt` covering your pages and the status page
-- An Atom feed of incidents and maintenance at `/incidents/feed.xml`
-- A JSON status endpoint at `/api/status` for your own tooling
-- Light and dark themes
+- Status page at `/`: a verdict banner, per-monitor state (operational, degraded, down, maintenance), a history bar (`historyDays`, default 90) and uptime over the same window. The page refreshes every check interval.
+- Incidents and maintenance windows from `content/incidents/`, each a Markdown file with its own page
+- Standalone pages from `content/pages/`
+- `/sitemap.xml` and `/robots.txt`
+- Atom feed of incidents and maintenance at `/incidents/feed.xml`
+- JSON status at `/api/status`
+- Four themes (`default`, `solarized`, `midnight`, `oled`), each with light and dark modes
 
 Incident `start` and `end` dates are ISO 8601. `2026-09-01T02:00:00Z` is UTC, `2026-09-01T04:00:00+02:00` uses that offset, and a plain `2026-09-01 04:00` is local time in the container's `TZ`.
 
-Incidents and standalone pages use the same Markdown renderer, so diagrams, math and footnotes work in both. The [Markdown examples page](content/pages/examples/markdown.md) shows each syntax next to its output; the [Markdown Guide](https://www.markdownguide.org/) covers the basics.
+Incidents and standalone pages share one Markdown renderer with support for diagrams, math and footnotes. The [Markdown examples page](content/pages/examples/markdown.md) lists each syntax with its output. The [Markdown Guide](https://www.markdownguide.org/) documents the basics.
 
 ## Configuring your site
 
-`content/config.json` is optional. It sets the site title, description, social links, and what to monitor:
+`content/config.json` is optional. It defines the site title, description, social links and monitor targets:
 
 ```json
 {
@@ -101,12 +102,12 @@ Incidents and standalone pages use the same Markdown renderer, so diagrams, math
 }
 ```
 
-`id` is the key each monitor's history is stored under, so renaming it starts that history over. Incidents reference the same id in their front matter. `retentionDays` is how long history is kept; it never goes below `historyDays`, so the history bar never loses days to pruning. The `monitoring` block hot-reloads with the rest of `config.json`: add, remove or re-time a target and it takes effect on the next check, no restart. An unreachable target shows as down rather than erroring.
+A monitor `id` is the storage key for its check history and the reference used by incidents. Renaming an `id` resets that monitor's history. `retentionDays` has a minimum of `historyDays`. Changes to `monitoring` apply on the next check without a restart. An unreachable target has the status Down.
 
-The [config.json reference](content/pages/examples/config.md) lists every monitor field and type. Setting `lang` in `config.json` points the interface text at `content/locale/<lang>.json`, so you can override strings key by key without touching the source.
+The [config.json reference](content/pages/examples/config.md) lists every field. `lang` selects the locale file `content/locale/<lang>.json`. Each key in the locale file overrides the matching interface string.
 
-To keep `content/` in sync with a Git remote, including private-repo auth, see the [Git sync reference](content/pages/examples/git.md). Warden only runs `git pull` inside `content/`; it stays your own checkout. One gotcha: in a compose `environment:` list, write `- GIT_CRON=*/5 * * * *` without quotes, or the quotes become part of the value.
+The [Git sync reference](content/pages/examples/git.md) documents syncing `content/` from a Git remote, including private repositories. Warden runs `git pull` in `content/`. In a compose `environment:` list, `GIT_CRON` takes no quotes: `- GIT_CRON=*/5 * * * *`. Quotes become part of the value.
 
 ## License
 
-Licensed under EUPL 1.2, see [LICENSE](LICENSE) for the details.
+Licensed under EUPL 1.2. See [LICENSE](LICENSE).

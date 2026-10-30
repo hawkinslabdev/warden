@@ -838,7 +838,7 @@ public static partial class LayoutProvider
                 // the swap already gave every tick a fresh, unhighlighted element; this just marks the filtered day's, and stays until the next swap replaces them again
                 var day = url.searchParams.get('on');
                 if (day) {{
-                    document.querySelectorAll('.status-tick[href*=""on=' + day + '""]').forEach(function(t) {{
+                    document.querySelectorAll('.status-monitor-bar .status-tick[href*=""on=' + day + '""]').forEach(function(t) {{
                         t.classList.add('status-tick--active-day');
                     }});
                 }}

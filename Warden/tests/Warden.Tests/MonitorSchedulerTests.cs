@@ -99,12 +99,13 @@ public sealed class MonitorSchedulerTransitionTests : IDisposable
     private readonly HeartbeatStore _store;
     private readonly FakeNetwork _net = new();
     private readonly MonitorScheduler _scheduler;
+    private readonly ContentService _content;
 
     public MonitorSchedulerTransitionTests()
     {
         _store = new HeartbeatStore(new MonitoringOptions { DatabasePath = _dbPath }, NullLogger<HeartbeatStore>.Instance);
-        var content = new ContentService(new DocsOptions { RootPath = Path.GetTempPath(), EnableHotReload = false }, new MarkdownService(), NullLogger<ContentService>.Instance);
-        _scheduler = new MonitorScheduler(_net, _store, content, NullLogger<MonitorScheduler>.Instance);
+        _content = new ContentService(new DocsOptions { RootPath = Path.GetTempPath(), EnableHotReload = false }, new MarkdownService(), NullLogger<ContentService>.Instance);
+        _scheduler = new MonitorScheduler(_net, _store, _content, NullLogger<MonitorScheduler>.Instance);
         _net.Up.Add(Uplink);
         _net.Up.Add(Hook);
     }
@@ -213,6 +214,33 @@ public sealed class MonitorSchedulerTransitionTests : IDisposable
         await Cycle(config);
 
         Assert.Equal(["down", "up", "down"], _net.Webhooks);
+    }
+
+    [Fact]
+    public async Task Restart_MidOutage_NoRepeatDown_RecoveryStillSent()
+    {
+        var config = Config();
+        await Cycle(config);
+        var restarted = new MonitorScheduler(_net, _store, _content, NullLogger<MonitorScheduler>.Instance);
+        var targets = new[] { new MonitorTarget("site", "Site", Site) };
+        await restarted.CheckAllAsync(targets, config, CancellationToken.None);
+        _net.Up.Add(Site);
+        await restarted.CheckAllAsync(targets, config, CancellationToken.None);
+
+        Assert.Equal(["down", "up"], _net.Webhooks);
+    }
+
+    [Fact]
+    public async Task Restart_AfterRecovery_NewOutageAnnounced()
+    {
+        var config = Config();
+        _net.Up.Add(Site);
+        await Cycle(config);
+        _net.Up.Remove(Site);
+        var restarted = new MonitorScheduler(_net, _store, _content, NullLogger<MonitorScheduler>.Instance);
+        await restarted.CheckAllAsync([new MonitorTarget("site", "Site", Site)], config, CancellationToken.None);
+
+        Assert.Equal(["down"], _net.Webhooks);
     }
 
     [Fact]

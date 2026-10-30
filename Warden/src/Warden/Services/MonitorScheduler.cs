@@ -43,6 +43,18 @@ public sealed class MonitorScheduler(
 
     private readonly record struct DownNotice(DateTimeOffset At, bool Announced);
 
+    // shortcut: a down undelivered before restart is not retried, persist notices if that matters
+    private readonly ConcurrentDictionary<string, bool> _seeded = new();
+
+    // stored down streak counts as announced
+    private void SeedFromHistory(MonitorTarget target)
+    {
+        if (!_seeded.TryAdd(target.Id, true) || store.GetLatest(target.Id) is not { Data.Up: false } last)
+            return;
+        _consecutiveFailures.TryAdd(target.Id, (target.Retries ?? 0) + 1);
+        _downNotices.TryAdd(target.Id, new DownNotice(last.Timestamp, Announced: true));
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -151,6 +163,7 @@ public sealed class MonitorScheduler(
     // routine "up" stays at Debug (too noisy for `docker compose logs` by default); anything worth watching - a retry, a real down, a recovery - logs at Information
     private async Task RecordUpAsync(MonitorTarget target, DateTimeOffset timestamp, int elapsedMs, IReadOnlyList<WebhookTarget>? webhooks, CancellationToken ct)
     {
+        SeedFromHistory(target);
         var wasDown = _consecutiveFailures.TryRemove(target.Id, out var failures) && failures > (target.Retries ?? 0);
         store.Record(target.Id, timestamp, up: true, elapsedMs);
         // no "up" without delivered "down"
@@ -170,6 +183,7 @@ public sealed class MonitorScheduler(
     // a failure within target.Retries is "pending": logged but not recorded; Retries unset/0 keeps the original behavior - down on the very first failed check
     private async Task RecordDownAsync(MonitorTarget target, DateTimeOffset timestamp, int elapsedMs, string? message, IReadOnlyList<WebhookTarget>? webhooks, TimeSpan webhookCooldown, CancellationToken ct)
     {
+        SeedFromHistory(target);
         var threshold = target.Retries ?? 0;
         var failures = _consecutiveFailures.AddOrUpdate(target.Id, 1, (_, n) => n + 1);
         if (failures <= threshold)

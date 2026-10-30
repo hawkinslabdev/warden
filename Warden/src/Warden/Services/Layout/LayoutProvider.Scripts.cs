@@ -774,6 +774,49 @@ public static partial class LayoutProvider
                 loadDayFilter(url);
             }});
 
+            // live status: re-fetch every check interval while visible
+            var lastRefresh = Date.now();
+            async function refreshStatus() {{
+                var article = document.querySelector('article.content');
+                var live = article && article.querySelector('[data-refresh]');
+                var sel = window.getSelection();
+                if (!live || document.hidden || article.contains(document.activeElement) || (sel && !sel.isCollapsed && article.contains(sel.anchorNode))) return;
+                if (Date.now() - lastRefresh < Math.max(60, parseInt(live.getAttribute('data-refresh'), 10) || 60) * 1000) return;
+                lastRefresh = Date.now();
+                try {{
+                    var response = await fetch(window.location.href, {{ headers: {{ 'X-Requested-With': 'fetch' }}, cache: 'no-store' }});
+                    if (!response.ok) return;
+                    var next = new DOMParser().parseFromString(await response.text(), 'text/html').querySelector('article.content');
+                    // the gate page or a filtered view has no live banner
+                    if (!next || !next.querySelector('[data-refresh]')) return;
+                    // anchor: first monitor row in view
+                    var rows = article.querySelectorAll('.status-monitor');
+                    var anchorIndex = Array.prototype.findIndex.call(rows, function(r) {{ return r.getBoundingClientRect().bottom > 0; }});
+                    var anchorTop = anchorIndex >= 0 && window.scrollY > 0 ? rows[anchorIndex].getBoundingClientRect().top : null;
+                    // banner stays in place so its live heading announces changes
+                    var oldBanner = article.querySelector('.status-banner');
+                    var newBanner = next.querySelector('.status-banner');
+                    var oldTitle = oldBanner && oldBanner.querySelector('.status-banner-title');
+                    var newTitle = newBanner.querySelector('.status-banner-title');
+                    if (oldTitle && newTitle) {{
+                        oldBanner.className = newBanner.className;
+                        if (oldTitle.textContent !== newTitle.textContent) oldTitle.textContent = newTitle.textContent;
+                        Array.from(oldBanner.children).forEach(function(c) {{ if (c !== oldTitle) c.remove(); }});
+                        Array.from(newBanner.children).forEach(function(c) {{ if (c !== newTitle) oldBanner.append(c); }});
+                        newBanner.remove();
+                        Array.from(article.childNodes).forEach(function(n) {{ if (n !== oldBanner) n.remove(); }});
+                        article.append(...next.childNodes);
+                    }} else {{
+                        article.replaceChildren(...next.childNodes);
+                    }}
+                    applyTimezone();
+                    var anchor = anchorTop === null ? null : article.querySelectorAll('.status-monitor')[anchorIndex];
+                    if (anchor) window.scrollBy(0, anchor.getBoundingClientRect().top - anchorTop);
+                }} catch (e) {{ }}
+            }}
+            setInterval(refreshStatus, 15000);
+            document.addEventListener('visibilitychange', refreshStatus);
+
             async function loadDayFilter(url) {{
                 var article = document.querySelector('article.content');
                 if (!article) {{ window.location.href = url.href; return; }}

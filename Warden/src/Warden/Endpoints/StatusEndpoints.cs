@@ -102,7 +102,9 @@ internal static class StatusEndpoints
             : IncidentContent.IncidentsOnDay(pages, filterDay.Value, monitoring?.IncidentMaxShown ?? IncidentContent.DefaultIncidentMaxShown);
 
         var sb = new System.Text.StringBuilder();
-        AppendBanner(sb, l, liveStatuses, targets.Select(t => store.GetLatest(t.Id)?.Timestamp).Max());
+        // past days never change, so only live views refresh
+        int? refreshSeconds = filterDay is null ? Math.Max(60, (int)expectedInterval.TotalSeconds) : null;
+        AppendBanner(sb, l, liveStatuses, targets.Select(t => store.GetLatest(t.Id)?.Timestamp).Max(), refreshSeconds);
 
         if (showOverallUptime)
             AppendOverallUptime(sb, l, store, targets, expectedInterval, historyDays);
@@ -122,7 +124,7 @@ internal static class StatusEndpoints
     }
 
     // worst live state sets the verdict
-    internal static void AppendBanner(System.Text.StringBuilder sb, Localization l, IReadOnlyList<(string Name, MonitorStatus Status)> statuses, DateTimeOffset? lastChecked)
+    internal static void AppendBanner(System.Text.StringBuilder sb, Localization l, IReadOnlyList<(string Name, MonitorStatus Status)> statuses, DateTimeOffset? lastChecked, int? refreshSeconds = null)
     {
         var tone = statuses.Any(s => s.Status == MonitorStatus.Down) ? MonitorStatus.Down
             : statuses.Any(s => s.Status == MonitorStatus.Degraded) ? MonitorStatus.Degraded
@@ -137,8 +139,10 @@ internal static class StatusEndpoints
             _ => l.StatusAllOperational,
         };
 
-        sb.Append("<section class=\"status-banner status-banner--").Append(StatusClass(tone)).Append("\">")
-          .Append("<h1 class=\"status-banner-title\">").Append(LayoutProvider.HtmlEncode(title)).Append("</h1>");
+        sb.Append("<section class=\"status-banner status-banner--").Append(StatusClass(tone)).Append('"');
+        if (refreshSeconds is { } seconds)
+            sb.Append(" data-refresh=\"").Append(seconds).Append('"');
+        sb.Append("><h1 class=\"status-banner-title\" aria-live=\"polite\">").Append(LayoutProvider.HtmlEncode(title)).Append("</h1>");
         if (lastChecked is { } checkedAt)
             sb.Append("<p class=\"status-banner-meta\">").Append(l.StatusLastChecked(IncidentContent.TimeHtml(checkedAt))).Append("</p>");
         sb.Append("</section>");

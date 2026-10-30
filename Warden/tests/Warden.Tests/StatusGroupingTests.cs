@@ -90,6 +90,19 @@ public sealed class StatusGroupingTests : IDisposable
         Assert.Contains("% uptime over the last", sb.ToString());
     }
 
+    [Fact]
+    public void Banner_MarksLiveViewForRefresh_OnlyWhenGivenAnInterval()
+    {
+        var live = new System.Text.StringBuilder();
+        StatusEndpoints.AppendBanner(live, Localization.Current, [("Blog", MonitorStatus.Up)], null, refreshSeconds: 300);
+        Assert.Contains("data-refresh=\"300\"", live.ToString());
+        Assert.Contains("aria-live=\"polite\"", live.ToString());
+
+        var past = new System.Text.StringBuilder();
+        StatusEndpoints.AppendBanner(past, Localization.Current, [("Blog", MonitorStatus.Up)], null);
+        Assert.DoesNotContain("data-refresh", past.ToString());
+    }
+
     [Theory]
     [InlineData(MonitorStatus.Up, MonitorStatus.Up, "status-banner--up", "All systems operational")]
     [InlineData(MonitorStatus.Degraded, MonitorStatus.Up, "status-banner--degraded", "Degraded: Blog")]

@@ -217,39 +217,20 @@ public sealed class MonitorScheduler(
     // shortcut: any-accept counts; track per receiver
     private async Task<bool> FireWebhooksAsync(IReadOnlyList<WebhookTarget>? webhooks, WebhookPayload payload, CancellationToken ct)
     {
-        if (webhooks is not { Count: > 0 })
+        var active = webhooks?.Where(w => w.Enabled != false).ToList();
+        if (active is not { Count: > 0 })
             return true;
 
         var delivered = false;
         var client = httpClientFactory.CreateClient(HttpClientName);
-        foreach (var webhook in webhooks)
+        foreach (var webhook in active)
         {
             try
             {
-                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                timeoutCts.CancelAfter(TimeSpan.FromSeconds(WebhookTimeoutSeconds));
-                using var request = new HttpRequestMessage(HttpMethod.Post, webhook.Url)
-                {
-                    Content = JsonContent.Create(payload, WardenJsonContext.Default.WebhookPayload),
-                };
-                if (webhook.Headers is { Count: > 0 })
-                    foreach (var (name, value) in webhook.Headers)
-                    {
-                        // TryAddWithoutValidation writes a raw CR/LF straight to the socket, so a stored
-                        // value could inject further headers or split the request. Rejected at the admin
-                        // boundary too; this is the last gate before the wire.
-                        if (!IsSafeHeader(name, value))
-                        {
-                            logger.LogWarning("[{MonitorId}] webhook header {Header} dropped: control character in name or value", payload.MonitorId, name);
-                            continue;
-                        }
-                        request.Headers.TryAddWithoutValidation(name, value);
-                    }
-
-                using var response = await client.SendAsync(request, timeoutCts.Token);
-                delivered |= response.IsSuccessStatusCode;
-                if (!response.IsSuccessStatusCode)
-                    logger.LogWarning("[{MonitorId}] webhook to {Host} responded {StatusCode}", payload.MonitorId, SafeHost(webhook.Url), (int)response.StatusCode);
+                var status = await PostWebhookAsync(client, webhook, payload, logger, ct);
+                delivered |= status is >= 200 and < 300;
+                if (status is < 200 or >= 300)
+                    logger.LogWarning("[{MonitorId}] webhook to {Host} responded {StatusCode}", payload.MonitorId, SafeHost(webhook.Url), status);
             }
             catch (Exception ex) when (ex is HttpRequestException or IOException or OperationCanceledException)
             {
@@ -258,6 +239,33 @@ public sealed class MonitorScheduler(
             }
         }
         return delivered;
+    }
+
+    // one POST with timeout; returns the HTTP status
+    internal static async Task<int> PostWebhookAsync(HttpClient client, WebhookTarget webhook, WebhookPayload payload, ILogger logger, CancellationToken ct)
+    {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(WebhookTimeoutSeconds));
+        using var request = new HttpRequestMessage(HttpMethod.Post, webhook.Url)
+        {
+            Content = JsonContent.Create(payload, WardenJsonContext.Default.WebhookPayload),
+        };
+        if (webhook.Headers is { Count: > 0 })
+            foreach (var (name, value) in webhook.Headers)
+            {
+                // TryAddWithoutValidation writes a raw CR/LF straight to the socket, so a stored
+                // value could inject further headers or split the request. Rejected at the admin
+                // boundary too; this is the last gate before the wire.
+                if (!IsSafeHeader(name, value))
+                {
+                    logger.LogWarning("[{MonitorId}] webhook header {Header} dropped: control character in name or value", payload.MonitorId, name);
+                    continue;
+                }
+                request.Headers.TryAddWithoutValidation(name, value);
+            }
+
+        using var response = await client.SendAsync(request, timeoutCts.Token);
+        return (int)response.StatusCode;
     }
 
     /// <summary>No control character may reach an outbound header; CR/LF there is request splitting.</summary>

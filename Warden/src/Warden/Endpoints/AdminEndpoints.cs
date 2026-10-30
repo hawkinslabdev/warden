@@ -45,6 +45,7 @@ internal static class AdminEndpoints
         admin.MapPost("/settings", SaveSettings);
         admin.MapPost("/reset", ResetMonitor);
         admin.MapPost("/incident", ComposeIncident);
+        admin.MapPost("/webhook-test", TestWebhook);
         return app;
     }
 
@@ -198,13 +199,13 @@ internal static class AdminEndpoints
             // a blank name means "no header"; a blank value means "keep the stored secret"
             if (!string.IsNullOrWhiteSpace(name) && !MonitorScheduler.IsSafeHeader(name, value))
                 return "bad-webhook-header";
-            webhooks.Add(new WebhookEdit(url, name, value));
+            webhooks.Add(new WebhookEdit(url, name, value, Enabled: form[$"webhookEnabled:{i}"] == "on"));
         }
 
         return null;
     }
 
-    private sealed record WebhookEdit(string Url, string? Name, string? Value);
+    private sealed record WebhookEdit(string Url, string? Name, string? Value, bool Enabled);
 
     private static void ApplyWebhooks(JsonObject monitoring, IReadOnlyList<WebhookEdit> webhooks)
     {
@@ -217,9 +218,11 @@ internal static class AdminEndpoints
         }
 
         var array = new JsonArray();
-        foreach (var (url, name, value) in webhooks)
+        foreach (var (url, name, value, enabled) in webhooks)
         {
             var node = new JsonObject { ["url"] = url };
+            if (!enabled)
+                node["enabled"] = false;
             // ponytail: blank keeps the stored secret; one header per webhook, repeated rows if two are needed
             var headers = string.IsNullOrWhiteSpace(name)
                 ? null
@@ -297,6 +300,26 @@ internal static class AdminEndpoints
         // rendered in place; ?draft= would reflect the whole file out of the query string
         await WriteAdminAsync(ctx, content, store, responder, auth, antiforgery, "draft-ready", draft.Markdown());
         return Results.Empty;
+    }
+
+    // stored webhook only, so its saved secret header is used
+    private static async Task<IResult> TestWebhook(HttpContext ctx, ContentService content, IHttpClientFactory httpClientFactory, ILogger<MonitorScheduler> logger, CancellationToken ct)
+    {
+        var form = await ctx.Request.ReadFormAsync(ct);
+        var webhooks = content.SiteConfig?.Monitoring?.Webhooks ?? [];
+        if (!int.TryParse(form["test"], out var index) || index < 0 || index >= webhooks.Count)
+            return Back(ctx, "webhook-test-failed");
+
+        var payload = new WebhookPayload("warden-test", "Warden", "test", Localization.Current.AdminWebhookTestMessage, DateTimeOffset.UtcNow);
+        try
+        {
+            var status = await MonitorScheduler.PostWebhookAsync(httpClientFactory.CreateClient(MonitorScheduler.HttpClientName), webhooks[index], payload, logger, ct);
+            return Back(ctx, status is >= 200 and < 300 ? "webhook-test-ok" : "webhook-test-failed");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or OperationCanceledException)
+        {
+            return Back(ctx, "webhook-test-failed");
+        }
     }
 
     private static IResult Back(HttpContext ctx, string flash)

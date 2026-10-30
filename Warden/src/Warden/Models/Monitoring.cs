@@ -58,7 +58,7 @@ public sealed record MonitoringConfig(
     List<string>? ConnectivityUrls = null);
 
 // one entry in MonitoringConfig.Webhooks; Headers is opt-in, e.g. { "Authorization": "Bearer ..." } for receivers that need auth
-public sealed record WebhookTarget(string Url, Dictionary<string, string>? Headers = null);
+public sealed record WebhookTarget(string Url, Dictionary<string, string>? Headers = null, bool? Enabled = null);
 
 // the JSON body POSTed to each of MonitoringConfig.Webhooks
 public sealed record WebhookPayload(string MonitorId, string Name, string Status, string? Message, DateTimeOffset Timestamp);

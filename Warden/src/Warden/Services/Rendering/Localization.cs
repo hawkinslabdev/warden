@@ -97,6 +97,11 @@ public sealed class Localization
         ["adminWebhookHeaderName"] = "Header name",
         ["adminWebhookHeaderValue"] = "Header value",
         ["adminWebhookSecretKept"] = "Kept unless you replace it",
+        ["adminWebhookEnabled"] = "Enabled",
+        ["adminWebhookTest"] = "Send test",
+        ["adminWebhookTestMessage"] = "Test from the Warden admin panel",
+        ["adminFlashWebhookTestOk"] = "Test webhook delivered.",
+        ["adminFlashWebhookTestFailed"] = "Test webhook failed. Check the URL and header.",
         ["adminTimingHeading"] = "Timing",
         ["adminInterval"] = "Interval (s)",
         ["adminRetention"] = "Keep for (days)",
@@ -255,6 +260,11 @@ public sealed class Localization
     public string AdminWebhookHeaderName => this["adminWebhookHeaderName"];
     public string AdminWebhookHeaderValue => this["adminWebhookHeaderValue"];
     public string AdminWebhookSecretKept => this["adminWebhookSecretKept"];
+    public string AdminWebhookEnabled => this["adminWebhookEnabled"];
+    public string AdminWebhookTest => this["adminWebhookTest"];
+    public string AdminWebhookTestMessage => this["adminWebhookTestMessage"];
+    public string AdminFlashWebhookTestOk => this["adminFlashWebhookTestOk"];
+    public string AdminFlashWebhookTestFailed => this["adminFlashWebhookTestFailed"];
     public string AdminTimingHeading => this["adminTimingHeading"];
     public string AdminInterval => this["adminInterval"];
     public string AdminRetention => this["adminRetention"];

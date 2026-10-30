@@ -276,6 +276,37 @@ public sealed class AdminPageIntegrationTests : IClassFixture<AdminWebApplicatio
         Assert.Contains("https://hooks.invalid/alert", html, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task TheWebhookSwitchIsStored(bool enabled)
+    {
+        using var client = _factory.SignedInClient();
+        var token = await AntiforgeryToken(client);
+        List<KeyValuePair<string, string>> form = [new("__RequestVerificationToken", token), new("url", "https://hooks.invalid/switch")];
+        if (enabled)
+            form.Add(new("webhookEnabled:0", "on"));
+
+        await client.PostAsync("/admin/settings", new FormUrlEncodedContent(form), CancellationToken.None);
+
+        var stored = _factory.Monitoring().Webhooks!.First(w => w.Url == "https://hooks.invalid/switch");
+        Assert.Equal(enabled, stored.Enabled != false);
+    }
+
+    [Fact]
+    public async Task TestingAnUnknownWebhookReportsFailure()
+    {
+        using var client = _factory.SignedInClient();
+        var token = await AntiforgeryToken(client);
+
+        var response = await client.PostAsync("/admin/webhook-test", new FormUrlEncodedContent([
+            new("__RequestVerificationToken", token),
+            new("test", "99"),
+        ]), CancellationToken.None);
+
+        Assert.Contains("flash=webhook-test-failed", response.Headers.Location!.ToString(), StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task ResubmittingWithABlankSecretKeepsTheStoredOne()
     {

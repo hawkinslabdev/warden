@@ -46,6 +46,10 @@ internal static class AdminPage
 
         AppendIncident(sb, prefix, targets, auth, tokens);
         AppendResetForm(sb, prefix, auth, tokens);
+        // own form, so Enter in a settings field still saves
+        sb.Append("<form method=\"post\" action=\"").Append(prefix).Append(auth.AdminPath).Append("/webhook-test\" id=\"webhook-test-form\" hidden>");
+        AppendToken(sb, tokens);
+        sb.Append("</form>");
         AppendResetDialog(sb, l);
         return sb.ToString();
     }
@@ -126,7 +130,7 @@ internal static class AdminPage
               .Append(E(l.AdminMoreFor(target.Name))).Append("\" data-tip=\"").Append(E(l.AdminMore)).Append("\">")
               .Append("<svg viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\"><circle cx=\"5\" cy=\"12\" r=\"1.8\"/><circle cx=\"12\" cy=\"12\" r=\"1.8\"/><circle cx=\"19\" cy=\"12\" r=\"1.8\"/></svg>")
               .Append("</summary><div class=\"admin-more-body\">");
-            AppendNumber(sb, $"retries:{target.Id}", l.AdminRetries, target.Retries, 0, 100, "0");
+            AppendNumber(sb, $"retries:{target.Id}", l.AdminRetries, target.Retries, 0, 100);
             sb.Append("<button type=\"button\" class=\"icon-btn icon-btn--danger\" data-reset=\"")
               .Append(E(target.Id)).Append("\" data-reset-name=\"").Append(E(target.Name)).Append("\" aria-label=\"")
               .Append(E(l.AdminResetHistory)).Append("\" data-tip=\"").Append(E(l.AdminResetHistory)).Append("\">")
@@ -151,11 +155,21 @@ internal static class AdminPage
         {
             var hook = i < webhooks.Count ? webhooks[i] : null;
             var header = hook?.Headers?.FirstOrDefault();
-            sb.Append("<div class=\"admin-grid\">");
+            sb.Append("<div class=\"admin-grid admin-grid--hook\">");
             AppendText(sb, "url", l.AdminWebhookUrl, hook?.Url, null, "url");
             AppendText(sb, "headerName", l.AdminWebhookHeaderName, header?.Key, null, "text");
-            AppendText(sb, "headerValue", l.AdminWebhookHeaderValue, null,
-                header is null ? null : l.AdminWebhookSecretKept, "password");
+            AppendText(sb, "headerValue", l.AdminWebhookHeaderValue, null, null, "password",
+                title: header is null ? null : l.AdminWebhookSecretKept);
+            sb.Append("<label class=\"admin-field admin-field--switch\"><span class=\"admin-field-label\">").Append(E(l.AdminWebhookEnabled))
+              .Append("</span><span class=\"admin-switch-box\"><input class=\"admin-switch-input\" type=\"checkbox\" role=\"switch\" name=\"webhookEnabled:")
+              .Append(i).Append('"').Append(hook?.Enabled != false ? " checked" : "").Append("></span></label>");
+            // tests the saved webhook; the blank row has nothing saved yet
+            if (hook is not null)
+                sb.Append("<button type=\"submit\" class=\"icon-btn admin-hook-test\" form=\"webhook-test-form\" name=\"test\" value=\"")
+                  .Append(i).Append("\" aria-label=\"").Append(E(l.AdminWebhookTest)).Append("\" data-tip=\"").Append(E(l.AdminWebhookTest)).Append("\">")
+                  .Append(Icon("<path d=\"m22 2-7 20-4-9-9-4Z\"/><path d=\"M22 2 11 13\"/>")).Append("</button>");
+            else
+                sb.Append("<span></span>");
             sb.Append("</div>");
         }
 
@@ -167,9 +181,9 @@ internal static class AdminPage
         var l = Localization.Current;
         OpenSection(sb, l.AdminTimingHeading);
         sb.Append("<div class=\"admin-grid\">");
-        AppendNumber(sb, "intervalSeconds", l.AdminInterval, monitoring?.IntervalSeconds, 5, 86_400, "60");
-        AppendNumber(sb, "retentionDays", l.AdminRetention, monitoring?.RetentionDays, 1, 3650, "30");
-        AppendNumber(sb, "webhookCooldownMinutes", l.AdminCooldown, monitoring?.WebhookCooldownMinutes, 0, 10_080, "0");
+        AppendNumber(sb, "intervalSeconds", l.AdminInterval, monitoring?.IntervalSeconds, 5, 86_400);
+        AppendNumber(sb, "retentionDays", l.AdminRetention, monitoring?.RetentionDays, 1, 3650);
+        AppendNumber(sb, "webhookCooldownMinutes", l.AdminCooldown, monitoring?.WebhookCooldownMinutes, 0, 10_080);
         sb.Append("</div></section>");
     }
 
@@ -212,8 +226,10 @@ internal static class AdminPage
         }
 
         // server-local, matching how the post is parsed
+        sb.Append("<div class=\"admin-pair admin-span\">");
         AppendDateTime(sb, "start", l.AdminIncidentStart, required: true, value: DateTime.Now.AddMinutes(-60));
         AppendDateTime(sb, "end", l.AdminIncidentEnd, required: false);
+        sb.Append("</div>");
         AppendText(sb, "description", l.AdminIncidentDescription, null, null, "text", "admin-span", maxLength: 300);
 
         sb.Append("<label class=\"admin-field admin-span\"><span class=\"admin-field-label\">")
@@ -263,6 +279,8 @@ internal static class AdminPage
             "maintenance-needs-end" => ("bad", l.AdminFlashMaintenanceNeedsEnd),
             "end-before-start" => ("bad", l.AdminFlashEndBeforeStart),
             "stale-form" => ("bad", l.AdminFlashStaleForm),
+            "webhook-test-ok" => ("ok", l.AdminFlashWebhookTestOk),
+            "webhook-test-failed" => ("bad", l.AdminFlashWebhookTestFailed),
             _ => null,
         };
     }
@@ -291,20 +309,20 @@ internal static class AdminPage
           .Append(E(name)).Append('"').Append(value ? " checked" : "")
           .Append("><span class=\"admin-switch-label\">").Append(E(label)).Append("</span></label>");
 
-    private static void AppendNumber(StringBuilder sb, string name, string label, int? value, int min, int max, string placeholder) =>
+    private static void AppendNumber(StringBuilder sb, string name, string label, int? value, int min, int max) =>
         sb.Append("<label class=\"admin-field\"><span class=\"admin-field-label\">").Append(E(label))
           .Append("</span><input class=\"admin-input\" type=\"number\" inputmode=\"numeric\" name=\"").Append(E(name))
           .Append("\" min=\"").Append(min).Append("\" max=\"").Append(max)
-          .Append("\" placeholder=\"").Append(E(placeholder)).Append('"')
-          .Append(value is { } v ? $" value=\"{v}\"" : "").Append("></label>");
+          .Append('"').Append(value is { } v ? $" value=\"{v}\"" : "").Append("></label>");
 
-    private static void AppendText(StringBuilder sb, string name, string label, string? value, string? placeholder, string type, string extraClass = "", bool required = false, int maxLength = 0)
+    private static void AppendText(StringBuilder sb, string name, string label, string? value, string? placeholder, string type, string extraClass = "", bool required = false, int maxLength = 0, string? title = null)
     {
         sb.Append("<label class=\"admin-field ").Append(extraClass).Append("\"><span class=\"admin-field-label\">")
           .Append(E(label)).Append("</span><input class=\"admin-input\" type=\"").Append(type)
           .Append("\" name=\"").Append(name).Append('"');
         if (value is { Length: > 0 }) sb.Append(" value=\"").Append(E(value)).Append('"');
         if (placeholder is { Length: > 0 }) sb.Append(" placeholder=\"").Append(E(placeholder)).Append('"');
+        if (title is { Length: > 0 }) sb.Append(" title=\"").Append(E(title)).Append('"');
         if (type == "password") sb.Append(" autocomplete=\"new-password\"");
         if (maxLength > 0) sb.Append(" maxlength=\"").Append(maxLength).Append('"');
         if (required) sb.Append(" required");

@@ -244,6 +244,16 @@ public sealed class MonitorSchedulerTransitionTests : IDisposable
     }
 
     [Fact]
+    public async Task DisabledWebhook_NotSent()
+    {
+        var config = Config() with { Webhooks = [new WebhookTarget(Hook, Enabled: false)] };
+        await Cycle(config);
+
+        Assert.False(LatestUp);
+        Assert.Empty(_net.Webhooks);
+    }
+
+    [Fact]
     public async Task Flapping_WithinCooldown_NoRepeatAlerts()
     {
         var config = Config(cooldown: 60);

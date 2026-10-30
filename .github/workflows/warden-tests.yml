@@ -1,0 +1,31 @@
+name: Run Tests
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        global-json-file: Warden/global.json
+
+    - name: Run tests
+      working-directory: Warden
+      run: dotnet test --logger "console;verbosity=normal"

@@ -7,7 +7,7 @@ using Warden.Services.Rendering;
 
 namespace Warden.Tests;
 
-// grouping comes from monitoring.group alone: every structure honours it, and no structure invents groups without it
+// grouping comes from monitoring.group only
 public sealed class StatusGroupingTests : IDisposable
 {
     private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"warden-test-{Guid.NewGuid():N}.db");
@@ -29,40 +29,34 @@ public sealed class StatusGroupingTests : IDisposable
             if (File.Exists(path)) File.Delete(path);
     }
 
-    private string Render(string? groupBy, bool cards)
+    private string Render(string? groupBy)
     {
         var sb = new System.Text.StringBuilder();
         var statuses = Targets.ToDictionary(t => t.Id, _ => MonitorStatus.Unknown);
-        StatusEndpoints.AppendMonitors(sb, Localization.Current, _store, Targets, statuses, [], "", groupBy, cards);
+        StatusEndpoints.AppendMonitors(sb, Localization.Current, _store, Targets, statuses, [], "", groupBy);
         return sb.ToString();
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void CustomGroup_SectionsBothLayouts(bool cards)
+    [Fact]
+    public void CustomGroup_RendersSections()
     {
-        var html = Render("custom", cards);
+        var html = Render("custom");
         Assert.Contains("<h2 class=\"status-group-heading select-none\">Publiek</h2>", html);
         Assert.Contains("<h2 class=\"status-group-heading select-none\">Services</h2>", html);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void TypeGroup_SectionsBothLayouts(bool cards)
+    [Fact]
+    public void TypeGroup_RendersSections()
     {
-        var html = Render("type", cards);
+        var html = Render("type");
         Assert.Contains(">HTTP</h2>", html);
         Assert.Contains(">Service health</h2>", html);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void NoGroup_RendersOneUngroupedSection(bool cards)
+    [Fact]
+    public void NoGroup_RendersOneUngroupedSection()
     {
-        var html = Render(null, cards);
+        var html = Render(null);
         Assert.DoesNotContain("status-group-heading", html);
         Assert.Equal(1, html.Split("<section class=\"status-group\">").Length - 1);
     }
@@ -73,21 +67,49 @@ public sealed class StatusGroupingTests : IDisposable
     {
         _store.Record("blog", DateTimeOffset.UtcNow, up: true, responseMs: 12);
 
-        var flat = Render(null, cards: false);
+        var flat = Render(null);
         Assert.Contains("100% uptime (1 min)", flat);
         Assert.DoesNotContain("uptime (1m)", flat);
 
         var sb = new System.Text.StringBuilder();
         StatusEndpoints.AppendOverallUptime(sb, Localization.Current, _store, Targets, TimeSpan.FromMinutes(1));
-        Assert.Contains("100% uptime over the last 1 min", sb.ToString());
+        Assert.Contains("Collecting uptime data, 1 min so far", sb.ToString());
+        Assert.DoesNotContain("% uptime", sb.ToString());
         Assert.DoesNotContain("90 days", sb.ToString());
+    }
+
+    [Fact]
+    public void OverallUptime_ShowsPercent_OnceADayOfHistoryExists()
+    {
+        _store.Record("blog", DateTimeOffset.UtcNow.AddDays(-2), up: true, responseMs: 12);
+        _store.Record("blog", DateTimeOffset.UtcNow, up: true, responseMs: 12);
+
+        // daily interval: gap is not missing
+        var sb = new System.Text.StringBuilder();
+        StatusEndpoints.AppendOverallUptime(sb, Localization.Current, _store, Targets, TimeSpan.FromDays(1));
+        Assert.Contains("% uptime over the last", sb.ToString());
+    }
+
+    [Theory]
+    [InlineData(MonitorStatus.Up, MonitorStatus.Up, "status-banner--up", "All systems operational")]
+    [InlineData(MonitorStatus.Degraded, MonitorStatus.Up, "status-banner--degraded", "Degraded: Blog")]
+    [InlineData(MonitorStatus.Degraded, MonitorStatus.Down, "status-banner--down", "Down: S3")]
+    [InlineData(MonitorStatus.Maintenance, MonitorStatus.Maintenance, "status-banner--maintenance", "Maintenance: Blog, S3")]
+    public void Banner_NamesTheMonitorsInTheWorstState(MonitorStatus blog, MonitorStatus s3, string tone, string title)
+    {
+        var sb = new System.Text.StringBuilder();
+        StatusEndpoints.AppendBanner(sb, Localization.Current, [("Blog", blog), ("S3", s3)], lastChecked: null);
+        var html = sb.ToString();
+        Assert.Contains(tone, html);
+        Assert.Contains(">" + title + "</h1>", html);
+        Assert.DoesNotContain("status-banner-meta", html);
     }
 
     // a monitor with zero heartbeats must say so plainly, not silently drop the uptime line
     [Fact]
     public void UptimeLine_ShowsNoData_WhenMonitorHasNoHeartbeats()
     {
-        var html = Render(null, cards: false);
+        var html = Render(null);
         Assert.Contains(Localization.Current.StatusNoData, html);
     }
 
@@ -105,7 +127,7 @@ public sealed class StatusGroupingTests : IDisposable
 
         var sb = new System.Text.StringBuilder();
         var statuses = Targets.ToDictionary(t => t.Id, _ => MonitorStatus.Down);
-        StatusEndpoints.AppendMonitors(sb, Localization.Current, _store, Targets, statuses, [], "", "custom", cards: false, filterDay: day);
+        StatusEndpoints.AppendMonitors(sb, Localization.Current, _store, Targets, statuses, [], "", "custom", filterDay: day);
 
         var html = sb.ToString();
         Assert.Contains("50% uptime (1d)", html);
@@ -113,25 +135,16 @@ public sealed class StatusGroupingTests : IDisposable
         Assert.DoesNotContain("(24h)", html);
     }
 
-    // a degraded monitor must not borrow the Down badge, in either layout
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void DegradedRendersItsOwnBadge(bool cards)
+    // degraded never borrows the Down badge
+    [Fact]
+    public void DegradedRendersItsOwnBadge()
     {
         var sb = new System.Text.StringBuilder();
         var statuses = Targets.ToDictionary(t => t.Id, t => t.Id == "s3" ? MonitorStatus.Degraded : MonitorStatus.Up);
-        StatusEndpoints.AppendMonitors(sb, Localization.Current, _store, Targets, statuses, [], "", null, cards);
+        StatusEndpoints.AppendMonitors(sb, Localization.Current, _store, Targets, statuses, [], "", null);
 
         var html = sb.ToString();
         Assert.Contains("--degraded", html);
         Assert.Contains(">Degraded<", html);
-    }
-
-    [Fact]
-    public void LayoutFollowsStructureIndependentlyOfGrouping()
-    {
-        Assert.Contains("status-monitor-list", Render("custom", cards: false));
-        Assert.Contains("status-monitor-grid", Render("custom", cards: true));
     }
 }

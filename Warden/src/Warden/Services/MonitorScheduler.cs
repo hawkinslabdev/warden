@@ -38,7 +38,7 @@ public sealed class MonitorScheduler(
     // in-memory only (resets on restart); a failure short of target.Retries is pending, not recorded, so one blip doesn't flip the public status
     private readonly ConcurrentDictionary<string, int> _consecutiveFailures = new();
 
-    // aannounced keeps a recovery webhook off a receiver that never id-ed the outage
+    // Announced: down delivered this outage
     private readonly ConcurrentDictionary<string, DownNotice> _downNotices = new();
 
     private readonly record struct DownNotice(DateTimeOffset At, bool Announced);
@@ -56,7 +56,7 @@ public sealed class MonitorScheduler(
             {
                 try
                 {
-                    await CheckAllAsync(targets, monitoring?.Webhooks, WebhookCooldown(monitoring), stoppingToken);
+                    await CheckAllAsync(targets, monitoring, stoppingToken);
                     store.PruneOlderThan(TimeSpan.FromDays(RetentionDays(monitoring)));
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
@@ -82,10 +82,14 @@ public sealed class MonitorScheduler(
         TimeSpan.FromMinutes(Math.Max(0, monitoring?.WebhookCooldownMinutes ?? 0));
 
     // targets are independent I/O-bound probes with a per-check timeout, so they run with bounded concurrency instead of one-at-a-time
-    private async Task CheckAllAsync(IReadOnlyList<MonitorTarget> targets, IReadOnlyList<WebhookTarget>? webhooks, TimeSpan webhookCooldown, CancellationToken cancellationToken)
+    internal async Task CheckAllAsync(IReadOnlyList<MonitorTarget> targets, MonitoringConfig? monitoring, CancellationToken cancellationToken)
     {
+        var webhooks = monitoring?.Webhooks;
+        var webhookCooldown = WebhookCooldown(monitoring);
         var client = httpClientFactory.CreateClient(HttpClientName);
         var insecureClient = httpClientFactory.CreateClient(InsecureHttpClientName);
+        // probed once, only on failure
+        var uplink = new Lazy<Task<bool>>(() => UplinkUpAsync(monitoring?.ConnectivityUrls, client, cancellationToken));
         await Parallel.ForEachAsync(
             targets,
             new ParallelOptions { MaxDegreeOfParallelism = MaxConcurrentChecks, CancellationToken = cancellationToken },
@@ -102,17 +106,46 @@ public sealed class MonitorScheduler(
                     var elapsedMs = (int)System.Diagnostics.Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
                     if (up)
                         await RecordUpAsync(target, timestamp, elapsedMs, webhooks, ct);
-                    else
+                    else if (await uplink.Value)
                         await RecordDownAsync(target, timestamp, elapsedMs, error, webhooks, webhookCooldown, ct);
+                    else
+                        LogUplinkDown(target, error);
                 }
                 catch (Exception ex) when (ex is HttpRequestException or SocketException or IOException or PingException
                     || (ex is OperationCanceledException && !ct.IsCancellationRequested))
                 {
                     var elapsedMs = (int)System.Diagnostics.Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
                     var message = ex is OperationCanceledException ? "timed out" : ex.Message;
-                    await RecordDownAsync(target, timestamp, elapsedMs, message, webhooks, webhookCooldown, ct);
+                    if (await uplink.Value)
+                        await RecordDownAsync(target, timestamp, elapsedMs, message, webhooks, webhookCooldown, ct);
+                    else
+                        LogUplinkDown(target, message);
                 }
             });
+    }
+
+    // own outage says nothing about target
+    private void LogUplinkDown(MonitorTarget target, string? message) =>
+        logger.LogWarning("[{MonitorId}] check failed but no connectivity URL answered; not recorded - {Message}", target.Id, message);
+
+    // any HTTP response proves uplink
+    private static async Task<bool> UplinkUpAsync(List<string>? urls, HttpClient client, CancellationToken ct)
+    {
+        if (urls is not { Count: > 0 })
+            return true;
+        foreach (var url in urls)
+        {
+            try
+            {
+                using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+                return true;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidOperationException
+                || (ex is OperationCanceledException && !ct.IsCancellationRequested))
+            {
+            }
+        }
+        return false;
     }
 
     // routine "up" stays at Debug (too noisy for `docker compose logs` by default); anything worth watching - a retry, a real down, a recovery - logs at Information
@@ -120,12 +153,13 @@ public sealed class MonitorScheduler(
     {
         var wasDown = _consecutiveFailures.TryRemove(target.Id, out var failures) && failures > (target.Retries ?? 0);
         store.Record(target.Id, timestamp, up: true, elapsedMs);
-        if (wasDown)
+        // no "up" without delivered "down"
+        var announced = _downNotices.TryGetValue(target.Id, out var notice) && notice.Announced;
+        if (announced)
+            _downNotices[target.Id] = notice with { Announced = false };
+        if (wasDown || announced)
         {
             logger.LogInformation("[{MonitorId}] recovered ({Type}, {ElapsedMs}ms)", target.Id, target.Type, elapsedMs);
-            var announced = !_downNotices.TryGetValue(target.Id, out var notice) || notice.Announced;
-            if (notice.Announced)
-                _downNotices[target.Id] = notice with { Announced = false };
             if (announced)
                 await FireWebhooksAsync(webhooks, new WebhookPayload(target.Id, target.Name, "up", null, timestamp), ct);
         }
@@ -145,35 +179,34 @@ public sealed class MonitorScheduler(
         }
         store.Record(target.Id, timestamp, up: false, elapsedMs, message);
         logger.LogWarning("[{MonitorId}] down ({Type}): {Message}", target.Id, target.Type, message);
-        if (!ShouldFireDownWebhook(failures, threshold))
+
+        // retried each check until delivered
+        var hasNotice = _downNotices.TryGetValue(target.Id, out var notice);
+        if (notice.Announced)
             return;
 
-        var last = _downNotices.TryGetValue(target.Id, out var notice) ? notice.At : (DateTimeOffset?)null;
+        var last = hasNotice ? notice.At : (DateTimeOffset?)null;
         if (!WithinCooldown(last, timestamp, webhookCooldown))
         {
-            _downNotices[target.Id] = new DownNotice(timestamp, Announced: true);
-            await FireWebhooksAsync(webhooks, new WebhookPayload(target.Id, target.Name, "down", message, timestamp), ct);
+            if (await FireWebhooksAsync(webhooks, new WebhookPayload(target.Id, target.Name, "down", message, timestamp), ct))
+                _downNotices[target.Id] = new DownNotice(timestamp, Announced: true);
         }
-        else
-        {
-            _downNotices[target.Id] = notice with { Announced = false };
+        else if (failures == threshold + 1)
             logger.LogInformation("[{MonitorId}] down webhook held back: last one fired {Ago:F0}m ago, cooldown is {Cooldown:F0}m",
                 target.Id, (timestamp - last!.Value).TotalMinutes, webhookCooldown.TotalMinutes);
-        }
     }
-
-    // true only on the check that just crossed the threshold, not on every subsequent check while a monitor stays down
-    internal static bool ShouldFireDownWebhook(int consecutiveFailures, int retryThreshold) => consecutiveFailures == retryThreshold + 1;
 
     internal static bool WithinCooldown(DateTimeOffset? lastFiredAt, DateTimeOffset now, TimeSpan cooldown) =>
         cooldown > TimeSpan.Zero && lastFiredAt is { } last && now - last < cooldown;
 
     // best-effort notification: a webhook receiver being slow or down must never affect heartbeat recording
-    private async Task FireWebhooksAsync(IReadOnlyList<WebhookTarget>? webhooks, WebhookPayload payload, CancellationToken ct)
+    // shortcut: any-accept counts; track per receiver
+    private async Task<bool> FireWebhooksAsync(IReadOnlyList<WebhookTarget>? webhooks, WebhookPayload payload, CancellationToken ct)
     {
         if (webhooks is not { Count: > 0 })
-            return;
+            return true;
 
+        var delivered = false;
         var client = httpClientFactory.CreateClient(HttpClientName);
         foreach (var webhook in webhooks)
         {
@@ -200,6 +233,7 @@ public sealed class MonitorScheduler(
                     }
 
                 using var response = await client.SendAsync(request, timeoutCts.Token);
+                delivered |= response.IsSuccessStatusCode;
                 if (!response.IsSuccessStatusCode)
                     logger.LogWarning("[{MonitorId}] webhook to {Host} responded {StatusCode}", payload.MonitorId, SafeHost(webhook.Url), (int)response.StatusCode);
             }
@@ -209,6 +243,7 @@ public sealed class MonitorScheduler(
                 logger.LogWarning(ex, "[{MonitorId}] webhook to {Host} failed", payload.MonitorId, SafeHost(webhook.Url));
             }
         }
+        return delivered;
     }
 
     /// <summary>No control character may reach an outbound header; CR/LF there is request splitting.</summary>

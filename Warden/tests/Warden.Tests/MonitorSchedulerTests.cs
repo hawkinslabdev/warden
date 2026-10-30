@@ -1,4 +1,7 @@
+using System.Net;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging.Abstractions;
+using Warden.Configuration;
 using Warden.Models;
 using Warden.Services;
 
@@ -63,17 +66,6 @@ public sealed class MonitorSchedulerTests
         Assert.Contains("expired", error);
     }
 
-    [Theory]
-    [InlineData(1, 0, true)]   // no Retries configured: fires on the very first failure
-    [InlineData(2, 0, false)]  // still down on a later check: no repeat fire
-    [InlineData(3, 2, true)]   // Retries: 2 - fires on the 3rd consecutive failure
-    [InlineData(2, 2, false)]  // within the retry window: pending, no fire yet
-    [InlineData(4, 2, false)]  // still down past the transition: no repeat fire
-    public void ShouldFireDownWebhook_FiresOnlyOnTheTransition(int consecutiveFailures, int retryThreshold, bool expected)
-    {
-        Assert.Equal(expected, MonitorScheduler.ShouldFireDownWebhook(consecutiveFailures, retryThreshold));
-    }
-
     // proof-of-fix: many webhook URLs (Slack/Discord/Teams) carry their auth secret in the path or query.
     // logging the raw URL on failure would leak it (OWASP A09/A02); SafeHost must strip everything but scheme+host+port.
     [Theory]
@@ -93,5 +85,169 @@ public sealed class MonitorSchedulerTests
     public void SafeHost_InvalidUrl_DoesNotThrowOrEcho()
     {
         Assert.Equal("(invalid url)", MonitorScheduler.SafeHost("not a url"));
+    }
+}
+
+// full cycles over fake network
+public sealed class MonitorSchedulerTransitionTests : IDisposable
+{
+    private const string Site = "https://site.test/";
+    private const string Uplink = "https://uplink.test/";
+    private const string Hook = "https://hook.test/";
+
+    private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"warden-test-{Guid.NewGuid():N}.db");
+    private readonly HeartbeatStore _store;
+    private readonly FakeNetwork _net = new();
+    private readonly MonitorScheduler _scheduler;
+
+    public MonitorSchedulerTransitionTests()
+    {
+        _store = new HeartbeatStore(new MonitoringOptions { DatabasePath = _dbPath }, NullLogger<HeartbeatStore>.Instance);
+        var content = new ContentService(new DocsOptions { RootPath = Path.GetTempPath(), EnableHotReload = false }, new MarkdownService(), NullLogger<ContentService>.Instance);
+        _scheduler = new MonitorScheduler(_net, _store, content, NullLogger<MonitorScheduler>.Instance);
+        _net.Up.Add(Uplink);
+        _net.Up.Add(Hook);
+    }
+
+    public void Dispose()
+    {
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        foreach (var path in new[] { _dbPath, _dbPath + "-wal", _dbPath + "-shm" })
+            if (File.Exists(path)) File.Delete(path);
+    }
+
+    private static MonitoringConfig Config(bool uplinkProbe = false, int? cooldown = null) =>
+        new(null, null, null, null, null, null, null, null,
+            Webhooks: [new WebhookTarget(Hook)],
+            WebhookCooldownMinutes: cooldown,
+            ConnectivityUrls: uplinkProbe ? [Uplink] : null);
+
+    private Task Cycle(MonitoringConfig config, int? retries = null) =>
+        _scheduler.CheckAllAsync([new MonitorTarget("site", "Site", Site, Retries: retries)], config, CancellationToken.None);
+
+    private bool? LatestUp => _store.GetLatest("site")?.Data.Up;
+
+    [Fact]
+    public async Task UplinkDown_FailuresNotRecordedOrAnnounced()
+    {
+        var config = Config(uplinkProbe: true);
+        _net.Up.Clear(); // provider outage
+
+        await Cycle(config);
+        await Cycle(config);
+
+        Assert.Null(LatestUp);
+        Assert.Empty(_net.Webhooks);
+    }
+
+    [Fact]
+    public async Task UplinkUp_TargetDown_RecordedAndAnnounced()
+    {
+        var config = Config(uplinkProbe: true);
+
+        await Cycle(config);
+
+        Assert.False(LatestUp);
+        Assert.Equal(["down"], _net.Webhooks);
+    }
+
+    [Fact]
+    public async Task NoProbeConfigured_KeepsOldBehavior()
+    {
+        _net.Up.Remove(Uplink);
+        await Cycle(Config());
+        Assert.False(LatestUp);
+    }
+
+    [Fact]
+    public async Task DownWebhookUndelivered_RetriedUntilDelivered_ThenRecovery()
+    {
+        var config = Config();
+        _net.Up.Remove(Hook);
+        await Cycle(config); // receiver unreachable
+        await Cycle(config);
+        _net.Up.Add(Hook);
+        await Cycle(config); // receiver back, still down
+        await Cycle(config);
+        _net.Up.Add(Site);
+        await Cycle(config);
+
+        Assert.Equal(["down", "up"], _net.Webhooks);
+    }
+
+    [Fact]
+    public async Task DownNeverDelivered_NoLoneRecovery()
+    {
+        var config = Config();
+        _net.Up.Remove(Hook);
+        await Cycle(config);
+        _net.Up.Add(Hook);
+        _net.Up.Add(Site);
+        await Cycle(config);
+
+        Assert.Empty(_net.Webhooks);
+    }
+
+    [Fact]
+    public async Task RetriesLoweredMidOutage_StillAnnouncesDown()
+    {
+        var config = Config();
+        await Cycle(config, retries: 3); // pending 1/3
+        await Cycle(config, retries: 3); // pending 2/3
+        await Cycle(config, retries: 1); // 3 > 1: down
+        _net.Up.Add(Site);
+        await Cycle(config, retries: 1);
+
+        Assert.Equal(["down", "up"], _net.Webhooks);
+    }
+
+    [Fact]
+    public async Task RetriesRaisedMidOutage_RecoveryStillSent_NextOutageAnnounced()
+    {
+        var config = Config();
+        await Cycle(config);              // down announced
+        await Cycle(config, retries: 5);  // pending by count
+        _net.Up.Add(Site);
+        await Cycle(config, retries: 5);
+        _net.Up.Remove(Site);
+        await Cycle(config);
+
+        Assert.Equal(["down", "up", "down"], _net.Webhooks);
+    }
+
+    [Fact]
+    public async Task Flapping_WithinCooldown_NoRepeatAlerts()
+    {
+        var config = Config(cooldown: 60);
+        await Cycle(config);
+        _net.Up.Add(Site);
+        await Cycle(config);
+        _net.Up.Remove(Site);
+        await Cycle(config); // held back
+        _net.Up.Add(Site);
+        await Cycle(config); // unannounced: no recovery
+
+        Assert.Equal(["down", "up"], _net.Webhooks);
+    }
+
+    private sealed class FakeNetwork : HttpMessageHandler, IHttpClientFactory
+    {
+        public HashSet<string> Up { get; } = [];
+        public List<string> Webhooks { get; } = [];
+
+        public HttpClient CreateClient(string name) => new(this, disposeHandler: false);
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var url = request.RequestUri!.ToString();
+            if (!Up.Contains(url))
+                throw new HttpRequestException("unreachable");
+            if (url == Hook)
+            {
+                var body = JsonNode.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
+                Webhooks.Add((string)body!["status"]!);
+            }
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        }
     }
 }

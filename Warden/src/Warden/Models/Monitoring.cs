@@ -53,7 +53,9 @@ public sealed record MonitoringConfig(
     // POST with JSON once per down/recovery transition, not on every check while a monitor stays down
     List<WebhookTarget>? Webhooks = null,
     // minimum minutes between repeat down webhooks per monitor; unset means one per transition
-    int? WebhookCooldownMinutes = null);
+    int? WebhookCooldownMinutes = null,
+    // uplink probe; all fail = unrecorded
+    List<string>? ConnectivityUrls = null);
 
 // one entry in MonitoringConfig.Webhooks; Headers is opt-in, e.g. { "Authorization": "Bearer ..." } for receivers that need auth
 public sealed record WebhookTarget(string Url, Dictionary<string, string>? Headers = null);

@@ -10,8 +10,7 @@ public sealed record PageRequestSettings(
     string WebRootPath,
     string DocsRootAbsolute,
     string? PublicBaseUrl,
-    string? CliTheme = null,
-    string? CliStructure = null)
+    string? CliTheme = null)
 {
     /// <summary>Blank means absent. An empty setting must not count as "configured" and mask a later source.</summary>
     public static string? Normalize(string? value) =>

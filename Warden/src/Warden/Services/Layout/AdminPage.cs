@@ -14,7 +14,7 @@ internal static class AdminPage
 
     public static string Render(
         MonitoringConfig? monitoring,
-        HeartbeatStore store,
+        IReadOnlyDictionary<string, MonitorStatus> statuses,
         AuthOptions auth,
         string basePath,
         AntiforgeryTokenSet tokens,
@@ -28,6 +28,7 @@ internal static class AdminPage
         var sb = new StringBuilder();
 
         AppendHeader(sb, prefix, auth, tokens, subject);
+        AppendFlash(sb, flash);
 
         if (!string.IsNullOrEmpty(draft))
             AppendDraft(sb, draft);
@@ -37,7 +38,7 @@ internal static class AdminPage
         AppendToken(sb, tokens);
         // empty when scripting is off, which the server reads as "leave the order alone"
         sb.Append("<input type=\"hidden\" name=\"order\" id=\"admin-order\">");
-        AppendMonitors(sb, targets, store);
+        AppendMonitors(sb, targets, statuses);
         AppendWebhooks(sb, monitoring);
         AppendTiming(sb, monitoring);
         AppendActionBar(sb, l);
@@ -46,7 +47,6 @@ internal static class AdminPage
         AppendIncident(sb, prefix, targets, auth, tokens);
         AppendResetForm(sb, prefix, auth, tokens);
         AppendResetDialog(sb, l);
-        AppendToasts(sb, flash);
         return sb.ToString();
     }
 
@@ -55,14 +55,24 @@ internal static class AdminPage
         var l = Localization.Current;
         var who = l.AdminSignedInAs(subject ?? l.AdminUnnamedOperator);
 
-        sb.Append("<header class=\"admin-header\"><h1 class=\"list-heading\">")
+        sb.Append("<header class=\"admin-header\"><h1 class=\"admin-title\">")
           .Append(E(l.AdminTitle)).Append("</h1>");
         sb.Append("<form method=\"post\" action=\"").Append(prefix).Append(E(auth.AuthPath))
           .Append("/logout\" class=\"admin-identity\">");
         AppendToken(sb, tokens);
-        sb.Append("<button type=\"submit\" class=\"admin-btn\" data-tip=\"").Append(E(who)).Append("\">")
-          .Append(E(l.AdminSignOut)).Append("</button>");
-        sb.Append("</form></header>");
+        sb.Append("<button type=\"submit\" class=\"icon-btn\" aria-label=\"").Append(E(l.AdminSignOut))
+          .Append("\" data-tip=\"").Append(E(who)).Append("\">")
+          .Append(Icon("<path d=\"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4\"/><path d=\"m16 17 5-5-5-5\"/><path d=\"M21 12H9\"/>"))
+          .Append("</button></form></header>");
+    }
+
+    // inline, so it never covers the save bar
+    private static void AppendFlash(StringBuilder sb, string? flash)
+    {
+        sb.Append("<div class=\"toast-stack\" id=\"toast-stack\" role=\"status\" aria-live=\"polite\">");
+        if (!string.IsNullOrEmpty(flash) && Flash(flash) is var (tone, text))
+            sb.Append("<div class=\"toast toast--").Append(tone).Append("\"><span>").Append(E(text)).Append("</span></div>");
+        sb.Append("</div>");
     }
 
     private static void AppendDraft(StringBuilder sb, string draft)
@@ -73,7 +83,7 @@ internal static class AdminPage
         sb.Append("<pre class=\"admin-draft\"><code>").Append(E(draft)).Append("</code></pre></section>");
     }
 
-    private static void AppendMonitors(StringBuilder sb, IReadOnlyList<MonitorTarget> targets, HeartbeatStore store)
+    private static void AppendMonitors(StringBuilder sb, IReadOnlyList<MonitorTarget> targets, IReadOnlyDictionary<string, MonitorStatus> statuses)
     {
         var l = Localization.Current;
         OpenSection(sb, l.AdminMonitorsHeading);
@@ -86,40 +96,43 @@ internal static class AdminPage
             return;
         }
 
-        sb.Append("<p class=\"admin-note\">").Append(E(l.AdminMonitorsNote)).Append("</p>");
         sb.Append("<ul class=\"admin-list\" id=\"monitor-order\">");
 
         foreach (var target in targets)
         {
-            var latest = store.GetLatest(target.Id);
-            var (state, label) = target.Enabled == false
-                ? ("off", l.AdminStateOff)
-                : latest is null
-                    ? ("unknown", l.AdminStateUnknown)
-                    : latest.Data.Up
-                        ? ("up", l.AdminStateOperational)
-                        : ("down", l.AdminStateDown);
+            var status = target.Enabled == false ? (MonitorStatus?)null : statuses.GetValueOrDefault(target.Id);
+            var (state, label) = status switch
+            {
+                null => ("off", l.AdminStateOff),
+                MonitorStatus.Up => ("up", l.AdminStateOperational),
+                MonitorStatus.Down => ("down", l.AdminStateDown),
+                MonitorStatus.Degraded => ("degraded", l.StatusDegraded),
+                MonitorStatus.Maintenance => ("maintenance", l.StatusMonitorMaintenance),
+                _ => ("unknown", l.AdminStateUnknown),
+            };
 
-            sb.Append("<li class=\"admin-card admin-card--").Append(state)
+            sb.Append("<li class=\"admin-row admin-row--").Append(state)
               .Append("\" data-monitor-id=\"").Append(E(target.Id)).Append("\">");
             sb.Append("<input type=\"hidden\" name=\"monitorId\" value=\"").Append(E(target.Id)).Append("\">");
 
-            sb.Append("<div class=\"admin-card-head\">");
             AppendGrip(sb, target.Name);
-            sb.Append("<span class=\"admin-card-name\">").Append(E(target.Name)).Append("</span>");
-            sb.Append("<span class=\"admin-card-meta select-none\">").Append(E(target.Id))
-              .Append(" &middot; ").Append(E(target.Type)).Append("</span>");
+            sb.Append("<span class=\"admin-row-name\" title=\"").Append(E(target.Id)).Append(" &middot; ").Append(E(target.Type))
+              .Append("\">").Append(E(target.Name)).Append("</span>");
             sb.Append("<span class=\"admin-badge select-none\">").Append(E(label)).Append("</span>");
-            sb.Append("</div>");
-
-            sb.Append("<div class=\"admin-card-controls\">");
             AppendSwitch(sb, $"enabled:{target.Id}", l.AdminEnabled, target.Enabled != false);
             AppendSwitch(sb, $"hidden:{target.Id}", l.AdminHidden, target.Hidden == true);
+
+            sb.Append("<details class=\"admin-more\"><summary class=\"icon-btn\" aria-label=\"")
+              .Append(E(l.AdminMoreFor(target.Name))).Append("\" data-tip=\"").Append(E(l.AdminMore)).Append("\">")
+              .Append("<svg viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\"><circle cx=\"5\" cy=\"12\" r=\"1.8\"/><circle cx=\"12\" cy=\"12\" r=\"1.8\"/><circle cx=\"19\" cy=\"12\" r=\"1.8\"/></svg>")
+              .Append("</summary><div class=\"admin-more-body\">");
             AppendNumber(sb, $"retries:{target.Id}", l.AdminRetries, target.Retries, 0, 100, "0");
-            sb.Append("<button type=\"button\" class=\"admin-btn admin-btn--danger admin-card-reset\" data-reset=\"")
-              .Append(E(target.Id)).Append("\" data-reset-name=\"").Append(E(target.Name)).Append("\">")
-              .Append(E(l.AdminResetHistory)).Append("</button>");
-            sb.Append("</div></li>");
+            sb.Append("<button type=\"button\" class=\"icon-btn icon-btn--danger\" data-reset=\"")
+              .Append(E(target.Id)).Append("\" data-reset-name=\"").Append(E(target.Name)).Append("\" aria-label=\"")
+              .Append(E(l.AdminResetHistory)).Append("\" data-tip=\"").Append(E(l.AdminResetHistory)).Append("\">")
+              .Append(Icon("<path d=\"M3 6h18\"/><path d=\"M8 6V4h8v2\"/><path d=\"M19 6l-1 14H6L5 6\"/>"))
+              .Append("</button></div></details>");
+            sb.Append("</li>");
         }
 
         sb.Append("</ul></section>");
@@ -131,35 +144,33 @@ internal static class AdminPage
         var webhooks = monitoring?.Webhooks ?? [];
 
         OpenSection(sb, l.AdminWebhooksHeading);
-        sb.Append("<p class=\"admin-note\">").Append(E(l.AdminWebhooksNote)).Append("</p>");
-        sb.Append("<ul class=\"admin-list\">");
+        sb.Append("<div class=\"admin-rows\">");
 
         // one blank row is the "add another" affordance; a stack of them reads as broken config
         for (var i = 0; i <= webhooks.Count; i++)
         {
             var hook = i < webhooks.Count ? webhooks[i] : null;
             var header = hook?.Headers?.FirstOrDefault();
-            sb.Append("<li class=\"admin-card\"><div class=\"admin-card-controls\">");
-            AppendText(sb, "url", l.AdminWebhookUrl, hook?.Url, l.AdminWebhookUrlPlaceholder, "url", "admin-field--url");
-            AppendText(sb, "headerName", l.AdminWebhookHeaderName, header?.Key, l.AdminWebhookHeaderNamePlaceholder, "text", "admin-field--head");
+            sb.Append("<div class=\"admin-grid\">");
+            AppendText(sb, "url", l.AdminWebhookUrl, hook?.Url, l.AdminWebhookUrlPlaceholder, "url");
+            AppendText(sb, "headerName", l.AdminWebhookHeaderName, header?.Key, l.AdminWebhookHeaderNamePlaceholder, "text");
             AppendText(sb, "headerValue", l.AdminWebhookHeaderValue, null,
-                header is null ? l.AdminWebhookHeaderValuePlaceholder : l.AdminWebhookSecretKept, "password", "admin-field--head");
-            sb.Append("</div></li>");
+                header is null ? l.AdminWebhookHeaderValuePlaceholder : l.AdminWebhookSecretKept, "password");
+            sb.Append("</div>");
         }
 
-        sb.Append("</ul></section>");
+        sb.Append("</div></section>");
     }
 
     private static void AppendTiming(StringBuilder sb, MonitoringConfig? monitoring)
     {
         var l = Localization.Current;
         OpenSection(sb, l.AdminTimingHeading);
-        sb.Append("<p class=\"admin-note\">").Append(E(l.AdminTimingNote)).Append("</p>");
-        sb.Append("<div class=\"admin-card\"><div class=\"admin-card-controls\">");
+        sb.Append("<div class=\"admin-grid\">");
         AppendNumber(sb, "intervalSeconds", l.AdminInterval, monitoring?.IntervalSeconds, 5, 86_400, "60");
         AppendNumber(sb, "retentionDays", l.AdminRetention, monitoring?.RetentionDays, 1, 3650, "30");
         AppendNumber(sb, "webhookCooldownMinutes", l.AdminCooldown, monitoring?.WebhookCooldownMinutes, 0, 10_080, "0");
-        sb.Append("</div></div></section>");
+        sb.Append("</div></section>");
     }
 
     private static void AppendActionBar(StringBuilder sb, Localization l) =>
@@ -175,47 +186,48 @@ internal static class AdminPage
         var hasForge = IncidentDraft.ResolveBase(auth) is not null;
 
         OpenSection(sb, l.AdminIncidentHeading);
-        sb.Append("<p class=\"admin-note\">")
-          .Append(hasForge ? l.AdminIncidentNoteForge : l.AdminIncidentNoteManual)
-          .Append("</p>");
 
         // only the forge path leaves the panel; the in-place path must not open a second copy of it
         sb.Append("<form method=\"post\" action=\"").Append(prefix).Append(auth.AdminPath).Append("/incident\"")
           .Append(hasForge ? " target=\"_blank\" rel=\"noopener\"" : "")
-          .Append(" class=\"admin-card admin-incident\">");
+          .Append(" class=\"admin-grid admin-incident\">");
         AppendToken(sb, tokens);
 
-        sb.Append("<div class=\"admin-card-controls\">");
-        AppendText(sb, "title", l.AdminIncidentTitle, null, l.AdminIncidentTitlePlaceholder, "text", "admin-field--full", required: true, maxLength: 200);
-        AppendDateTime(sb, "start", l.AdminIncidentStart, required: true, defaultOffsetMinutes: -60);
-        AppendDateTime(sb, "end", l.AdminIncidentEnd, required: false);
-        AppendText(sb, "description", l.AdminIncidentDescription, null, l.AdminIncidentDescriptionPlaceholder, "text", "admin-field--full", maxLength: 300);
+        sb.Append("<div class=\"admin-kind admin-span\" role=\"radiogroup\" aria-label=\"").Append(E(l.AdminIncidentKind)).Append("\">");
+        AppendKind(sb, "outage", "down", l.AdminIncidentOutage, isDefault: true);
+        AppendKind(sb, "degraded", "degraded", l.AdminIncidentDegraded, isDefault: false);
+        AppendKind(sb, "maintenance", "maintenance", l.AdminIncidentMaintenance, isDefault: false);
         sb.Append("</div>");
+
+        AppendText(sb, "title", l.AdminIncidentTitle, null, l.AdminIncidentTitlePlaceholder, "text", "admin-span", required: true, maxLength: 200);
 
         if (targets.Count > 0)
         {
-            sb.Append("<fieldset class=\"admin-fieldset\"><legend class=\"admin-legend\">")
+            sb.Append("<fieldset class=\"admin-fieldset admin-span\"><legend class=\"admin-field-label\">")
               .Append(E(l.AdminIncidentAffected)).Append("</legend><div class=\"admin-choices\">");
             foreach (var target in targets)
-                sb.Append("<label class=\"admin-choice\"><input class=\"admin-choice-input\" type=\"checkbox\" name=\"monitors\" value=\"")
-                  .Append(E(target.Id)).Append("\"><span class=\"admin-choice-dot\" aria-hidden=\"true\"></span>")
-                  .Append("<span class=\"admin-choice-name\">").Append(E(target.Name)).Append("</span></label>");
+                sb.Append("<label class=\"admin-choice\"><input type=\"checkbox\" name=\"monitors\" value=\"")
+                  .Append(E(target.Id)).Append("\"><span>").Append(E(target.Name)).Append("</span></label>");
             sb.Append("</div></fieldset>");
         }
 
-        sb.Append("<div class=\"admin-card-controls\">");
-        AppendSwitch(sb, "maintenance", l.AdminIncidentMaintenance, false);
-        AppendSwitch(sb, "degraded", l.AdminIncidentDegraded, false);
-        sb.Append("</div>");
+        // server-local, matching how the post is parsed
+        AppendDateTime(sb, "start", l.AdminIncidentStart, required: true, value: DateTime.Now.AddMinutes(-60));
+        AppendDateTime(sb, "end", l.AdminIncidentEnd, required: false);
+        AppendText(sb, "description", l.AdminIncidentDescription, null, l.AdminIncidentDescriptionPlaceholder, "text", "admin-span", maxLength: 300);
 
-        sb.Append("<label class=\"admin-field admin-field--full\"><span class=\"admin-field-label\">")
+        sb.Append("<label class=\"admin-field admin-span\"><span class=\"admin-field-label\">")
           .Append(E(l.AdminIncidentBody)).Append("</span><textarea class=\"admin-input\" name=\"body\" rows=\"6\" maxlength=\"20000\" placeholder=\"")
           .Append(E(l.AdminIncidentBodyPlaceholder)).Append("\"></textarea></label>");
 
-        sb.Append("<div class=\"admin-incident-actions\"><button type=\"submit\" class=\"admin-btn admin-btn--primary\">")
+        sb.Append("<div class=\"admin-incident-actions admin-span\"><button type=\"submit\" class=\"admin-btn admin-btn--primary\">")
           .Append(E(l.AdminCompose)).Append("</button></div>");
         sb.Append("</form></section>");
     }
+
+    private static void AppendKind(StringBuilder sb, string value, string tone, string label, bool isDefault) =>
+        sb.Append("<label class=\"admin-kind-option admin-kind-option--").Append(tone).Append("\"><input type=\"radio\" name=\"kind\" value=\"")
+          .Append(value).Append('"').Append(isDefault ? " checked" : "").Append("><span>").Append(E(label)).Append("</span></label>");
 
     private static void AppendResetForm(StringBuilder sb, string prefix, AuthOptions auth, AntiforgeryTokenSet tokens)
     {
@@ -234,14 +246,6 @@ internal static class AdminPage
           .Append("<button value=\"cancel\" class=\"admin-btn\" autofocus>").Append(E(l.AdminCancel)).Append("</button>")
           .Append("<button value=\"confirm\" class=\"admin-btn admin-btn--danger\" id=\"reset-confirm\">")
           .Append(E(l.AdminResetConfirm)).Append("</button></form></dialog>");
-
-    private static void AppendToasts(StringBuilder sb, string? flash)
-    {
-        sb.Append("<div class=\"toast-stack\" id=\"toast-stack\" role=\"status\" aria-live=\"polite\">");
-        if (!string.IsNullOrEmpty(flash) && Flash(flash) is var (tone, text))
-            sb.Append("<div class=\"toast toast--").Append(tone).Append("\"><span>").Append(E(text)).Append("</span></div>");
-        sb.Append("</div>");
-    }
 
     /// <summary>Flash keys are a closed set, so an unknown one renders nothing rather than echoing the query.</summary>
     private static (string Tone, string Text)? Flash(string key)
@@ -265,8 +269,12 @@ internal static class AdminPage
     }
 
     private static void OpenSection(StringBuilder sb, string heading) =>
-        sb.Append("<section class=\"status-group admin-section\"><h2 class=\"status-group-heading select-none\">")
+        sb.Append("<section class=\"admin-section\"><h2 class=\"admin-section-title select-none\">")
           .Append(E(heading)).Append("</h2>");
+
+    private static string Icon(string paths) =>
+        "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">"
+        + paths + "</svg>";
 
     private static void AppendGrip(StringBuilder sb, string name)
     {
@@ -285,13 +293,13 @@ internal static class AdminPage
           .Append("><span class=\"admin-switch-label\">").Append(E(label)).Append("</span></label>");
 
     private static void AppendNumber(StringBuilder sb, string name, string label, int? value, int min, int max, string placeholder) =>
-        sb.Append("<label class=\"admin-field admin-field--num\"><span class=\"admin-field-label\">").Append(E(label))
+        sb.Append("<label class=\"admin-field\"><span class=\"admin-field-label\">").Append(E(label))
           .Append("</span><input class=\"admin-input\" type=\"number\" inputmode=\"numeric\" name=\"").Append(E(name))
           .Append("\" min=\"").Append(min).Append("\" max=\"").Append(max)
           .Append("\" placeholder=\"").Append(E(placeholder)).Append('"')
           .Append(value is { } v ? $" value=\"{v}\"" : "").Append("></label>");
 
-    private static void AppendText(StringBuilder sb, string name, string label, string? value, string? placeholder, string type, string extraClass, bool required = false, int maxLength = 0)
+    private static void AppendText(StringBuilder sb, string name, string label, string? value, string? placeholder, string type, string extraClass = "", bool required = false, int maxLength = 0)
     {
         sb.Append("<label class=\"admin-field ").Append(extraClass).Append("\"><span class=\"admin-field-label\">")
           .Append(E(label)).Append("</span><input class=\"admin-input\" type=\"").Append(type)
@@ -304,41 +312,12 @@ internal static class AdminPage
         sb.Append("></label>");
     }
 
-    /// <summary>Posts a simple "yyyy-MM-dd HH:mm" string, which DateTimeOffset.TryParse reads the same
-    /// way in every culture. The popover is built by the script; without it this stays a typable field.</summary>
-    private static void AppendDateTime(StringBuilder sb, string name, string label, bool required, int defaultOffsetMinutes = 0)
-    {
-        var l = Localization.Current;
-        var id = "dt-" + name;
-
-        sb.Append("<div class=\"admin-field admin-field--time admin-datetime\" data-datetime")
-          .Append(" data-prev=\"").Append(E(l.AdminPickerPrevMonth))
-          .Append("\" data-next=\"").Append(E(l.AdminPickerNextMonth))
-          .Append("\" data-now=\"").Append(E(l.AdminPickerNow))
-          .Append("\" data-clear=\"").Append(E(l.AdminPickerClear))
-          .Append("\" data-done=\"").Append(E(l.AdminPickerDone))
-          .Append("\" data-hours=\"").Append(E(l.AdminPickerHours))
-          .Append("\" data-minutes=\"").Append(E(l.AdminPickerMinutes))
-          .Append("\" data-default-offset=\"").Append(defaultOffsetMinutes)
-          .Append("\">");
-
-        sb.Append("<label class=\"admin-field-label\" for=\"").Append(id).Append("\">").Append(E(label)).Append("</label>");
-        sb.Append("<div class=\"admin-datetime-control\">");
-        sb.Append("<input class=\"admin-input admin-datetime-input\" id=\"").Append(id)
-          .Append("\" name=\"").Append(name)
-          .Append("\" type=\"text\" autocomplete=\"off\" spellcheck=\"false\" inputmode=\"numeric\"")
-          .Append(" placeholder=\"").Append(E(l.AdminPickerFormat)).Append('"')
-          .Append(" pattern=\"\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}\"")
-          .Append(" aria-haspopup=\"dialog\" aria-expanded=\"false\"")
-          .Append(required ? " required" : "").Append(">");
-        sb.Append("<button type=\"button\" class=\"admin-datetime-open\" aria-label=\"").Append(E(l.AdminPickerOpen))
-          .Append("\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">")
-          .Append("<rect x=\"3\" y=\"4\" width=\"18\" height=\"17\" rx=\"2\"/><line x1=\"3\" x2=\"21\" y1=\"9\" y2=\"9\"/>")
-          .Append("<line x1=\"8\" x2=\"8\" y1=\"2\" y2=\"6\"/><line x1=\"16\" x2=\"16\" y1=\"2\" y2=\"6\"/></svg></button>");
-        sb.Append("</div>");
-        sb.Append("<div class=\"admin-datetime-pop\" role=\"dialog\" aria-label=\"").Append(E(l.AdminPickerDialog)).Append("\" hidden></div>");
-        sb.Append("</div>");
-    }
+    // native picker; posts yyyy-MM-ddTHH:mm
+    private static void AppendDateTime(StringBuilder sb, string name, string label, bool required, DateTime? value = null) =>
+        sb.Append("<label class=\"admin-field\"><span class=\"admin-field-label\">").Append(E(label))
+          .Append("</span><input class=\"admin-input\" type=\"datetime-local\" name=\"").Append(name).Append('"')
+          .Append(value is { } v ? " value=\"" + v.ToString("yyyy-MM-dd'T'HH:mm", System.Globalization.CultureInfo.InvariantCulture) + "\"" : "")
+          .Append(required ? " required" : "").Append("></label>");
 
     private static void AppendToken(StringBuilder sb, AntiforgeryTokenSet tokens) =>
         sb.Append("<input type=\"hidden\" name=\"").Append(E(tokens.FormFieldName))

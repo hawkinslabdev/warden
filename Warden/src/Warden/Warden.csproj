@@ -31,6 +31,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources/Themes/*.json" />
+    <EmbeddedResource Include="Resources/warden.css" LogicalName="Warden.Resources.warden.css" />
     <EmbeddedResource Include="wwwroot/js/katex.min.js" />
   </ItemGroup>
 

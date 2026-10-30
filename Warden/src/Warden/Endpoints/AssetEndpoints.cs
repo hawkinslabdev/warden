@@ -20,11 +20,8 @@ internal static class AssetEndpoints
     {
         var config = content.SiteConfig;
         var themeSelection = ThemeSelection.Resolve(theme, settings.CliTheme, config?.Theme);
-        var activeStructure = StructureRegistry.Resolve(settings.CliStructure ?? config?.Structure);
         var themeTokenCss = ThemeCssBuilder.BuildTokenCss(themeSelection.Theme, themeSelection.Mode);
-        var componentCss = activeStructure.ComponentCss.Length > 0
-            ? themeSelection.Theme.ComponentCss + "\n" + activeStructure.ComponentCss
-            : themeSelection.Theme.ComponentCss;
+        var componentCss = themeSelection.Theme.ComponentCss;
 
         var asset = LayoutProvider.GetStylesAsset(themeTokenCss, componentCss, settings.BasePath);
         WriteCacheHeaders(ctx);

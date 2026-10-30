@@ -9,13 +9,11 @@ namespace Warden.Endpoints;
 internal static class StatusEndpoints
 {
     // uptime percentage window
-    private static readonly TimeSpan UptimeWindow = TimeSpan.FromHours(24);
     // ticks in history bar
     internal const int HistoryDays = 90;
     // latency chart window
     private const int ResponseChartDays = 30;
     // ticks in card bar, 90 is noise at card width
-    private const int CardHistoryDays = 30;
     // cap so config typo can't flood page
     internal const int MaxHistoryDays = 365;
 
@@ -47,15 +45,15 @@ internal static class StatusEndpoints
         var authenticated = ctx.User.Identity?.IsAuthenticated == true;
         var targets = (monitoring?.Targets ?? []).Where(t => (authenticated || t.Hidden != true) && t.Enabled != false).ToList();
         var filterDay = ParseFilterDay(ctx.Request.Query["on"]);
-        var structure = responder.ResolveStructure();
+        // banner verdict is the h1
         var html = targets.Count == 0
-            ? $"<p class=\"status-unavailable\">{LayoutProvider.HtmlEncode(l.StatusUnavailable)}</p>"
-            : BuildStatusHtml(store, targets, await content.GetAllPagesAsync(ctx.RequestAborted), monitoring, filterDay, responder.BasePath, structure, content.SiteConfig?.ShowOverallUptime ?? true);
+            ? $"<header class=\"page-header\"><h1 class=\"page-title\">{LayoutProvider.HtmlEncode(l.StatusPageTitle)}</h1></header><p class=\"status-unavailable\">{LayoutProvider.HtmlEncode(l.StatusUnavailable)}</p>"
+            : BuildStatusHtml(store, targets, await content.GetAllPagesAsync(ctx.RequestAborted), monitoring, filterDay, responder.BasePath, content.SiteConfig?.ShowOverallUptime ?? true);
 
         var noIndexStatus = content.SiteConfig?.NoIndex?.Status ?? false;
         await responder.WriteAsync(ctx, new PageView(
             Title: l.StatusPageTitle,
-            ContentHtml: $"<header class=\"page-header\"><h1 class=\"page-title\">{LayoutProvider.HtmlEncode(l.StatusPageTitle)}</h1></header>" + html,
+            ContentHtml: html,
             CanonicalPath: "",
             Prose: true,
             NoIndex: filterDay is not null || noIndexStatus));
@@ -70,16 +68,15 @@ internal static class StatusEndpoints
         + "</span><a href=\"" + basePath + "/#status-incidents\" class=\"status-filter-clear\">"
         + LayoutProvider.HtmlEncode(l.StatusFilterClear) + "</a></span>";
 
-    private static string BuildStatusHtml(HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, IReadOnlyList<DocumentationPage> pages, MonitoringConfig? monitoring, DateOnly? filterDay, string basePath, IWardenStructure structure, bool showOverallUptime)
+    private static string BuildStatusHtml(HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, IReadOnlyList<DocumentationPage> pages, MonitoringConfig? monitoring, DateOnly? filterDay, string basePath, bool showOverallUptime)
     {
         var l = Localization.Current;
         var allMonitorIds = targets.Select(t => t.Id).ToList();
         // the banner always reads live health, even while a past day is filtered - only the monitor badges below travel back in time
         var liveIncidentMonitorIds = IncidentContent.ActiveIncidentMonitorIds(pages, DateTimeOffset.UtcNow, allMonitorIds);
         var liveMaintainedIds = IncidentContent.ActiveMaintenanceMonitorIds(pages, DateTimeOffset.UtcNow, allMonitorIds);
-        var anyDown = targets.Any(t =>
-            (IncidentContent.StatusOverride(t.Id, liveIncidentMonitorIds, liveMaintainedIds) ?? LatestStatus(store, t.Id))
-            is MonitorStatus.Down or MonitorStatus.Degraded);
+        var liveStatuses = targets.Select(t =>
+            (t.Name, Status: IncidentContent.StatusOverride(t.Id, liveIncidentMonitorIds, liveMaintainedIds) ?? LatestStatus(store, t.Id))).ToList();
 
         var incidentMonitorIds = filterDay.HasValue
             ? IncidentContent.IncidentMonitorIdsOnDay(pages, filterDay.Value, allMonitorIds)
@@ -104,25 +101,50 @@ internal static class StatusEndpoints
             : IncidentContent.IncidentsOnDay(pages, filterDay.Value, monitoring?.IncidentMaxShown ?? IncidentContent.DefaultIncidentMaxShown);
 
         var sb = new System.Text.StringBuilder();
-        sb.Append("<p class=\"status-banner status-banner--")
-          .Append(anyDown ? "down" : "up").Append(" select-none\">")
-          .Append(LayoutProvider.HtmlEncode(anyDown ? l.StatusSomeDown : l.StatusAllOperational))
-          .Append("</p>");
+        // past days never change, so only live views refresh
+        int? refreshSeconds = filterDay is null ? Math.Max(60, (int)expectedInterval.TotalSeconds) : null;
+        AppendBanner(sb, l, liveStatuses, targets.Select(t => store.GetLatest(t.Id)?.Timestamp).Max(), refreshSeconds);
 
-        if (structure.ShowStatusHeader)
-        {
-            if (showOverallUptime)
-                AppendOverallUptime(sb, l, store, targets, expectedInterval, historyDays);
-            // ongoing incidents always surface here, above the list/grid - readers shouldn't have to scroll past a green page to find out why something is down
-            AppendOngoingIncidents(sb, l, recentIncidents, basePath);
-        }
+        if (showOverallUptime)
+            AppendOverallUptime(sb, l, store, targets, expectedInterval, historyDays);
+        // ongoing incidents pinned above the list
+        AppendOngoingIncidents(sb, l, recentIncidents, basePath);
 
-        AppendMonitors(sb, l, store, targets, statuses, linkedMonitorIds, basePath, monitoring?.Group, structure.UseCardStatusLayout, historyDays, filterDay, degradedBelowPercent, expectedInterval, incidentDays);
+        AppendMonitors(sb, l, store, targets, statuses, linkedMonitorIds, basePath, monitoring?.Group, historyDays, filterDay, degradedBelowPercent, expectedInterval, incidentDays);
 
-        BuildIncidentsSection(sb, l, recentIncidents, basePath, filterDay);
+        // pinned ongoing incidents not repeated
+        var listedIncidents = filterDay is null
+            ? recentIncidents.Where(p => p.End is not null).ToList()
+            : recentIncidents;
+        BuildIncidentsSection(sb, l, listedIncidents, basePath, filterDay);
         BuildMaintenanceSection(sb, l, pages, monitoring, filterDay, basePath);
 
         return sb.ToString();
+    }
+
+    // worst live state sets the verdict
+    internal static void AppendBanner(System.Text.StringBuilder sb, Localization l, IReadOnlyList<(string Name, MonitorStatus Status)> statuses, DateTimeOffset? lastChecked, int? refreshSeconds = null)
+    {
+        var tone = statuses.Any(s => s.Status == MonitorStatus.Down) ? MonitorStatus.Down
+            : statuses.Any(s => s.Status == MonitorStatus.Degraded) ? MonitorStatus.Degraded
+            : statuses.Any(s => s.Status == MonitorStatus.Maintenance) ? MonitorStatus.Maintenance
+            : MonitorStatus.Up;
+        var names = string.Join(", ", statuses.Where(s => s.Status == tone).Select(s => s.Name));
+        var title = tone switch
+        {
+            MonitorStatus.Down => l.StatusBannerDown(names),
+            MonitorStatus.Degraded => l.StatusBannerDegraded(names),
+            MonitorStatus.Maintenance => l.StatusBannerMaintenance(names),
+            _ => l.StatusAllOperational,
+        };
+
+        sb.Append("<section class=\"status-banner status-banner--").Append(StatusClass(tone)).Append('"');
+        if (refreshSeconds is { } seconds)
+            sb.Append(" data-refresh=\"").Append(seconds).Append('"');
+        sb.Append("><h1 class=\"status-banner-title\" aria-live=\"polite\">").Append(LayoutProvider.HtmlEncode(title)).Append("</h1>");
+        if (lastChecked is { } checkedAt)
+            sb.Append("<p class=\"status-banner-meta\">").Append(l.StatusLastChecked(IncidentContent.TimeHtml(checkedAt))).Append("</p>");
+        sb.Append("</section>");
     }
 
     // no history at all means the first check has not run yet; a filtered day with nothing is plain no data
@@ -144,18 +166,18 @@ internal static class StatusEndpoints
             + "\"><path d=\"M9.88 9.88a3 3 0 1 0 4.24 4.24\"/><path d=\"M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68\"/><path d=\"M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61\"/><line x1=\"2\" x2=\"22\" y1=\"2\" y2=\"22\"/></svg>";
     }
 
-    // fflat list item ("clean", "default", and every structure that is not the card grid)
     private static Dictionary<DateOnly, IncidentContent.IncidentDay>? DaysFor(IReadOnlyDictionary<string, Dictionary<DateOnly, IncidentContent.IncidentDay>>? incidentDays, string monitorId) =>
         incidentDays is not null && incidentDays.TryGetValue(monitorId, out var days) ? days : null;
 
     private static string BuildFlatMonitorItem(Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, bool linked, string basePath, int historyDays, double? degradedBelowPercent, TimeSpan? expectedInterval, DateOnly? filterDay, Dictionary<DateOnly, IncidentContent.IncidentDay>? incidentDays = null)
     {
-        var uptime = filterDay is { } day ? DayUptime(store, target.Id, day, degradedBelowPercent) : store.GetUptime(target.Id, UptimeWindow, expectedInterval);
+        var uptime = filterDay is { } day ? DayUptime(store, target.Id, day, degradedBelowPercent) : store.GetUptime(target.Id, TimeSpan.FromDays(historyDays), expectedInterval);
         var sb = new System.Text.StringBuilder("<li class=\"status-monitor status-monitor--").Append(StatusClass(status)).Append("\">")
           .Append(BuildMonitorNameSpan(l, target))
           .Append(BuildStatusBadge(l, status, linked, basePath));
         sb.Append(BuildUptimeSpan(l, uptime, firstRun: filterDay is null));
         sb.Append(BuildHistoryBar(store, target.Id, basePath, historyDays, degradedBelowPercent, incidentDays));
+        sb.Append(BuildResponseTimeChart(store, target.Id, basePath));
         sb.Append("</li>");
         return sb.ToString();
     }
@@ -173,8 +195,12 @@ internal static class StatusEndpoints
         // the window is however much history actually exists, not the 90 days we asked for - a fresh
         // deployment with a minute of heartbeats must not advertise "100% over the last 90 days"
         var span = measured.Max(u => u.Span);
+        // under a day, percent misleads
+        var text = span < TimeSpan.FromDays(1)
+            ? l.StatusOverallCollecting(FormatDuration(span))
+            : l.StatusOverallUptime(measured.Average(u => u.Percent), FormatDuration(span));
         sb.Append("<p class=\"status-overall-uptime select-none\">")
-          .Append(LayoutProvider.HtmlEncode(l.StatusOverallUptime(measured.Average(u => u.Percent), FormatDuration(span))))
+          .Append(LayoutProvider.HtmlEncode(text))
           .Append("</p>");
     }
 
@@ -193,9 +219,8 @@ internal static class StatusEndpoints
     private static string TypeLabel(MonitorTarget target) =>
         TypeGroupLabels.TryGetValue(target.Type, out var known) ? known : target.Type;
 
-    // grouping is opt-in via monitoring.group and independent of the structure: "type" groups by each target's own
-    // type, "custom" by its "group" field (falling back to the type label), unset renders one ungrouped section
-    internal static void AppendMonitors(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, HashSet<string> linkedMonitorIds, string basePath, string? groupBy, bool cards, int historyDays = HistoryDays, DateOnly? filterDay = null, double? degradedBelowPercent = null, TimeSpan? expectedInterval = null, IReadOnlyDictionary<string, Dictionary<DateOnly, IncidentContent.IncidentDay>>? incidentDays = null)
+    // grouping is opt-in via monitoring.group
+    internal static void AppendMonitors(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IReadOnlyList<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, HashSet<string> linkedMonitorIds, string basePath, string? groupBy, int historyDays = HistoryDays, DateOnly? filterDay = null, double? degradedBelowPercent = null, TimeSpan? expectedInterval = null, IReadOnlyDictionary<string, Dictionary<DateOnly, IncidentContent.IncidentDay>>? incidentDays = null)
     {
         Func<MonitorTarget, string>? groupLabel = groupBy switch
         {
@@ -206,7 +231,7 @@ internal static class StatusEndpoints
 
         if (groupLabel is null)
         {
-            AppendMonitorSection(sb, l, store, targets, statuses, linkedMonitorIds, basePath, cards, heading: null, historyDays, filterDay, degradedBelowPercent, expectedInterval, showFilterIndicator: true, incidentDays);
+            AppendMonitorSection(sb, l, store, targets, statuses, linkedMonitorIds, basePath, heading: null, historyDays, filterDay, degradedBelowPercent, expectedInterval, showFilterIndicator: true, incidentDays);
             return;
         }
 
@@ -215,12 +240,12 @@ internal static class StatusEndpoints
         var first = true;
         foreach (var group in targets.GroupBy(groupLabel, StringComparer.OrdinalIgnoreCase))
         {
-            AppendMonitorSection(sb, l, store, group, statuses, linkedMonitorIds, basePath, cards, group.Key, historyDays, filterDay, degradedBelowPercent, expectedInterval, showFilterIndicator: first, incidentDays);
+            AppendMonitorSection(sb, l, store, group, statuses, linkedMonitorIds, basePath, group.Key, historyDays, filterDay, degradedBelowPercent, expectedInterval, showFilterIndicator: first, incidentDays);
             first = false;
         }
     }
 
-    private static void AppendMonitorSection(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IEnumerable<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, HashSet<string> linkedMonitorIds, string basePath, bool cards, string? heading, int historyDays, DateOnly? filterDay = null, double? degradedBelowPercent = null, TimeSpan? expectedInterval = null, bool showFilterIndicator = true, IReadOnlyDictionary<string, Dictionary<DateOnly, IncidentContent.IncidentDay>>? incidentDays = null)
+    private static void AppendMonitorSection(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, IEnumerable<MonitorTarget> targets, Dictionary<string, MonitorStatus> statuses, HashSet<string> linkedMonitorIds, string basePath, string? heading, int historyDays, DateOnly? filterDay = null, double? degradedBelowPercent = null, TimeSpan? expectedInterval = null, bool showFilterIndicator = true, IReadOnlyDictionary<string, Dictionary<DateOnly, IncidentContent.IncidentDay>>? incidentDays = null)
     {
         sb.Append("<section class=\"status-group\">");
         if (heading is not null)
@@ -230,31 +255,13 @@ internal static class StatusEndpoints
                 sb.Append(BuildHeaderFilterIndicator(l, day, basePath));
             sb.Append("</h2>");
         }
-        sb.Append(cards ? "<ul class=\"status-monitor-grid\">" : "<ul class=\"status-monitor-list\">");
+        sb.Append("<ul class=\"status-monitor-list\">");
         foreach (var target in targets)
         {
             var linked = linkedMonitorIds.Contains(target.Id);
-            if (cards)
-                AppendMonitorCard(sb, l, store, target, statuses[target.Id], linked, basePath, Math.Min(historyDays, CardHistoryDays), degradedBelowPercent, expectedInterval, filterDay, DaysFor(incidentDays, target.Id));
-            else
-                sb.Append(BuildFlatMonitorItem(l, store, target, statuses[target.Id], linked, basePath, historyDays, degradedBelowPercent, expectedInterval, filterDay, DaysFor(incidentDays, target.Id)));
+            sb.Append(BuildFlatMonitorItem(l, store, target, statuses[target.Id], linked, basePath, historyDays, degradedBelowPercent, expectedInterval, filterDay, DaysFor(incidentDays, target.Id)));
         }
         sb.Append("</ul></section>");
-    }
-
-    private static void AppendMonitorCard(System.Text.StringBuilder sb, Localization l, HeartbeatStore store, MonitorTarget target, MonitorStatus status, bool linked, string basePath, int historyDays, double? degradedBelowPercent, TimeSpan? expectedInterval, DateOnly? filterDay, Dictionary<DateOnly, IncidentContent.IncidentDay>? incidentDays = null)
-    {
-        var uptime = filterDay is { } day ? DayUptime(store, target.Id, day, degradedBelowPercent) : store.GetUptime(target.Id, UptimeWindow, expectedInterval);
-        sb.Append("<li class=\"status-monitor-card status-monitor-card--").Append(StatusClass(status)).Append("\">")
-          .Append("<div class=\"status-monitor-card-head\">")
-          .Append("<span class=\"status-monitor-dot select-none\" aria-hidden=\"true\"></span>")
-          .Append(BuildMonitorNameSpan(l, target))
-          .Append(BuildStatusBadge(l, status, linked, basePath))
-          .Append("</div>");
-        sb.Append(BuildUptimeSpan(l, uptime, firstRun: filterDay is null));
-        sb.Append(BuildResponseTimeChart(store, target.Id, basePath));
-        sb.Append(BuildHistoryBar(store, target.Id, basePath, historyDays, degradedBelowPercent, incidentDays));
-        sb.Append("</li>");
     }
 
     // bar height scales to that monitor's busiest day; no successful checks yet renders no chart rather than a fake flat line; bars are real ?on=<day> links like the history ticks, so they're keyboard-focusable too
@@ -265,10 +272,11 @@ internal static class StatusEndpoints
         var max = days.Where(d => d.AvgResponseMs is not null).Select(d => d.AvgResponseMs!.Value).DefaultIfEmpty(0).Max();
         if (max <= 0) return string.Empty;
 
-        var sb = new System.Text.StringBuilder("<div class=\"status-response-chart\">");
+        var sb = new System.Text.StringBuilder("<div class=\"status-response-chart\" role=\"group\" aria-label=\"")
+            .Append(LayoutProvider.HtmlEncode(l.StatusResponseTimeChartLabel(ResponseChartDays))).Append("\">");
         foreach (var day in days)
         {
-            var scale = day.AvgResponseMs is { } ms ? Math.Max(0.04, ms / max) : 0;
+            var scale = day.AvgResponseMs is { } ms ? Math.Max(0.15, ms / max) : 0;
             var tip = day.AvgResponseMs is { } avg ? $"{Math.Round(avg)} ms · {DateFormatter.Current.Medium(day.Day.ToDateTime(TimeOnly.MinValue))}" : l.StatusNoData;
             sb.Append("<a href=\"").Append(basePath).Append("/?on=").Append(day.Day.ToString("yyyy-MM-dd"))
               .Append("#status-incidents\" class=\"status-tick status-response-bar\" style=\"--bar-h:")

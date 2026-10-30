@@ -11,17 +11,16 @@ public static class ThemeDefaults
         ["--alert-important"] = "#8250df",
         ["--alert-warning"] = "#9a6700",
         ["--alert-caution"] = "#cf222e",
+        // fixed across themes
+        ["--status-ok"] = "#276C40",
+        ["--status-warn"] = "#8A5C00",
+        ["--status-down"] = "#B42318",
+        ["--status-maint"] = "#3B5BA5",
         ["--font-sans"] = "\"Inter\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif",
         ["--font-display"] = "\"Inter Display\", \"Inter\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif",
         ["--font-mono"] = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
         ["--measure"] = "680px",
         ["--measure-wide"] = "760px",
-        ["--card-title-size"] = "1.4rem",
-        ["--lead-title-size"] = "clamp(1.7rem, 1rem + 2.2vw, 2.4rem)",
-        // Cap-height offset used to optically align cover art with the first line of a title.
-        ["--inter-ascender-to-cap"] = "0.242",
-        ["--card-cap-inset"] = "calc(var(--card-title-size) * (0.1 + var(--inter-ascender-to-cap)))",
-        ["--lead-cap-inset"] = "calc(var(--lead-title-size) * (0.07 + var(--inter-ascender-to-cap)))",
         ["--topbar-height"] = "57px",
         ["--nav-hover-bg"] = "var(--code-bg)",
         ["--nav-active-bg"] = "var(--accent-light)",
@@ -31,8 +30,6 @@ public static class ThemeDefaults
         ["--code-button-hover"] = "var(--accent)",
         ["--shadow-md"] = "0 8px 24px rgba(0, 0, 0, 0.12)",
         ["--shadow-lg"] = "0 24px 64px rgba(0, 0, 0, 0.3)",
-        ["--promo-bg"] = "var(--accent-light)",
-        ["--promo-text"] = "var(--accent)"
     };
 
     /// <summary>Dark deltas only. Absent keys inherit the light block, which is right for alias vars and wrong for literals.</summary>
@@ -43,9 +40,11 @@ public static class ThemeDefaults
         ["--alert-important"] = "#a371f7",
         ["--alert-warning"] = "#d4a72c",
         ["--alert-caution"] = "#f85149",
+        ["--status-ok"] = "#5FB37A",
+        ["--status-warn"] = "#D4A72C",
+        ["--status-down"] = "#F0705F",
+        ["--status-maint"] = "#8EA8E8",
         ["--shadow-md"] = "0 8px 24px rgba(0, 0, 0, 0.45)",
         ["--shadow-lg"] = "0 24px 64px rgba(0, 0, 0, 0.55)",
-        // Literal, not var(--accent): the promo bar sits on a tint that the dark accent reads too dim against.
-        ["--promo-text"] = "#dfe6e1"
     };
 }

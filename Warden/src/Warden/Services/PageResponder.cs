@@ -78,11 +78,6 @@ public sealed class PageResponder
     private static string NewNonce() =>
         Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
 
-    // exposed so an endpoint can decide its own markup (e.g. StatusEndpoints' grouped-vs-flat layout)
-    // before calling WriteAsync, using the exact same resolution WriteAsync uses internally
-    public IWardenStructure ResolveStructure() =>
-        StructureRegistry.Resolve(_settings.CliStructure ?? _content.SiteConfig?.Structure);
-
     public async Task WriteAsync(HttpContext context, PageView view)
     {
         var basePath = _settings.BasePath;
@@ -115,7 +110,6 @@ public sealed class PageResponder
 
         var themeSelection = ThemeSelection.Resolve(_theme, _settings.CliTheme, config?.Theme);
         var activeTheme = themeSelection.Theme;
-        var activeStructure = StructureRegistry.Resolve(_settings.CliStructure ?? config?.Structure);
         var themeCss = ThemeProvider.BuildThemeCss(_theme, nonce);
         var customCssLink = ThemeProvider.BuildCustomCssLink(_theme, _settings.ThemeDir, basePath);
         var customJsScript = ThemeProvider.BuildCustomJsScript(_theme, _settings.ThemeDir, basePath);
@@ -162,7 +156,6 @@ public sealed class PageResponder
             hasMath: view.ContentHtml.Contains("class=\"katex\"", StringComparison.Ordinal),
             hasMermaid: hasMermaid,
             hasMap: view.ContentHtml.Contains("class=\"warden-map\"", StringComparison.Ordinal),
-            isArticle: view.IsArticle,
             proseStyle: view.Prose,
             siteNavHtml: siteNavHtml,
             footerHtml: footerHtml,
@@ -173,7 +166,6 @@ public sealed class PageResponder
             socialMetaHtml: socialMetaHtml,
             structuredDataHtml: structuredDataHtml,
             theme: activeTheme,
-            structure: activeStructure,
             authButtonHtml: _auth.AdminEnabled
                 ? LayoutProvider.BuildAuthButton(context.User.Identity?.IsAuthenticated == true, _auth.AuthPath, _auth.AdminPath, basePath)
                 : null);

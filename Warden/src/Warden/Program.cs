@@ -198,8 +198,7 @@ try
         WebRootPath: webRootPath,
         DocsRootAbsolute: docsRootAbsolute,
         PublicBaseUrl: PageRequestSettings.ResolvePublicBaseUrl(exportBaseUrl, docsOptions.PublicBaseUrl, config["PublicBaseUrl"]),
-        CliTheme: cliArgs.Theme,
-        CliStructure: cliArgs.Structure));
+        CliTheme: cliArgs.Theme));
     builder.Services.AddSingleton<PageResponder>();
     builder.Services.AddSingleton<PageRequestHandler>();
 

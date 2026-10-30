@@ -369,96 +369,6 @@ public static partial class LayoutProvider
                 }});
             }}
 
-            document.querySelectorAll('.load-more').forEach(function(btn) {{
-                var skeletonCard = '<article class=""post-card skeleton-card"" aria-hidden=""true"">' +
-                    '<div class=""skeleton skeleton-title""></div>' +
-                    '<div class=""skeleton skeleton-meta""></div>' +
-                    '<div class=""skeleton skeleton-line""></div>' +
-                    '<div class=""skeleton skeleton-line short""></div>' +
-                    '</article>';
-                btn.addEventListener('click', function() {{
-                    var next = btn.getAttribute('data-next');
-                    if (!next || btn.disabled) return;
-                    var wrap = btn.closest('.load-more-wrap');
-                    btn.disabled = true;
-                    var skel = document.createElement('div');
-                    skel.className = 'load-more-skeletons';
-                    skel.innerHTML = skeletonCard + skeletonCard + skeletonCard;
-                    wrap.parentNode.insertBefore(skel, wrap);
-                    fetch(next)
-                        .then(function(r) {{ return r.text(); }})
-                        .then(function(html) {{
-                            var doc = new DOMParser().parseFromString(html, 'text/html');
-                            var cards = doc.querySelectorAll('.content .post-card');
-                            var nextBtn = doc.querySelector('.load-more');
-                            skel.remove();
-                            cards.forEach(function(c) {{ wrap.parentNode.insertBefore(c, wrap); }});
-                            var moreUrl = nextBtn ? nextBtn.getAttribute('data-next') : null;
-                            if (moreUrl) {{ btn.setAttribute('data-next', moreUrl); btn.disabled = false; }}
-                            else {{ wrap.remove(); }}
-                        }})
-                        ['catch'](function() {{
-                            skel.remove();
-                            btn.disabled = false;
-                        }});
-                }});
-            }});
-
-            var shareTrigger = document.querySelector('[data-share]');
-            var shareOverlay = document.getElementById('share-overlay');
-            if (shareTrigger && shareOverlay) {{
-                var shareModalClose = document.getElementById('share-modal-close');
-                var shareCopy = document.getElementById('share-copy');
-                var shareCopyLabel = document.getElementById('share-copy-label');
-                var shareLastFocused = null;
-                var shareMastodon = document.getElementById('share-mastodon');
-                if (shareMastodon) shareMastodon.addEventListener('click', function() {{
-                    var saved = window.localStorage.getItem('mastodon-instance') || 'fosstodon.org';
-                    var host = window.prompt('Your Mastodon instance', saved);
-                    if (!host) return;
-                    host = host.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
-                    if (!host) return;
-                    window.localStorage.setItem('mastodon-instance', host);
-                    var text = encodeURIComponent(document.title + ' ' + location.href);
-                    window.open('https://' + host + '/share?text=' + text, '_blank', 'noopener');
-                }});
-                var openShare = function() {{
-                    var url = location.href, eu = encodeURIComponent(url), et = encodeURIComponent(document.title);
-                    var li = document.getElementById('share-linkedin');
-                    var em = document.getElementById('share-email');
-                    if (li) li.href = 'https://www.linkedin.com/sharing/share-offsite/?url=' + eu;
-                    if (em) em.href = 'mailto:?subject=' + et + '&body=' + eu;
-                    shareLastFocused = document.activeElement;
-                    shareOverlay.hidden = false;
-                    requestAnimationFrame(function() {{ shareOverlay.classList.add('open'); }});
-                    document.documentElement.style.overflow = 'hidden';
-                    if (shareModalClose) shareModalClose.focus();
-                }};
-                var closeShare = function() {{
-                    shareOverlay.classList.remove('open');
-                    shareOverlay.hidden = true;
-                    document.documentElement.style.overflow = '';
-                    if (shareLastFocused && shareLastFocused.focus) shareLastFocused.focus();
-                }};
-                shareTrigger.addEventListener('click', openShare);
-                if (shareModalClose) shareModalClose.addEventListener('click', closeShare);
-                shareOverlay.addEventListener('mousedown', function(e) {{ if (e.target === shareOverlay) closeShare(); }});
-                document.addEventListener('keydown', function(e) {{ if (!shareOverlay.hidden && e.key === 'Escape') closeShare(); }});
-                if (shareCopy) {{
-                    shareCopy.addEventListener('click', function() {{
-                        navigator.clipboard.writeText(location.href).then(function() {{
-                            if (shareCopyLabel) {{
-                                shareCopyLabel.textContent = 'Copied';
-                                setTimeout(function() {{ shareCopyLabel.textContent = 'Copy link'; }}, 1800);
-                            }}
-                        }})['catch'](function() {{}});
-                    }});
-                }}
-                shareOverlay.addEventListener('click', function(e) {{
-                    if (e.target.closest('.share-action') && !e.target.closest('#share-copy')) closeShare();
-                }});
-            }}
-
             var topbarEl = document.querySelector('.topbar');
             if (topbarEl) {{
                 var syncTopbarHeight = function() {{
@@ -864,6 +774,49 @@ public static partial class LayoutProvider
                 loadDayFilter(url);
             }});
 
+            // live status: re-fetch every check interval while visible
+            var lastRefresh = Date.now();
+            async function refreshStatus() {{
+                var article = document.querySelector('article.content');
+                var live = article && article.querySelector('[data-refresh]');
+                var sel = window.getSelection();
+                if (!live || document.hidden || article.contains(document.activeElement) || (sel && !sel.isCollapsed && article.contains(sel.anchorNode))) return;
+                if (Date.now() - lastRefresh < Math.max(60, parseInt(live.getAttribute('data-refresh'), 10) || 60) * 1000) return;
+                lastRefresh = Date.now();
+                try {{
+                    var response = await fetch(window.location.href, {{ headers: {{ 'X-Requested-With': 'fetch' }}, cache: 'no-store' }});
+                    if (!response.ok) return;
+                    var next = new DOMParser().parseFromString(await response.text(), 'text/html').querySelector('article.content');
+                    // the gate page or a filtered view has no live banner
+                    if (!next || !next.querySelector('[data-refresh]')) return;
+                    // anchor: first monitor row in view
+                    var rows = article.querySelectorAll('.status-monitor');
+                    var anchorIndex = Array.prototype.findIndex.call(rows, function(r) {{ return r.getBoundingClientRect().bottom > 0; }});
+                    var anchorTop = anchorIndex >= 0 && window.scrollY > 0 ? rows[anchorIndex].getBoundingClientRect().top : null;
+                    // banner stays in place so its live heading announces changes
+                    var oldBanner = article.querySelector('.status-banner');
+                    var newBanner = next.querySelector('.status-banner');
+                    var oldTitle = oldBanner && oldBanner.querySelector('.status-banner-title');
+                    var newTitle = newBanner.querySelector('.status-banner-title');
+                    if (oldTitle && newTitle) {{
+                        oldBanner.className = newBanner.className;
+                        if (oldTitle.textContent !== newTitle.textContent) oldTitle.textContent = newTitle.textContent;
+                        Array.from(oldBanner.children).forEach(function(c) {{ if (c !== oldTitle) c.remove(); }});
+                        Array.from(newBanner.children).forEach(function(c) {{ if (c !== newTitle) oldBanner.append(c); }});
+                        newBanner.remove();
+                        Array.from(article.childNodes).forEach(function(n) {{ if (n !== oldBanner) n.remove(); }});
+                        article.append(...next.childNodes);
+                    }} else {{
+                        article.replaceChildren(...next.childNodes);
+                    }}
+                    applyTimezone();
+                    var anchor = anchorTop === null ? null : article.querySelectorAll('.status-monitor')[anchorIndex];
+                    if (anchor) window.scrollBy(0, anchor.getBoundingClientRect().top - anchorTop);
+                }} catch (e) {{ }}
+            }}
+            setInterval(refreshStatus, 15000);
+            document.addEventListener('visibilitychange', refreshStatus);
+
             async function loadDayFilter(url) {{
                 var article = document.querySelector('article.content');
                 if (!article) {{ window.location.href = url.href; return; }}
@@ -1115,7 +1068,6 @@ public static partial class LayoutProvider
                         window.setTimeout(function() {{ toast.remove(); }}, 220);
                     }}
                     toast.addEventListener('click', dismiss);
-                    window.setTimeout(dismiss, 5000);
                 }});
             }}
 
@@ -1143,259 +1095,6 @@ public static partial class LayoutProvider
                     }}, 160);
                 }});
             }}
-
-            // Custom date + time picker. The field still posts ""yyyy-MM-dd HH:mm"" as simple text,
-            // so with scripting off it stays a typable input the server parses the same way.
-            Array.prototype.forEach.call(document.querySelectorAll('[data-datetime]'), function(wrap) {{
-                var input = wrap.querySelector('.admin-datetime-input');
-                var openBtn = wrap.querySelector('.admin-datetime-open');
-                var pop = wrap.querySelector('.admin-datetime-pop');
-                if (!input || !openBtn || !pop) return;
-
-                var lang = document.documentElement.lang || 'en';
-                var monthFmt, dowFmt;
-                try {{
-                    monthFmt = new Intl.DateTimeFormat(lang, {{ month: 'long', year: 'numeric' }});
-                    dowFmt = new Intl.DateTimeFormat(lang, {{ weekday: 'short' }});
-                }} catch (e) {{
-                    monthFmt = new Intl.DateTimeFormat('en', {{ month: 'long', year: 'numeric' }});
-                    dowFmt = new Intl.DateTimeFormat('en', {{ weekday: 'short' }});
-                }}
-                // month and weekday names come from the page language, so no month table needs translating
-                var firstDay = 1;
-                try {{
-                    var info = new Intl.Locale(lang).weekInfo;
-                    if (info && info.firstDay) firstDay = info.firstDay % 7;
-                }} catch (e) {{}}
-
-                var view = null, grid = null, monthEl = null, hourEl = null, minEl = null;
-
-                function pad(n) {{ return (n < 10 ? '0' : '') + n; }}
-                function stamp(d) {{
-                    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
-                        ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-                }}
-                function parse(v) {{
-                    var m = /^(\d{{4}})-(\d{{1,2}})-(\d{{1,2}})(?:[ T](\d{{1,2}}):(\d{{1,2}}))?/.exec((v || '').trim());
-                    if (!m) return null;
-                    var d = new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0));
-                    return isNaN(d.getTime()) ? null : d;
-                }}
-                function sameDay(a, b) {{
-                    return !!a && !!b && a.getFullYear() === b.getFullYear() &&
-                        a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-                }}
-                function clamp(v, max) {{
-                    var n = parseInt(v, 10);
-                    return isNaN(n) ? 0 : Math.min(Math.max(n, 0), max);
-                }}
-                function commit(d) {{
-                    input.value = stamp(d);
-                    input.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                }}
-                function label(key, fallback) {{ return wrap.getAttribute(key) || fallback; }}
-
-                function navButton(glyph, key, fallback, step) {{
-                    var b = document.createElement('button');
-                    b.type = 'button';
-                    b.className = 'admin-datetime-nav';
-                    b.textContent = glyph;
-                    b.setAttribute('aria-label', label(key, fallback));
-                    b.addEventListener('click', function() {{ view.setMonth(view.getMonth() + step); paint(); }});
-                    return b;
-                }}
-                var icons = {{
-                    now: '<circle cx=""12"" cy=""12"" r=""9""/><polyline points=""12 7 12 12 15 14""/>',
-                    clear: '<line x1=""6"" y1=""6"" x2=""18"" y2=""18""/><line x1=""18"" y1=""6"" x2=""6"" y2=""18""/>',
-                    done: '<polyline points=""4 12.5 9.5 18 20 6.5""/>'
-                }};
-                function actionButton(text, icon, primary, fn) {{
-                    var b = document.createElement('button');
-                    b.type = 'button';
-                    b.className = 'admin-datetime-btn' + (primary ? ' admin-datetime-btn--go' : '');
-                    b.setAttribute('aria-label', text);
-                    b.title = text;
-                    b.innerHTML = '<svg viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" aria-hidden=""true"">' + icons[icon] + '</svg>';
-                    b.addEventListener('click', fn);
-                    return b;
-                }}
-                // text input with our own stepper: native number spinners cannot be themed
-                function timePart(max, text) {{
-                    var box = document.createElement('div');
-                    box.className = 'admin-datetime-part';
-                    var i = document.createElement('input');
-                    i.type = 'text';
-                    i.inputMode = 'numeric';
-                    i.maxLength = 2;
-                    i.className = 'admin-datetime-part-input';
-                    i.setAttribute('aria-label', text);
-                    function apply() {{
-                        var d = parse(input.value) || new Date();
-                        d.setHours(clamp(hourEl.value, 23), clamp(minEl.value, 59), 0, 0);
-                        commit(d);
-                        paint();
-                    }}
-                    function step(delta) {{
-                        i.value = pad((clamp(i.value, max) + delta + max + 1) % (max + 1));
-                        apply();
-                    }}
-                    i.addEventListener('change', apply);
-                    i.addEventListener('keydown', function(e) {{
-                        if (e.key === 'ArrowUp') {{ e.preventDefault(); step(1); }}
-                        else if (e.key === 'ArrowDown') {{ e.preventDefault(); step(-1); }}
-                    }});
-                    var up = document.createElement('button');
-                    up.type = 'button'; up.tabIndex = -1; up.className = 'admin-datetime-step admin-datetime-step--up';
-                    up.setAttribute('aria-hidden', 'true');
-                    up.addEventListener('click', function() {{ step(1); }});
-                    var down = document.createElement('button');
-                    down.type = 'button'; down.tabIndex = -1; down.className = 'admin-datetime-step admin-datetime-step--down';
-                    down.setAttribute('aria-hidden', 'true');
-                    down.addEventListener('click', function() {{ step(-1); }});
-                    box.appendChild(i);
-                    box.appendChild(up);
-                    box.appendChild(down);
-                    box.input = i;
-                    return box;
-                }}
-
-                function build() {{
-                    var head = document.createElement('div');
-                    head.className = 'admin-datetime-head';
-                    monthEl = document.createElement('div');
-                    monthEl.className = 'admin-datetime-month';
-                    monthEl.setAttribute('aria-live', 'polite');
-                    head.appendChild(navButton('‹', 'data-prev', 'Previous month', -1));
-                    head.appendChild(monthEl);
-                    head.appendChild(navButton('›', 'data-next', 'Next month', 1));
-
-                    grid = document.createElement('div');
-                    grid.className = 'admin-datetime-grid';
-
-                    var hourBox = timePart(23, label('data-hours', 'Hours'));
-                    var minBox = timePart(59, label('data-minutes', 'Minutes'));
-                    hourEl = hourBox.input;
-                    minEl = minBox.input;
-                    var colon = document.createElement('span');
-                    colon.className = 'admin-datetime-colon';
-                    colon.textContent = ':';
-
-                    var acts = document.createElement('div');
-                    acts.className = 'admin-datetime-actions';
-                    acts.appendChild(actionButton(label('data-now', 'Now'), 'now', false, function() {{
-                        var n = new Date();
-                        view = new Date(n.getFullYear(), n.getMonth(), 1);
-                        commit(n);
-                        paint();
-                    }}));
-                    acts.appendChild(actionButton(label('data-clear', 'Clear'), 'clear', false, function() {{
-                        input.value = '';
-                        input.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                        paint();
-                    }}));
-                    acts.appendChild(actionButton(label('data-done', 'Done'), 'done', true, close));
-
-                    var time = document.createElement('div');
-                    time.className = 'admin-datetime-time';
-                    time.appendChild(hourBox);
-                    time.appendChild(colon);
-                    time.appendChild(minBox);
-                    time.appendChild(acts);
-
-                    pop.appendChild(head);
-                    pop.appendChild(grid);
-                    pop.appendChild(time);
-                }}
-
-                function paint() {{
-                    var picked = parse(input.value);
-                    var today = new Date();
-                    if (!view) view = new Date((picked || today).getFullYear(), (picked || today).getMonth(), 1);
-
-                    monthEl.textContent = monthFmt.format(view);
-                    hourEl.value = picked ? pad(picked.getHours()) : '';
-                    minEl.value = picked ? pad(picked.getMinutes()) : '';
-
-                    grid.textContent = '';
-                    var i;
-                    for (i = 0; i < 7; i++) {{
-                        var dow = document.createElement('div');
-                        dow.className = 'admin-datetime-dow';
-                        // 2024-01-07 was a Sunday, so this walks real weekdays in the page's own locale
-                        dow.textContent = dowFmt.format(new Date(2024, 0, 7 + ((firstDay + i) % 7))).slice(0, 2);
-                        grid.appendChild(dow);
-                    }}
-
-                    var first = new Date(view.getFullYear(), view.getMonth(), 1);
-                    var lead = (first.getDay() - firstDay + 7) % 7;
-                    for (i = 0; i < 42; i++) {{
-                        var day = new Date(view.getFullYear(), view.getMonth(), 1 - lead + i);
-                        var b = document.createElement('button');
-                        b.type = 'button';
-                        b.className = 'admin-datetime-day';
-                        if (day.getMonth() !== view.getMonth()) b.className += ' admin-datetime-day--muted';
-                        if (sameDay(day, today)) b.className += ' admin-datetime-day--today';
-                        if (sameDay(day, picked)) {{
-                            b.className += ' admin-datetime-day--on';
-                            b.setAttribute('aria-current', 'date');
-                        }}
-                        b.textContent = String(day.getDate());
-                        b.addEventListener('click', (function(d) {{
-                            return function() {{
-                                var t = parse(input.value);
-                                view = new Date(d.getFullYear(), d.getMonth(), 1);
-                                commit(new Date(d.getFullYear(), d.getMonth(), d.getDate(),
-                                    t ? t.getHours() : clamp(hourEl.value, 23),
-                                    t ? t.getMinutes() : clamp(minEl.value, 59), 0, 0));
-                                paint();
-                            }};
-                        }})(day));
-                        grid.appendChild(b);
-                    }}
-                }}
-
-                function open() {{
-                    if (!pop.firstChild) build();
-                    view = null;
-                    // empty field: start from the client clock plus the field's own offset
-                    if (!parse(input.value)) {{
-                        var d = new Date();
-                        d.setMinutes(d.getMinutes() + (parseInt(wrap.getAttribute('data-default-offset'), 10) || 0), 0, 0);
-                        commit(d);
-                    }}
-                    paint();
-                    pop.hidden = false;
-                    input.setAttribute('aria-expanded', 'true');
-                    // flip to the right edge when the popover would leave the viewport
-                    wrap.classList.remove('admin-datetime--right');
-                    if (pop.getBoundingClientRect().right > document.documentElement.clientWidth - 8)
-                        wrap.classList.add('admin-datetime--right');
-                }}
-                function hide() {{
-                    pop.hidden = true;
-                    input.setAttribute('aria-expanded', 'false');
-                }}
-                function close() {{
-                    if (pop.hidden) return;
-                    hide();
-                    input.focus();
-                }}
-
-                openBtn.addEventListener('click', function() {{ if (pop.hidden) open(); else close(); }});
-                input.addEventListener('keydown', function(e) {{
-                    if (e.key === 'ArrowDown' && pop.hidden) {{ e.preventDefault(); open(); }}
-                }});
-                input.addEventListener('change', function() {{ if (!pop.hidden) {{ view = null; paint(); }} }});
-                wrap.addEventListener('keydown', function(e) {{
-                    if (e.key === 'Escape' && !pop.hidden) {{ e.preventDefault(); close(); }}
-                }});
-                // a click elsewhere dismisses without stealing focus back. A day button is replaced by the
-                // repaint before this runs, so a detached target means the click came from inside the grid.
-                document.addEventListener('click', function(e) {{
-                    if (pop.hidden || !e.target || !e.target.isConnected) return;
-                    if (!wrap.contains(e.target)) hide();
-                }});
-            }});
         }});
 ");
     }

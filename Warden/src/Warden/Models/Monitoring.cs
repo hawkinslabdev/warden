@@ -26,7 +26,7 @@ public sealed record MonitorTarget(
     string? DnsServer = null,
     // dns type only: "ipv4" or "ipv6" to query only that record type; unset queries both
     string? Family = null,
-    // dashboard structure, monitoring.group: "custom" only: this target's own group heading; falls back to its type's label when unset
+    // heading for "custom" grouping
     string? Group = null,
     // still scheduled and checked normally; just excluded from the status page and /api/status, for a backend you track but don't publish
     bool? Hidden = null,
@@ -53,7 +53,9 @@ public sealed record MonitoringConfig(
     // POST with JSON once per down/recovery transition, not on every check while a monitor stays down
     List<WebhookTarget>? Webhooks = null,
     // minimum minutes between repeat down webhooks per monitor; unset means one per transition
-    int? WebhookCooldownMinutes = null);
+    int? WebhookCooldownMinutes = null,
+    // uplink probe; all fail = unrecorded
+    List<string>? ConnectivityUrls = null);
 
 // one entry in MonitoringConfig.Webhooks; Headers is opt-in, e.g. { "Authorization": "Bearer ..." } for receivers that need auth
 public sealed record WebhookTarget(string Url, Dictionary<string, string>? Headers = null);

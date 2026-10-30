@@ -53,5 +53,6 @@ public sealed record DocumentationPage(
         keywords,
         showPagination,
         redirect
-    ) { }
+    )
+    { }
 }

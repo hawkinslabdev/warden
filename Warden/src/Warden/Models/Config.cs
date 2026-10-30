@@ -22,11 +22,8 @@ public class Config
         };
     }
 
-    /// <summary>Theme name, e.g. <c>"ocean"</c>. Unknown names fall back to the default theme.</summary>
+    /// <summary>Theme name; unknown names use default.</summary>
     public string? Theme { get; set; }
-
-    /// <summary>Page structure name. <c>"clean"</c> is the only one Warden ships and is also the default, so leaving this unset or setting it to <c>"clean"</c> are the same thing. Orthogonal to <see cref="Theme"/>; any other name logs a warning and falls back to <c>"clean"</c>.</summary>
-    public string? Structure { get; set; }
 
     public string? Brand { get; set; }
     public string? BrandImage { get; set; }

@@ -128,50 +128,27 @@ Copy `en.json` to `{code}.json` and translate the values. Missing keys fall back
 
 ### Customize the look
 
-Nine themes are built in. Name one in `config.json`:
+Four themes are built in. Name one in `config.json`:
 
 ```json [content/config.json]
 {
-  "theme": "ocean"
+  "theme": "midnight"
 }
 ```
 
 | Name | Look |
 |---|---|
 | `default` | Warm paper and forest green. Used when you set nothing. |
-| `casper` | White paper, near-black type, violet accent. |
-| `ocean` | Cool blue-grey paper and a deep harbour accent. |
-| `deep-space` | Near-black navy and a periwinkle accent. |
 | `solarized` | Solarized base tones: warm paper by day, deep teal by night. |
-| `laserwave` | Synthwave violet with a hot magenta accent. |
-| `signal-dark` | Deep charcoal and an amber accent. |
-| `limelight` | Pale off-white, a sage-lime accent with a cyan counterpart. |
 | `midnight` | White paper and bright blue by day; deep navy at night. |
 | `oled` | White paper and a true-black dark mode, so OLED screens turn every unlit pixel off. |
 
-Every theme adapts to a full light and dark palette, so the toggle behaves the same whichever you pick. The dark-sounding names aren't dark-only: `signal-dark` has a paper-toned light mode that swaps its amber for bronze. An unrecognized name logs a warning and falls back to `default`. The value hot-reloads with the rest of `config.json`, and [environment variables](/deploy/environment/) can override it per deployment.
+Every theme adapts to a full light and dark palette, so the toggle behaves the same whichever you pick. An unrecognized name logs a warning and falls back to `default`. The value hot-reloads with the rest of `config.json`, and [environment variables](/deploy/environment/) can override it per deployment.
 
-`theme` picks the palette; page *structure* is a separate setting, so any theme can pair with either structure:
-
-```json [content/config.json]
-{
-  "theme": "ocean",
-  "structure": "dashboard"
-}
-```
-
-| Name | Shape |
-|---|---|
-| `clean` | The default. A simple monitor list, full 90-day history bars, in the same centered narrow column as every other page. |
-| `dashboard` | Monitors as a card grid (status dot, badge, uptime, response-time chart, history bar), a pinned "ongoing incidents" panel above the grid, and a wider column to fit it. Only the status page changes; every other page still renders like `clean`. |
-
-`dashboard` looks like Upptime or Kener: a grid instead of a list.
-
-Grouping is separate from the structure: `monitoring.group` sections the monitors under headings in whichever layout the structure renders, and leaving it unset never groups anything.
+`monitoring.group` sections the monitors under headings. Leave it unset for one list.
 
 ```json [content/config.json]
 {
-  "structure": "clean",
   "monitoring": {
     "group": "custom"
   }
@@ -184,7 +161,7 @@ To pin one mode instead of following the reader's system, add `dark` or `light` 
 
 ```json [content/config.json]
 {
-  "theme": "ocean dark"
+  "theme": "midnight dark"
 }
 ```
 

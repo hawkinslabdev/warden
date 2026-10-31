@@ -2901,7 +2901,8 @@ a.status-monitor-badge:hover {
     }
 }
 .content .status-monitor-badge,
-.content a.status-monitor-badge {
+.content.reading a.status-monitor-badge,
+.content.reading a.status-monitor-badge:hover {
     color: var(--tone);
 }
 .status-ongoing-incidents + .status-group .status-monitor-list {

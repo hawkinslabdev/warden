@@ -40,6 +40,8 @@ public sealed record IncidentDraft(
 
     public string Slug() => Slugify(Title) is { Length: > 0 } s ? s : "incident";
 
+    public string FileName() => $"{Slug()}-{Start.UtcDateTime:yyyyMMdd}.md";
+
     private static string Iso(DateTimeOffset when) =>
         when.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss'Z'", CultureInfo.InvariantCulture);
 
@@ -69,7 +71,7 @@ public sealed record IncidentDraft(
         if (baseUrl is null)
             return null;
 
-        var url = $"{baseUrl}?filename={Uri.EscapeDataString(Slug())}.md&value={Uri.EscapeDataString(markdown)}";
+        var url = $"{baseUrl}?filename={Uri.EscapeDataString(FileName())}&value={Uri.EscapeDataString(markdown)}";
         return url.Length > MaxPrefillLength ? null : url;
     }
 

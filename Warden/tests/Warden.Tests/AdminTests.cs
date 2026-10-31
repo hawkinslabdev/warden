@@ -180,6 +180,7 @@ public sealed class IncidentDraftTests
     public void SlugsAreUrlSafeAndBounded()
     {
         Assert.Equal("api-responses-degraded", Draft().Slug());
+        Assert.Equal("api-responses-degraded-20260818.md", Draft().FileName());
         Assert.Equal("incident", Draft("!!! ???").Slug());
         Assert.True(Draft(new string('x', 400)).Slug().Length <= 60);
         Assert.DoesNotContain("/", Draft("a/b/c").Slug(), StringComparison.Ordinal);

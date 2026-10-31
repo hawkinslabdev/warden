@@ -27,6 +27,7 @@
   <ItemGroup>
     <Content Include="../../../content/**/*" LinkBase="content" CopyToOutputDirectory="PreserveNewest" />
     <Content Update="wwwroot/js/altcha.min.js" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="wwwroot/js/air-datepicker.js" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

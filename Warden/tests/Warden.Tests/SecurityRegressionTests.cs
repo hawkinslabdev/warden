@@ -156,6 +156,17 @@ public sealed class SecurityRegressionTests : IDisposable
     }
 
     [Fact]
+    public async Task DatepickerScript_MatchesVettedRelease()
+    {
+        // air-datepicker 3.6.0 from npm; update only after review
+        const string expectedSha256 = "24be9285f8a7b00ec14ca94a954f54383ea6a507067f7d3c3f1c2c2280462185";
+        var path = Path.Combine(AppContext.BaseDirectory, "wwwroot", "js", "air-datepicker.js");
+
+        await using var stream = File.OpenRead(path);
+        Assert.Equal(expectedSha256, Convert.ToHexStringLower(await SHA256.HashDataAsync(stream)));
+    }
+
+    [Fact]
     public async Task AltchaScript_MatchesVettedRelease_UnexpectedChangeMeansTamperingOrAnUnauditedUpgrade()
     {
         // Pinned hash of the vendored build. A mismatch means the file was swapped (compromised PR,

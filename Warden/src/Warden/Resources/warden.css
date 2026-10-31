@@ -25,6 +25,10 @@ html {
     scrollbar-gutter: stable;
 }
 body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
     font-family: var(--font-sans);
     background-color: var(--bg-color);
     color: var(--text-color);
@@ -2019,9 +2023,11 @@ h6 {
     min-height: 0;
 }
 .main-container {
+    flex: 1 0 auto;
+    width: 100%;
     max-width: var(--measure-wide);
     margin: 0 auto;
-    padding: 2.5rem clamp(1.25rem, 5vw, 2.75rem) 0;
+    padding: 3.5rem clamp(1.25rem, 5vw, 2.75rem) 0;
     min-height: 0;
 }
 .content {
@@ -2208,7 +2214,7 @@ h6 {
     font-variant-numeric: tabular-nums;
 }
 .status-group {
-    margin: 0 0 2.5rem;
+    margin: 0 0 3rem;
 }
 .content.reading .status-group-heading {
     font-family: var(--font-display);
@@ -2357,7 +2363,7 @@ a.status-monitor-badge:hover {
     font-variant-numeric: tabular-nums;
 }
 .status-ongoing-incidents {
-    margin: 0 0 2.5rem;
+    margin: 0 0 3rem;
 }
 .status-tick {
     appearance: none;
@@ -2742,9 +2748,9 @@ a.status-monitor-badge:hover {
     line-height: 1;
 }
 .site-footer {
-    max-width: var(--measure-wide);
+    width: min(var(--measure), var(--measure-wide) - 2 * clamp(1.25rem, 5vw, 2.75rem), 100% - 2 * clamp(1.25rem, 5vw, 2.75rem));
     margin: 5.5rem auto 3rem;
-    padding: 1.75rem clamp(1.25rem, 5vw, 2.75rem) 0;
+    padding: 1.75rem 0 0;
     border-top: 1px solid var(--border);
     display: flex;
     flex-wrap: wrap;

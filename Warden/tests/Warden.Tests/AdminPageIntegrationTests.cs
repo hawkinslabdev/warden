@@ -175,20 +175,21 @@ public sealed class AdminPageIntegrationTests : IClassFixture<AdminWebApplicatio
     }
 
     [Fact]
-    public async Task TimingValuesAreClampedRatherThanTrusted()
+    public async Task TimingValuesOutOfRangeAreRejectedRatherThanTrusted()
     {
         using var client = _factory.SignedInClient();
         var token = await AntiforgeryToken(client);
 
-        await client.PostAsync("/admin/settings", new FormUrlEncodedContent([
+        var response = await client.PostAsync("/admin/settings", new FormUrlEncodedContent([
             new("__RequestVerificationToken", token),
             new("intervalSeconds", "-99999"),
             new("retentionDays", "999999999"),
         ]), CancellationToken.None);
 
+        Assert.Contains("flash=bad-number", response.Headers.Location!.ToString(), StringComparison.Ordinal);
         var monitoring = _factory.Monitoring();
-        Assert.Equal(5, monitoring.IntervalSeconds);
-        Assert.Equal(3650, monitoring.RetentionDays);
+        Assert.NotEqual(-99999, monitoring.IntervalSeconds);
+        Assert.NotEqual(999999999, monitoring.RetentionDays);
     }
 
     [Fact]
@@ -293,6 +294,66 @@ public sealed class AdminPageIntegrationTests : IClassFixture<AdminWebApplicatio
         Assert.Equal(enabled, stored.Enabled != false);
     }
 
+    [Theory]
+    [InlineData("retries:alpha", "abc")]
+    [InlineData("retries:alpha", "101")]
+    [InlineData("intervalSeconds", "1")]
+    [InlineData("retentionDays", "2.5")]
+    public async Task AnInvalidNumberIsRejectedAndNothingIsWritten(string field, string value)
+    {
+        using var client = _factory.SignedInClient();
+        var token = await AntiforgeryToken(client);
+        var before = _factory.ReadConfig().ToJsonString();
+
+        var response = await client.PostAsync("/admin/settings", new FormUrlEncodedContent([
+            new("__RequestVerificationToken", token),
+            new("monitorId", "alpha"),
+            new(field, value),
+        ]), CancellationToken.None);
+
+        Assert.Contains("flash=bad-number", response.Headers.Location!.ToString(), StringComparison.Ordinal);
+        Assert.Equal(before, _factory.ReadConfig().ToJsonString());
+    }
+
+    [Fact]
+    public async Task RemovingAWebhookDeletesOnlyThatOne()
+    {
+        using var client = _factory.SignedInClient();
+        var token = await AntiforgeryToken(client);
+        await client.PostAsync("/admin/settings", new FormUrlEncodedContent([
+            new("__RequestVerificationToken", token),
+            new("url", "https://hooks.invalid/keep-me"),
+            new("url", "https://hooks.invalid/drop-me"),
+        ]), CancellationToken.None);
+
+        token = await AntiforgeryToken(client);
+        var response = await client.PostAsync("/admin/webhook-remove", new FormUrlEncodedContent([
+            new("__RequestVerificationToken", token),
+            new("remove", "https://hooks.invalid/drop-me"),
+        ]), CancellationToken.None);
+
+        Assert.Contains("flash=webhook-removed", response.Headers.Location!.ToString(), StringComparison.Ordinal);
+        var urls = _factory.Monitoring().Webhooks!.Select(w => w.Url).ToList();
+        Assert.Contains("https://hooks.invalid/keep-me", urls);
+        Assert.DoesNotContain("https://hooks.invalid/drop-me", urls);
+    }
+
+    [Fact]
+    public async Task RemovingAnUnknownWebhookChangesNothing()
+    {
+        using var client = _factory.SignedInClient();
+        var token = await AntiforgeryToken(client);
+        var before = _factory.ReadConfig().ToJsonString();
+
+        var response = await client.PostAsync("/admin/webhook-remove", new FormUrlEncodedContent([
+            new("__RequestVerificationToken", token),
+            new("remove", "https://hooks.invalid/never-saved"),
+        ]), CancellationToken.None);
+
+        Assert.Contains("flash=write-failed", response.Headers.Location!.ToString(), StringComparison.Ordinal);
+        Assert.Equal(before, _factory.ReadConfig().ToJsonString());
+    }
+
     [Fact]
     public async Task TestingAnUnknownWebhookReportsFailure()
     {
@@ -350,7 +411,7 @@ public sealed class AdminPageIntegrationTests : IClassFixture<AdminWebApplicatio
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         var location = Uri.UnescapeDataString(response.Headers.Location!.ToString());
         Assert.StartsWith("https://forgejo.example/owner/repo/_new/main/incidents", location, StringComparison.Ordinal);
-        Assert.Contains("filename=database-is-slow.md", location, StringComparison.Ordinal);
+        Assert.Contains("filename=database-is-slow-20260908.md", location, StringComparison.Ordinal);
         Assert.Contains("monitors: [alpha]", location, StringComparison.Ordinal);
         Assert.Contains("status: degraded", location, StringComparison.Ordinal);
     }

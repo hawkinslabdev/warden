@@ -221,8 +221,9 @@ body {
 .admin-more-body {
     position: absolute;
     z-index: 40;
-    top: calc(100% + 0.25rem);
-    right: 0;
+    top: 50%;
+    right: calc(100% + 0.5rem);
+    transform: translateY(-50%);
     display: flex;
     align-items: flex-end;
     gap: 0.5rem;
@@ -2973,20 +2974,52 @@ a.status-monitor-badge:hover {
     margin: 0;
 }
 .admin-grid--hook {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto 2.25rem;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) 5rem 2.25rem;
 }
 .admin-switch-box {
     display: flex;
     align-items: center;
     min-height: 2.4rem;
 }
-.admin-hook-test {
+.admin-hook-more {
     align-self: end;
     margin-bottom: 0.1rem;
 }
-.admin-hook-test svg {
-    width: 17px;
-    height: 17px;
+.admin-menu {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.15rem;
+    padding: 0.35rem;
+}
+.admin-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-height: 2.25rem;
+    padding: 0 0.75rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-color);
+    font: inherit;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.admin-menu-item svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+}
+.admin-menu-item:hover {
+    background: var(--code-bg);
+}
+.admin-menu-item:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+.admin-menu-item--danger {
+    color: var(--status-down);
 }
 .admin-pair {
     display: grid;
@@ -2995,7 +3028,7 @@ a.status-monitor-badge:hover {
 }
 @media (max-width: 620px) {
     .admin-grid--hook {
-        grid-template-columns: minmax(0, 1fr) auto 2.25rem;
+        grid-template-columns: minmax(0, 1fr) 5rem 2.25rem;
     }
     .admin-grid--hook > .admin-field:not(.admin-field--switch) {
         grid-column: 1 / -1;
@@ -3003,4 +3036,47 @@ a.status-monitor-badge:hover {
     .admin-pair {
         grid-template-columns: 1fr;
     }
+}
+.admin-input:user-invalid {
+    border-color: var(--status-down);
+}
+/* doubled class outranks the vendored sheet loaded later */
+.air-datepicker.air-datepicker {
+    --adp-font-family: var(--font-sans);
+    --adp-font-size: 0.875rem;
+    --adp-background-color: var(--bg-color);
+    --adp-background-color-hover: var(--code-bg);
+    --adp-background-color-active: var(--code-bg);
+    --adp-border-color: var(--border);
+    --adp-border-color-inner: var(--border);
+    --adp-border-radius: 8px;
+    --adp-color: var(--text-color);
+    --adp-color-secondary: var(--text-muted);
+    --adp-color-other-month: var(--text-muted);
+    --adp-color-disabled: var(--text-muted);
+    --adp-accent-color: var(--accent);
+    --adp-color-current-date: var(--accent);
+    --adp-day-name-color: var(--text-muted);
+    --adp-nav-arrow-color: var(--text-muted);
+    --adp-cell-background-color-hover: var(--code-bg);
+    --adp-cell-background-color-selected: var(--accent);
+    --adp-cell-background-color-selected-hover: var(--accent);
+    --adp-btn-color: var(--accent);
+    --adp-btn-color-hover: var(--accent);
+    --adp-btn-background-color-hover: var(--code-bg);
+    --adp-btn-background-color-active: var(--code-bg);
+    --adp-time-track-color: var(--border);
+    --adp-time-track-color-hover: var(--text-muted);
+    --adp-cell-border-radius: 6px;
+    box-shadow: var(--shadow-md);
+}
+.air-datepicker-cell.-selected-,
+.air-datepicker-cell.-selected-.-current- {
+    color: var(--bg-color);
+}
+.air-datepicker-body--day-name.air-datepicker-body--day-name {
+    text-transform: none;
+}
+.air-datepicker--pointer.air-datepicker--pointer {
+    display: none;
 }

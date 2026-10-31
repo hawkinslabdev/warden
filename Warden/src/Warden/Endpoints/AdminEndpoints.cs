@@ -46,6 +46,7 @@ internal static class AdminEndpoints
         admin.MapPost("/reset", ResetMonitor);
         admin.MapPost("/incident", ComposeIncident);
         admin.MapPost("/webhook-test", TestWebhook);
+        admin.MapPost("/webhook-remove", RemoveWebhook);
         return app;
     }
 
@@ -98,11 +99,13 @@ internal static class AdminEndpoints
         {
             if (raw is not { Length: > 0 } id)
                 continue;
+            if (!TryBoundedInt(form[$"retries:{id}"], 0, 100, out var retries))
+                return Back(ctx, "bad-number");
             edits.Add(new MonitorEdit(
                 id,
                 Enabled: form[$"enabled:{id}"] == "on",
                 Hidden: form[$"hidden:{id}"] == "on",
-                Retries: ParseBoundedInt(form[$"retries:{id}"], 0, 100)));
+                Retries: retries));
         }
 
         // empty when scripting is off; the stored order is then left exactly as it is
@@ -118,9 +121,10 @@ internal static class AdminEndpoints
         var timingPosted = form.ContainsKey("intervalSeconds")
             || form.ContainsKey("retentionDays")
             || form.ContainsKey("webhookCooldownMinutes");
-        var interval = ParseBoundedInt(form["intervalSeconds"], 5, 86_400);
-        var retention = ParseBoundedInt(form["retentionDays"], 1, 3650);
-        var cooldown = ParseBoundedInt(form["webhookCooldownMinutes"], 0, 10_080);
+        if (!TryBoundedInt(form["intervalSeconds"], 5, 86_400, out var interval)
+            || !TryBoundedInt(form["retentionDays"], 1, 3650, out var retention)
+            || !TryBoundedInt(form["webhookCooldownMinutes"], 0, 10_080, out var cooldown))
+            return Back(ctx, "bad-number");
 
         // the mutation cannot abort a write once it starts, so an id the config never had is refused here
         var known = (content.SiteConfig?.Monitoring?.Targets ?? []).Select(t => t.Id).ToHashSet(StringComparer.Ordinal);
@@ -322,6 +326,25 @@ internal static class AdminEndpoints
         }
     }
 
+    // by URL, so a git sync reorder never removes the wrong one
+    private static async Task<IResult> RemoveWebhook(HttpContext ctx, AdminConfigWriter writer, ContentService content, CancellationToken ct)
+    {
+        var form = await ctx.Request.ReadFormAsync(ct);
+        var url = form["remove"].ToString();
+        if (url.Length == 0 || !(content.SiteConfig?.Monitoring?.Webhooks ?? []).Any(w => w.Url == url))
+            return Back(ctx, "write-failed");
+
+        var ok = await writer.UpdateMonitoringAsync(monitoring =>
+        {
+            if (monitoring["webhooks"] is JsonArray array
+                && array.OfType<JsonObject>().FirstOrDefault(n => (string?)n["url"] == url) is { } node)
+                array.Remove(node);
+        }, ct);
+
+        if (ok) await content.ForceRebuildAsync(ct);
+        return Back(ctx, ok ? "webhook-removed" : "write-failed");
+    }
+
     private static IResult Back(HttpContext ctx, string flash)
     {
         var adminPath = ctx.RequestServices.GetRequiredService<AuthOptions>().AdminPath;
@@ -335,8 +358,17 @@ internal static class AdminEndpoints
     private static string? Nth(IReadOnlyList<string?> values, int index) =>
         index < values.Count ? values[index] : null;
 
-    private static int? ParseBoundedInt(string? raw, int min, int max) =>
-        int.TryParse(raw, out var value) ? Math.Clamp(value, min, max) : null;
+    // blank means unset; anything else must be an in-range integer
+    internal static bool TryBoundedInt(string? raw, int min, int max, out int? value)
+    {
+        value = null;
+        if (string.IsNullOrWhiteSpace(raw))
+            return true;
+        if (!int.TryParse(raw, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var parsed) || parsed < min || parsed > max)
+            return false;
+        value = parsed;
+        return true;
+    }
 
     // absolute http(s) only; this value is handed to HttpClient
     internal static bool IsPostableUrl(string url) =>

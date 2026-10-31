@@ -99,6 +99,8 @@ public sealed class Localization
         ["adminWebhookSecretKept"] = "Kept unless you replace it",
         ["adminWebhookEnabled"] = "Enabled",
         ["adminWebhookTest"] = "Send test",
+        ["adminWebhookRemove"] = "Remove",
+        ["adminFlashWebhookRemoved"] = "Webhook removed.",
         ["adminWebhookTestMessage"] = "Test from the Warden admin panel",
         ["adminFlashWebhookTestOk"] = "Test webhook delivered.",
         ["adminFlashWebhookTestFailed"] = "Test webhook failed. Check the URL and header.",
@@ -113,6 +115,8 @@ public sealed class Localization
         ["adminIncidentTitle"] = "Title",
         ["adminIncidentStart"] = "Start",
         ["adminIncidentEnd"] = "End",
+        ["adminPickerToday"] = "Today",
+        ["adminPickerClear"] = "Clear",
         ["adminIncidentDescription"] = "Description",
         ["adminIncidentAffected"] = "Affected monitors",
         ["adminIncidentMaintenance"] = "Maintenance",
@@ -124,7 +128,7 @@ public sealed class Localization
         ["adminIncidentBody"] = "Body",
         ["adminCompose"] = "Create draft",
         ["adminIncidentFileHeading"] = "Incident file",
-        ["adminIncidentFileNote"] = "Save this as <code>content/incidents/&lt;slug&gt;.md</code> in your repository.",
+        ["adminIncidentFileNote"] = "Save this as <code>content/incidents/&lt;title&gt;-&lt;yyyymmdd&gt;.md</code> in your repository.",
         ["adminResetDialogTitle"] = "Reset history?",
         ["adminResetDialogBody"] = "This deletes every saved heartbeat for this monitor. Uptime, the history bar, and the response time chart will start again from empty. Other monitors are not affected.",
         ["adminCancel"] = "Cancel",
@@ -140,6 +144,7 @@ public sealed class Localization
         ["adminFlashMaintenanceNeedsEnd"] = "A maintenance window needs an end time.",
         ["adminFlashEndBeforeStart"] = "The end time is before the start time.",
         ["adminFlashStaleForm"] = "That form has expired. Reload the page and try again.",
+        ["adminFlashBadNumber"] = "Save failed. Numbers must be whole and within range.",
         ["authSignIn"] = "Sign in",
         ["authAdminPanel"] = "Admin panel",
         ["altchaGateTitle"] = "Verifying you're human…",
@@ -262,6 +267,8 @@ public sealed class Localization
     public string AdminWebhookSecretKept => this["adminWebhookSecretKept"];
     public string AdminWebhookEnabled => this["adminWebhookEnabled"];
     public string AdminWebhookTest => this["adminWebhookTest"];
+    public string AdminWebhookRemove => this["adminWebhookRemove"];
+    public string AdminFlashWebhookRemoved => this["adminFlashWebhookRemoved"];
     public string AdminWebhookTestMessage => this["adminWebhookTestMessage"];
     public string AdminFlashWebhookTestOk => this["adminFlashWebhookTestOk"];
     public string AdminFlashWebhookTestFailed => this["adminFlashWebhookTestFailed"];
@@ -276,6 +283,8 @@ public sealed class Localization
     public string AdminIncidentTitle => this["adminIncidentTitle"];
     public string AdminIncidentStart => this["adminIncidentStart"];
     public string AdminIncidentEnd => this["adminIncidentEnd"];
+    public string AdminPickerToday => this["adminPickerToday"];
+    public string AdminPickerClear => this["adminPickerClear"];
     public string AdminIncidentDescription => this["adminIncidentDescription"];
     public string AdminIncidentAffected => this["adminIncidentAffected"];
     public string AdminIncidentMaintenance => this["adminIncidentMaintenance"];
@@ -303,6 +312,7 @@ public sealed class Localization
     public string AdminFlashMaintenanceNeedsEnd => this["adminFlashMaintenanceNeedsEnd"];
     public string AdminFlashEndBeforeStart => this["adminFlashEndBeforeStart"];
     public string AdminFlashStaleForm => this["adminFlashStaleForm"];
+    public string AdminFlashBadNumber => this["adminFlashBadNumber"];
     public string AuthSignIn => this["authSignIn"];
     public string AuthAdminPanel => this["authAdminPanel"];
     public string AltchaGateTitle => this["altchaGateTitle"];

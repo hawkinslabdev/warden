@@ -960,6 +960,66 @@ public static partial class LayoutProvider
                 tzToggle.style.display = 'none';
             }}
 
+            // one More panel open at a time
+            var morePanels = document.querySelectorAll('.admin-more');
+            morePanels.forEach(function(d) {{
+                d.addEventListener('toggle', function() {{
+                    if (d.open) morePanels.forEach(function(o) {{ if (o !== d) o.open = false; }});
+                }});
+            }});
+            document.addEventListener('click', function(e) {{
+                morePanels.forEach(function(d) {{ if (d.open && !d.contains(e.target)) d.open = false; }});
+            }});
+            document.addEventListener('keydown', function(e) {{
+                if (e.key !== 'Escape') return;
+                morePanels.forEach(function(d) {{
+                    if (!d.open) return;
+                    d.open = false;
+                    d.querySelector('summary').focus();
+                }});
+            }});
+
+            // vendored Air Datepicker, labels from Intl in the page language
+            var dateFields = document.querySelectorAll('[data-datetime]');
+            if (dateFields.length && window.AirDatepicker) {{
+                var lang = document.documentElement.lang || undefined;
+                function names(opts, count, at) {{
+                    var fmt = new Intl.DateTimeFormat(lang, opts), out = [];
+                    for (var i = 0; i < count; i++) out.push(fmt.format(at(i)));
+                    return out;
+                }}
+                function dayAt(i) {{ return new Date(2024, 0, 7 + i); }}
+                function monthAt(i) {{ return new Date(2024, i, 1); }}
+                var shortDays = names({{ weekday: 'short' }}, 7, dayAt);
+                function parseStamp(v) {{
+                    var m = /^(\d{{4}})-(\d{{2}})-(\d{{2}}) (\d{{2}}):(\d{{2}})$/.exec(v || '');
+                    return m ? new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5]) : null;
+                }}
+                dateFields.forEach(function(input) {{
+                    var initial = parseStamp(input.value);
+                    new window.AirDatepicker(input, {{
+                        locale: {{
+                            days: names({{ weekday: 'long' }}, 7, dayAt),
+                            daysShort: shortDays,
+                            daysMin: shortDays.map(function(d) {{ return d.slice(0, 2); }}),
+                            months: names({{ month: 'long' }}, 12, monthAt),
+                            monthsShort: names({{ month: 'short' }}, 12, monthAt),
+                            today: input.getAttribute('data-today'),
+                            clear: input.getAttribute('data-clear'),
+                            dateFormat: 'yyyy-MM-dd',
+                            timeFormat: 'HH:mm',
+                            firstDay: 1
+                        }},
+                        timepicker: true,
+                        selectedDates: initial ? [initial] : [],
+                        buttons: [
+                            {{ content: input.getAttribute('data-today'), onClick: function(dp) {{ dp.selectDate(new Date(), {{ updateTime: true }}); }} }},
+                            'clear'
+                        ]
+                    }});
+                }});
+            }}
+
             var settingsForm = document.getElementById('admin-settings');
             var actionBar = document.getElementById('admin-actionbar');
             if (settingsForm && actionBar) {{
@@ -991,7 +1051,10 @@ public static partial class LayoutProvider
                     var order = readOrder();
                     // an empty value tells the server to leave the stored order alone, so only a real move is sent
                     if (orderInput) orderInput.value = order === baseOrder ? '' : order;
-                    actionBar.hidden = dirtyCount() === 0;
+                    // always shown; enabled only with changes
+                    var clean = dirtyCount() === 0;
+                    actionBar.querySelector('.admin-actionbar-count').hidden = clean;
+                    actionBar.querySelectorAll('button').forEach(function(b) {{ b.disabled = clean; }});
                 }}
                 settingsForm.addEventListener('input', sync);
                 settingsForm.addEventListener('change', sync);

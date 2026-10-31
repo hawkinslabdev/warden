@@ -27,6 +27,8 @@ internal static class AdminPage
         var targets = monitoring?.Targets ?? [];
         var sb = new StringBuilder();
 
+        sb.Append("<link rel=\"stylesheet\" href=\"").Append(prefix).Append("/css/air-datepicker.css\">")
+          .Append("<script src=\"").Append(prefix).Append("/js/air-datepicker.js\" defer></script>");
         AppendHeader(sb, prefix, auth, tokens, subject);
         AppendFlash(sb, flash);
 
@@ -39,7 +41,7 @@ internal static class AdminPage
         // empty when scripting is off, which the server reads as "leave the order alone"
         sb.Append("<input type=\"hidden\" name=\"order\" id=\"admin-order\">");
         AppendMonitors(sb, targets, statuses);
-        AppendWebhooks(sb, monitoring);
+        AppendWebhooks(sb, monitoring, prefix + auth.AdminPath + "/webhook-remove");
         AppendTiming(sb, monitoring);
         AppendActionBar(sb, l);
         sb.Append("</form>");
@@ -47,7 +49,7 @@ internal static class AdminPage
         AppendIncident(sb, prefix, targets, auth, tokens);
         AppendResetForm(sb, prefix, auth, tokens);
         // own form, so Enter in a settings field still saves
-        sb.Append("<form method=\"post\" action=\"").Append(prefix).Append(auth.AdminPath).Append("/webhook-test\" id=\"webhook-test-form\" hidden>");
+        sb.Append("<form method=\"post\" action=\"").Append(prefix).Append(auth.AdminPath).Append("/webhook-test\" id=\"webhook-action-form\" hidden>");
         AppendToken(sb, tokens);
         sb.Append("</form>");
         AppendResetDialog(sb, l);
@@ -130,7 +132,7 @@ internal static class AdminPage
               .Append(E(l.AdminMoreFor(target.Name))).Append("\" data-tip=\"").Append(E(l.AdminMore)).Append("\">")
               .Append("<svg viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\"><circle cx=\"5\" cy=\"12\" r=\"1.8\"/><circle cx=\"12\" cy=\"12\" r=\"1.8\"/><circle cx=\"19\" cy=\"12\" r=\"1.8\"/></svg>")
               .Append("</summary><div class=\"admin-more-body\">");
-            AppendNumber(sb, $"retries:{target.Id}", l.AdminRetries, target.Retries, 0, 100);
+            AppendNumber(sb, $"retries:{target.Id}", l.AdminRetries, target.Retries, 0, 100, placeholder: "0");
             sb.Append("<button type=\"button\" class=\"icon-btn icon-btn--danger\" data-reset=\"")
               .Append(E(target.Id)).Append("\" data-reset-name=\"").Append(E(target.Name)).Append("\" aria-label=\"")
               .Append(E(l.AdminResetHistory)).Append("\" data-tip=\"").Append(E(l.AdminResetHistory)).Append("\">")
@@ -142,7 +144,7 @@ internal static class AdminPage
         sb.Append("</ul></section>");
     }
 
-    private static void AppendWebhooks(StringBuilder sb, MonitoringConfig? monitoring)
+    private static void AppendWebhooks(StringBuilder sb, MonitoringConfig? monitoring, string removeHref)
     {
         var l = Localization.Current;
         var webhooks = monitoring?.Webhooks ?? [];
@@ -165,9 +167,16 @@ internal static class AdminPage
               .Append(i).Append('"').Append(hook?.Enabled != false ? " checked" : "").Append("></span></label>");
             // tests the saved webhook; the blank row has nothing saved yet
             if (hook is not null)
-                sb.Append("<button type=\"submit\" class=\"icon-btn admin-hook-test\" form=\"webhook-test-form\" name=\"test\" value=\"")
-                  .Append(i).Append("\" aria-label=\"").Append(E(l.AdminWebhookTest)).Append("\" data-tip=\"").Append(E(l.AdminWebhookTest)).Append("\">")
-                  .Append(Icon("<path d=\"m22 2-7 20-4-9-9-4Z\"/><path d=\"M22 2 11 13\"/>")).Append("</button>");
+                sb.Append("<details class=\"admin-more admin-hook-more\"><summary class=\"icon-btn\" aria-label=\"")
+                  .Append(E(l.AdminMoreFor(hook.Url))).Append("\" data-tip=\"").Append(E(l.AdminMore)).Append("\">")
+                  .Append("<svg viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\"><circle cx=\"5\" cy=\"12\" r=\"1.8\"/><circle cx=\"12\" cy=\"12\" r=\"1.8\"/><circle cx=\"19\" cy=\"12\" r=\"1.8\"/></svg>")
+                  .Append("</summary><div class=\"admin-more-body admin-menu\">")
+                  .Append("<button type=\"submit\" class=\"admin-menu-item\" form=\"webhook-action-form\" name=\"test\" value=\"").Append(i).Append("\">")
+                  .Append(Icon("<path d=\"m22 2-7 20-4-9-9-4Z\"/><path d=\"M22 2 11 13\"/>")).Append(E(l.AdminWebhookTest)).Append("</button>")
+                  .Append("<button type=\"submit\" class=\"admin-menu-item admin-menu-item--danger\" form=\"webhook-action-form\" formaction=\"").Append(E(removeHref))
+                  .Append("\" name=\"remove\" value=\"").Append(E(hook.Url)).Append("\">")
+                  .Append(Icon("<path d=\"M3 6h18\"/><path d=\"M8 6V4h8v2\"/><path d=\"M19 6l-1 14H6L5 6\"/>")).Append(E(l.AdminWebhookRemove)).Append("</button>")
+                  .Append("</div></details>");
             else
                 sb.Append("<span></span>");
             sb.Append("</div>");
@@ -188,8 +197,8 @@ internal static class AdminPage
     }
 
     private static void AppendActionBar(StringBuilder sb, Localization l) =>
-        sb.Append("<div class=\"admin-actionbar\" id=\"admin-actionbar\" hidden>")
-          .Append("<span class=\"admin-actionbar-count select-none\">").Append(E(l.AdminUnsavedChanges)).Append("</span>")
+        sb.Append("<div class=\"admin-actionbar\" id=\"admin-actionbar\">")
+          .Append("<span class=\"admin-actionbar-count select-none\" hidden>").Append(E(l.AdminUnsavedChanges)).Append("</span>")
           .Append("<button type=\"button\" class=\"admin-btn\" id=\"admin-discard\">").Append(E(l.AdminDiscard))
           .Append("</button><button type=\"submit\" class=\"admin-btn admin-btn--primary\">")
           .Append(E(l.AdminSaveChanges)).Append("</button></div>");
@@ -279,8 +288,10 @@ internal static class AdminPage
             "maintenance-needs-end" => ("bad", l.AdminFlashMaintenanceNeedsEnd),
             "end-before-start" => ("bad", l.AdminFlashEndBeforeStart),
             "stale-form" => ("bad", l.AdminFlashStaleForm),
+            "bad-number" => ("bad", l.AdminFlashBadNumber),
             "webhook-test-ok" => ("ok", l.AdminFlashWebhookTestOk),
             "webhook-test-failed" => ("bad", l.AdminFlashWebhookTestFailed),
+            "webhook-removed" => ("ok", l.AdminFlashWebhookRemoved),
             _ => null,
         };
     }
@@ -309,11 +320,12 @@ internal static class AdminPage
           .Append(E(name)).Append('"').Append(value ? " checked" : "")
           .Append("><span class=\"admin-switch-label\">").Append(E(label)).Append("</span></label>");
 
-    private static void AppendNumber(StringBuilder sb, string name, string label, int? value, int min, int max) =>
+    private static void AppendNumber(StringBuilder sb, string name, string label, int? value, int min, int max, string? placeholder = null) =>
         sb.Append("<label class=\"admin-field\"><span class=\"admin-field-label\">").Append(E(label))
-          .Append("</span><input class=\"admin-input\" type=\"number\" inputmode=\"numeric\" name=\"").Append(E(name))
-          .Append("\" min=\"").Append(min).Append("\" max=\"").Append(max)
-          .Append('"').Append(value is { } v ? $" value=\"{v}\"" : "").Append("></label>");
+          .Append("</span><input class=\"admin-input\" type=\"number\" inputmode=\"numeric\" step=\"1\" name=\"").Append(E(name))
+          .Append("\" min=\"").Append(min).Append("\" max=\"").Append(max).Append('"')
+          .Append(placeholder is null ? "" : $" placeholder=\"{E(placeholder)}\"")
+          .Append(value is { } v ? $" value=\"{v}\"" : "").Append("></label>");
 
     private static void AppendText(StringBuilder sb, string name, string label, string? value, string? placeholder, string type, string extraClass = "", bool required = false, int maxLength = 0, string? title = null)
     {
@@ -329,12 +341,17 @@ internal static class AdminPage
         sb.Append("></label>");
     }
 
-    // native picker; posts yyyy-MM-ddTHH:mm
-    private static void AppendDateTime(StringBuilder sb, string name, string label, bool required, DateTime? value = null) =>
+    // posts "yyyy-MM-dd HH:mm"; the picker is added by script
+    private static void AppendDateTime(StringBuilder sb, string name, string label, bool required, DateTime? value = null)
+    {
+        var l = Localization.Current;
         sb.Append("<label class=\"admin-field\"><span class=\"admin-field-label\">").Append(E(label))
-          .Append("</span><input class=\"admin-input\" type=\"datetime-local\" name=\"").Append(name).Append('"')
-          .Append(value is { } v ? " value=\"" + v.ToString("yyyy-MM-dd'T'HH:mm", System.Globalization.CultureInfo.InvariantCulture) + "\"" : "")
+          .Append("</span><input class=\"admin-input\" type=\"text\" name=\"").Append(name)
+          .Append("\" data-datetime data-today=\"").Append(E(l.AdminPickerToday)).Append("\" data-clear=\"").Append(E(l.AdminPickerClear))
+          .Append("\" autocomplete=\"off\" spellcheck=\"false\" pattern=\"\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}\"")
+          .Append(value is { } v ? " value=\"" + v.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture) + "\"" : "")
           .Append(required ? " required" : "").Append("></label>");
+    }
 
     private static void AppendToken(StringBuilder sb, AntiforgeryTokenSet tokens) =>
         sb.Append("<input type=\"hidden\" name=\"").Append(E(tokens.FormFieldName))

@@ -2933,7 +2933,7 @@ a.status-monitor-badge:hover {
         font-weight: 700;
         letter-spacing: -0.02em;
         flex: 0 0 auto;
-        margin-left: calc((100% - var(--measure-wide)) / 2);
+        margin-left: max(0px, calc((100% - min(var(--measure), var(--measure-wide) - 2 * var(--topbar-pad))) / 2));
     }
     .site-nav-wrap {
         order: 2;
@@ -2950,7 +2950,7 @@ a.status-monitor-badge:hover {
         order: 3;
         position: static;
         flex: 0 0 auto;
-        margin-right: calc((100% - var(--measure-wide)) / 2);
+        margin-right: max(0px, calc((100% - min(var(--measure), var(--measure-wide) - 2 * var(--topbar-pad))) / 2));
     }
 }
 /* labels once, on the first webhook row */

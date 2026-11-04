@@ -11,6 +11,29 @@ public sealed class ThemeProviderTests : IDisposable
     public void Dispose() => Directory.Delete(_themeDir, recursive: true);
 
     [Fact]
+    public void BuildThemeCss_PrimaryColor_SetsAccentInLightBlock()
+    {
+        var css = ThemeProvider.BuildThemeCss(new ThemeOptions { PrimaryColor = "#3E63DD" });
+        Assert.Contains(":root {\n    --primary-color: #3E63DD;\n    --accent: #3E63DD;", css);
+    }
+
+    [Fact]
+    public void BuildThemeCss_DarkColors_EmitBothDarkSelectors()
+    {
+        var css = ThemeProvider.BuildThemeCss(new ThemeOptions { PrimaryColorDark = "#9DB1FF", AccentLightDark = "#252C4A" });
+        const string dark = "{\n    --primary-color: #9DB1FF;\n    --accent: #9DB1FF;\n    --accent-light: #252C4A;\n}";
+        Assert.Contains($"@media (prefers-color-scheme: dark) {{\n:root:not([data-theme=\"light\"]) {dark}", css);
+        Assert.Contains($":root[data-theme=\"dark\"] {dark}", css);
+    }
+
+    [Fact]
+    public void BuildThemeCss_LightMode_OmitsDarkColors()
+    {
+        var css = ThemeProvider.BuildThemeCss(new ThemeOptions { Mode = "light", PrimaryColorDark = "#9DB1FF" });
+        Assert.Empty(css);
+    }
+
+    [Fact]
     public void BuildCustomCssLink_ConfiguredRootRelative_ResolvesBasePath()
     {
         var theme = new ThemeOptions { CustomCssUrl = "/theme/custom.css" };

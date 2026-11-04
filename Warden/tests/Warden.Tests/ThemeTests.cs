@@ -1,8 +1,10 @@
 using System.Globalization;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Hosting;
 using Warden.Models;
 using Warden.Services.Layout;
+using Warden.Services.MarkdownExtensions;
 using Warden.Services.Theming;
 
 namespace Warden.Tests;
@@ -147,6 +149,44 @@ public sealed class ThemeContrastTests
     [MemberData(nameof(ThemeNames))]
     public void DarkMode_MeetsContrastFloor(string name) =>
         AssertContrastFloor(ThemeRegistry.Resolve(name), dark: true);
+
+    [Theory]
+    [MemberData(nameof(ThemeNames))]
+    public void SyntaxColors_MeetContrastFloorOnCodeBackground(string name)
+    {
+        var theme = ThemeRegistry.Resolve(name);
+        string[] failures =
+        [
+            .. Failures(SyntaxForegrounds("github-light.json"), theme.LightTokens["--code-bg"], "light"),
+            .. Failures(SyntaxForegrounds("github-dark.json"), theme.DarkTokens["--code-bg"], "dark")
+        ];
+        Assert.True(failures.Length == 0, string.Join("\n", failures));
+
+        static IEnumerable<string> Failures(IEnumerable<string> colours, string background, string mode) =>
+            colours
+                .Where(colour => ContrastRatio(colour, background) < 4.5)
+                .Select(colour => $"{mode}: {colour} on {background} is {ContrastRatio(colour, background):F2}:1");
+    }
+
+    // The highlighter drops rule backgrounds, so every foreground renders on --code-bg.
+    private static IEnumerable<string> SyntaxForegrounds(string fileName)
+    {
+        var assembly = typeof(TextMateSyntaxHighlighter).Assembly;
+        var resource = assembly.GetManifestResourceNames().Single(n => n.EndsWith(fileName, StringComparison.Ordinal));
+        using var stream = assembly.GetManifestResourceStream(resource)!;
+        using var document = JsonDocument.Parse(stream);
+        var root = document.RootElement;
+
+        var foregrounds = root.GetProperty("tokenColors").EnumerateArray()
+            .Select(rule => rule.GetProperty("settings"))
+            .Where(settings => settings.TryGetProperty("foreground", out _))
+            .Select(settings => settings.GetProperty("foreground").GetString()!);
+
+        return foregrounds
+            .Append(root.GetProperty("colors").GetProperty("editor.foreground").GetString()!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
 
     private static void AssertContrastFloor(IWardenTheme theme, bool dark)
     {

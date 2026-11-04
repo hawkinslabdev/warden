@@ -6,6 +6,7 @@ public sealed record ThemeOptions
     public string? Name { get; init; }
 
     public string? PrimaryColor { get; init; }
+    public string? PrimaryColorDark { get; init; }
     public string? BgColor { get; init; }
     public string? SidebarBg { get; init; }
     public string? TextColor { get; init; }
@@ -13,6 +14,7 @@ public sealed record ThemeOptions
     public string? BorderColor { get; init; }
     public string? CodeBg { get; init; }
     public string? AccentLight { get; init; }
+    public string? AccentLightDark { get; init; }
     public string? FontSans { get; init; }
     public string? FontMono { get; init; }
     public string? CustomCssUrl { get; init; }

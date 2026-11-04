@@ -13,6 +13,7 @@ public static class ThemeProvider
         var vars = new List<string>();
 
         AddVar(vars, "--primary-color", theme.PrimaryColor);
+        AddVar(vars, "--accent", theme.PrimaryColor);
         AddVar(vars, "--bg-color", theme.BgColor);
         AddVar(vars, "--sidebar-bg", theme.SidebarBg);
         AddVar(vars, "--text-color", theme.TextColor);
@@ -23,11 +24,31 @@ public static class ThemeProvider
         AddVar(vars, "--font-sans", theme.FontSans);
         AddVar(vars, "--font-mono", theme.FontMono);
 
-        if (vars.Count == 0)
+        var darkVars = new List<string>();
+        if (ResolveMode(theme) != ThemeMode.Light)
+        {
+            AddVar(darkVars, "--primary-color", theme.PrimaryColorDark);
+            AddVar(darkVars, "--accent", theme.PrimaryColorDark);
+            AddVar(darkVars, "--accent-light", theme.AccentLightDark);
+        }
+
+        if (vars.Count == 0 && darkVars.Count == 0)
             return string.Empty;
 
         var nonceAttr = nonce is { Length: > 0 } ? $" nonce=\"{nonce}\"" : string.Empty;
-        return $"<style{nonceAttr}>\n:root {{\n" + string.Join("\n", vars) + "\n}\n</style>";
+        var blocks = "";
+        // Plain :root loses to dark blocks.
+        if (vars.Count > 0)
+            blocks += ":root {\n" + string.Join("\n", vars) + "\n}\n";
+        // Same selectors, emitted later, so these win.
+        if (darkVars.Count > 0)
+        {
+            var dark = string.Join("\n", darkVars);
+            blocks += "@media (prefers-color-scheme: dark) {\n:root:not([data-theme=\"light\"]) {\n" + dark + "\n}\n}\n" +
+                      ":root[data-theme=\"dark\"] {\n" + dark + "\n}\n";
+        }
+
+        return $"<style{nonceAttr}>\n{blocks}</style>";
     }
 
     public static string BuildCustomCssLink(ThemeOptions? theme, string themeDir, string basePath = "")
